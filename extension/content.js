@@ -2,6 +2,7 @@ let debounceTimer = null;
 let activeTools = [];
 let serverStatus = {};
 let autoApprove = localStorage.getItem("deepseek_mcp_auto_approve") !== "false";
+let isSending = false;
 
 const SAFE_TOOLS = new Set([
   "read_file",
@@ -53,20 +54,16 @@ function getChatInput() {
   );
 }
 
-function buildSysPrompt(tools) {
-  const list = tools
-    .map(
-      (t) =>
-        `- [${t.server}] ${t.name}(${Object.keys(t.inputSchema?.properties || {}).join(", ")}): ${t.description?.slice(0, 90) || ""}`,
-    )
-    .join("\n");
-
-  return `[SYSTEM: YOU HAVE DIRECT ACCESS TO MCP TOOLS]
-Available MCP Tools:
+// 1. Natural, non-repetitive prompt templates (rotates style to avoid looking like bot spam)
+const SYSTEM_PROMPT_STYLES = [
+  // Style A: Professional Developer Agent
+  (list) => `You have access to local developer environment tools (MCP):
 ${list}
 
-Rules:
-1. When you need to read, write, search, run commands or query docs, ALWAYS call the tool by outputting ONLY this JSON code block:
+Guidelines:
+1. Always communicate and answer in English or Arabic only. NEVER answer in Chinese.
+2. Only call the exact tool names listed above. Do not guess or invent unlisted tool names.
+3. Whenever you need to perform an action (read/write file, check git, or execute command), respond strictly with:
 \`\`\`json
 {
   "mcp_call": true,
@@ -74,7 +71,50 @@ Rules:
   "arguments": {}
 }
 \`\`\`
-2. Do not say you cannot access files, bash, or MCP. You have active connection. Call the tool now.`;
+`,
+  // Style B: Natural Technical Assistant
+  (list) => `Connected tools on the user workstation:
+${list}
+
+Instructions:
+- Language: English or Arabic only (no Chinese).
+- Use only the declared tools above. For terminal commands use execute_command or bash.
+- Output JSON when invoking tools:
+\`\`\`json
+{"name": "tool_name", "arguments": {}}
+\`\`\`
+`,
+  // Style C: Direct Terminal Assistant
+  (list) => `Workspace tools active:
+${list}
+
+Rules:
+- Respond in the user's language (English or Arabic). Never use Chinese.
+- Call only the specified tools from the list above.
+- Invoke via JSON block:
+\`\`\`json
+{
+  "name": "tool_name",
+  "arguments": {}
+}
+\`\`\`
+`,
+];
+
+function buildSysPrompt(tools) {
+  const list = tools
+    .map(
+      (t) =>
+        `- [${t.server}] ${t.name}(${Object.keys(t.inputSchema?.properties || {}).join(", ")}): ${t.description?.slice(0, 80) || ""}`,
+    )
+    .join("\n");
+
+  // Rotate template randomly to avoid repetitive body signatures
+  const template =
+    SYSTEM_PROMPT_STYLES[
+      Math.floor(Math.random() * SYSTEM_PROMPT_STYLES.length)
+    ];
+  return template(list);
 }
 
 // React 18 compatible input setter
@@ -89,12 +129,53 @@ function setInputValue(el, text) {
   el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-function sendText(text) {
+// 2. Reliable Send with Retry, Button Triggering, and Rate-Limit Delay
+async function sendText(text, delayMs = 1200) {
+  if (isSending) {
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  isSending = true;
+
   const el = getChatInput();
-  if (!el) return;
+  if (!el) {
+    isSending = false;
+    return;
+  }
+
   setInputValue(el, text);
 
-  setTimeout(() => {
+  // Random humanized delay between 1.2s and 2.2s to prevent rate limiting / bans
+  const humanDelay = Math.max(delayMs, 1200) + Math.floor(Math.random() * 800);
+  await new Promise((r) => setTimeout(r, humanDelay));
+
+  // Find the send button
+  const wrapper =
+    el.closest("div.ds-textarea-wrapper") ||
+    el.parentElement?.parentElement ||
+    document;
+  const buttons = Array.from(
+    wrapper.querySelectorAll('div[role="button"], button'),
+  );
+  let sendBtn = null;
+  for (const b of buttons) {
+    const aria = (b.getAttribute("aria-label") || "").toLowerCase();
+    const title = (b.getAttribute("title") || "").toLowerCase();
+    if (
+      aria.includes("file") ||
+      aria.includes("attach") ||
+      title.includes("file") ||
+      b.querySelector('input[type="file"]')
+    ) {
+      continue;
+    }
+    if (b.classList.contains("ds-icon-button") || b.querySelector("svg")) {
+      sendBtn = b;
+    }
+  }
+
+  if (sendBtn && !sendBtn.getAttribute("aria-disabled")) {
+    sendBtn.click();
+  } else {
     el.dispatchEvent(
       new KeyboardEvent("keydown", {
         key: "Enter",
@@ -105,34 +186,49 @@ function sendText(text) {
         cancelable: true,
       }),
     );
-  }, 200);
+  }
+
+  // Check after 800ms if text is still in input (meaning rate limited or not sent)
+  setTimeout(() => {
+    isSending = false;
+    // Auto retry if blocked by rate limit
+    const retryBtn =
+      document.querySelector(
+        'div[role="button"]:has(span:contains("Retry"))',
+      ) || document.querySelector("div.ds-button:has(svg)");
+    const warning = document.body.textContent.includes("Messages too frequent");
+    if (warning && el.value) {
+      console.log("[MCP] Rate limit detected, will retry sending in 4s...");
+      setTimeout(() => {
+        sendText(el.value, 3000);
+      }, 4000);
+    }
+  }, 900);
 }
 
-// 1. Popup injection
+// Popup injection
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === "INJECT_NOW" && msg.tools) {
     activeTools = msg.tools;
-    sendText(buildSysPrompt(msg.tools));
+    sendText(buildSysPrompt(msg.tools), 400);
   }
 });
 
-// 2. Mention filtering: match prefix e.g. @file -> filesystem, @b -> bash
+// Mention filtering
 function filterToolsByMention(mention, tools) {
   const m = mention.toLowerCase().replace(/^[@#/]/, "");
   if (m === "mcp" || m === "all" || !m) return tools;
 
-  // Exact match first
   let filtered = tools.filter((t) => t.server && t.server.toLowerCase() === m);
   if (filtered.length) return filtered;
 
-  // Prefix match (e.g. @file -> filesystem)
   filtered = tools.filter(
     (t) => t.server && t.server.toLowerCase().startsWith(m),
   );
   return filtered.length ? filtered : tools;
 }
 
-// 3. Autocomplete Dropdown Popup for @mentions
+// Autocomplete Dropdown Popup
 let autocompleteMenu = null;
 
 function removeAutocomplete() {
@@ -192,7 +288,7 @@ function showAutocomplete(inputEl, query) {
     color: #cdd6f4;
   `;
 
-  filtered.forEach((opt, idx) => {
+  filtered.forEach((opt) => {
     const item = document.createElement("div");
     item.style.cssText = `
       display: flex;
@@ -221,7 +317,6 @@ function showAutocomplete(inputEl, query) {
 
     item.onmousedown = (e) => {
       e.preventDefault();
-      // Replace @... with full @label
       const val = inputEl.value;
       const mentionRegex = /@[\w-]*$/;
       const newVal = val.replace(mentionRegex, `${opt.label} `);
@@ -238,13 +333,12 @@ function showAutocomplete(inputEl, query) {
   wrapper.appendChild(menu);
 }
 
-// 4. Input Listener: Detect @ typing and Enter submission
+// Input Listener: Detect @ typing and Enter submission
 function attachInputMentionInterceptor() {
   const input = getChatInput();
   if (!input || input.__mcpAttached) return;
   input.__mcpAttached = true;
 
-  // Listen to typing for autocomplete popup
   input.addEventListener("input", () => {
     const val = input.value;
     const match = val.match(/@([\w-]*)$/);
@@ -280,8 +374,8 @@ function attachInputMentionInterceptor() {
           const rawMention = mentionMatch[1];
           const selectedTools = filterToolsByMention(rawMention, activeTools);
           const userText = val.replace(new RegExp(rawMention, "gi"), "").trim();
-          const combined = `${buildSysPrompt(selectedTools)}\n\n[USER INSTRUCTION]\n${userText}`;
-          sendText(combined);
+          const combined = `${buildSysPrompt(selectedTools)}\n[TASK]\n${userText}`;
+          sendText(combined, 300);
         }
       }
     },
@@ -289,12 +383,14 @@ function attachInputMentionInterceptor() {
   );
 }
 
-// 5. Floating Interactive Pills Banner above Chatbox
+// Floating Interactive Server Badges above input
 function updateServerBadges() {
   const container = document.getElementById("deepseek-mcp-badge");
   if (!container) return;
 
-  const serverNames = Object.keys(serverStatus);
+  const serverNames = Object.keys(serverStatus).filter(
+    (s) => serverStatus[s]?.online,
+  );
   const serversWrap = container.querySelector("#mcp-server-pills");
   if (!serversWrap) return;
 
@@ -305,16 +401,14 @@ function updateServerBadges() {
     ${serverNames
       .map((name) => {
         const s = serverStatus[name] || {};
-        const color = s.online ? "#a6e3a1" : "#f38ba8";
         return `<span class="mcp-pill" data-srv="${name}" style="background:#181825;border:1px solid #313244;color:#cdd6f4;padding:4px 10px;border-radius:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-weight:500;">
-        <span style="width:7px;height:7px;border-radius:50%;background:${color};box-shadow:0 0 5px ${color};"></span>
+        <span style="width:7px;height:7px;border-radius:50%;background:#a6e3a1;box-shadow:0 0 5px #a6e3a1;"></span>
         <b>@${name}</b> <span style="color:#a6adc8;font-size:10px;">(${s.count || 0})</span>
       </span>`;
       })
       .join("")}
   `;
 
-  // Click on pill to insert into input
   serversWrap.querySelectorAll(".mcp-pill").forEach((btn) => {
     btn.onclick = (e) => {
       e.preventDefault();
@@ -334,7 +428,6 @@ function updateServerBadges() {
 }
 
 function injectChatBadge() {
-  // Always mount right above the user's active chat textarea container
   const input = getChatInput();
   if (!input) return;
 
@@ -344,7 +437,6 @@ function injectChatBadge() {
 
   let wrap = document.getElementById("deepseek-mcp-badge");
   if (wrap && wrap.parentElement !== targetParent.parentElement) {
-    // Reposition above active input if moved to top
     wrap.remove();
     wrap = null;
   }
@@ -389,7 +481,7 @@ function injectChatBadge() {
     `;
     autoToggle.innerHTML = `
       <input type="checkbox" id="mcp-auto-cb" ${autoApprove ? "checked" : ""} style="cursor:pointer;" />
-      <span>⚡ Auto-run</span>
+      <span>⚡ Auto-run (Paced)</span>
     `;
 
     autoToggle.querySelector("#mcp-auto-cb").onchange = (e) => {
@@ -408,7 +500,17 @@ function injectChatBadge() {
   updateServerBadges();
 }
 
-// 6. Tool execution & feedback cards
+// Result formatting: English/Arabic only, natural wording
+const RESULT_TEMPLATES = [
+  (name, out) =>
+    `Output of ${name}:\n\`\`\`json\n${out}\n\`\`\`\nPlease review and proceed in English or Arabic.`,
+  (name, out) =>
+    `Execution result for ${name}:\n\`\`\`json\n${out}\n\`\`\`\nContinue solving the task.`,
+  (name, out) =>
+    `Tool ${name} returned:\n\`\`\`json\n${out}\n\`\`\`\nWhat is the next step?`,
+];
+
+// Tool execution & feedback cards with anti-ban pacing
 async function executeTool(payload, cardStatusEl) {
   if (cardStatusEl) {
     cardStatusEl.innerHTML = `<div style="color:#89b4fa;font-weight:bold;padding:4px;">⏳ Running <code>${payload.name}</code>...</div>`;
@@ -424,18 +526,25 @@ async function executeTool(payload, cardStatusEl) {
     if (!res.ok || data.isError) {
       throw new Error(data.error || "Execution failed");
     }
-    const out = JSON.stringify(data.content || data, null, 2).slice(0, 14000);
+    const out = JSON.stringify(data.content || data, null, 2).slice(0, 12000);
     if (cardStatusEl) {
       cardStatusEl.innerHTML = `<div style="color:#a6e3a1;font-weight:bold;padding:4px;">✓ Done: <code>${payload.name}</code></div>`;
     }
-    sendText(
-      `[MCP_RESULT for ${payload.name}]\n\`\`\`json\n${out}\n\`\`\`\nProceed to finish the user request.`,
-    );
+
+    const template =
+      RESULT_TEMPLATES[Math.floor(Math.random() * RESULT_TEMPLATES.length)];
+    const message = template(payload.name, out);
+
+    // Natural paced delay (1.8s ~ 2.8s) so DeepSeek doesn't flag "Messages too frequent"
+    await sendText(message, 1800);
   } catch (err) {
     if (cardStatusEl) {
       cardStatusEl.innerHTML = `<div style="color:#f38ba8;font-weight:bold;padding:4px;">❌ Error: ${err.message}</div>`;
     }
-    sendText(`[MCP_ERROR: ${payload.name}]\n${err.message}`);
+    await sendText(
+      `Tool execution error for ${payload.name}: ${err.message}`,
+      1500,
+    );
   }
 }
 
@@ -483,14 +592,18 @@ function renderPermissionCard(targetEl, payload) {
 
   card.querySelector(".no").onclick = () => {
     controls.innerHTML = `<div style="color:#a6adc8;font-style:italic;padding:4px;">✕ Rejected: ${payload.name}</div>`;
-    sendText(`[MCP_CANCELLED] User rejected the call to "${payload.name}".`);
+    sendText(
+      `The user skipped running "${payload.name}". Please proceed with other steps.`,
+      1000,
+    );
   };
 
+  // Paced Auto-approve: wait 1.8s before executing
   if (autoApprove) {
-    controls.innerHTML = `<div style="color:#a6e3a1;font-size:12px;">⚡ Auto-running <code>${payload.name}</code>...</div>`;
+    controls.innerHTML = `<div style="color:#a6e3a1;font-size:12px;">⚡ Paced auto-run: executing <code>${payload.name}</code>...</div>`;
     setTimeout(() => {
       executeTool(payload, controls);
-    }, 600);
+    }, 1800);
   }
 }
 

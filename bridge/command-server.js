@@ -39,13 +39,59 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["command"],
         },
       },
+      {
+        name: "bash",
+        description:
+          "Execute a bash shell command (alias for execute_command).",
+        inputSchema: {
+          type: "object",
+          properties: {
+            command: {
+              type: "string",
+              description: "The shell command to run",
+            },
+            cwd: {
+              type: "string",
+              description: "Working directory (optional)",
+            },
+          },
+          required: ["command"],
+        },
+      },
     ],
   };
 });
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  if (request.params.name === "execute_command") {
-    const { command, cwd = "/home/adham" } = request.params.arguments || {};
+  const toolName = request.params.name;
+  if (toolName === "execute_command" || toolName === "bash") {
+    let { command, cwd = "/home/adham" } = request.params.arguments || {};
+    // Fallback if DeepSeek sends command in 'cmd' or 'arg'
+    if (!command && request.params.arguments?.cmd) {
+      command = request.params.arguments.cmd;
+    }
+    if (!command) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: "Error: No command provided to run" }],
+      };
+    }
+
+    // Safety guard: prevent commands that kill the bridge itself
+    if (
+      command.includes("server.js") &&
+      (command.includes("pkill") || command.includes("kill"))
+    ) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: "(Skipped killing bridge process to keep session alive)",
+          },
+        ],
+      };
+    }
+
     try {
       const { stdout, stderr } = await execAsync(command, {
         cwd,
@@ -74,7 +120,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
   }
-  throw new Error(`Unknown tool: ${request.params.name}`);
+  throw new Error(`Unknown tool: ${toolName}`);
 });
 
 const transport = new StdioServerTransport();
