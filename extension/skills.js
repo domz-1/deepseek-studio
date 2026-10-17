@@ -198,6 +198,48 @@
         "Scope or target module to audit:",
       builtin: true,
     },
+    {
+      id: "module-cover",
+      name: "module-cover",
+      description:
+        "360-degree exhaustive module completion audit: analyzes and covers every file, model, schema, API, state, UI, error handling, translations, tests, and documentation.",
+      prompt:
+        "Act as a Principal Staff Engineer & Technical Auditor. Perform an exhaustive, 360-degree deep audit and completion plan on the target module/feature across ALL layers of the application.\n\n" +
+        "CRITICAL AUDIT & COVERAGE MANDATES:\n\n" +
+        "1. FULL STACK DEEP INSPECTION:\n" +
+        "   - Use MCP filesystem tools (`list_directory`, `read_file`, `search_files`) to locate and inspect every related file in Backend, Frontend, and Mobile.\n" +
+        "   - Identify every missing piece, incomplete TODO, untyped property, unhandled edge-case, and dead code.\n\n" +
+        "2. DATA & API LAYER (100% COVERED):\n" +
+        "   - Database / Schemas / Migrations: Verify all columns, indexes, foreign keys, and soft deletes.\n" +
+        "   - Enums: Centralized in dedicated file, strict numeric values, perfectly synced with DB.\n" +
+        "   - API Endpoints: Verify complete CRUD coverage, strict payload validation (Zod/Joi/FormRequest), error response structures, and pagination.\n" +
+        "   - DTOs & Types: Complete TypeScript / Dart / PHP interfaces for every request, response, and entity.\n\n" +
+        "3. BUSINESS & STATE LOGIC (100% COVERED):\n" +
+        "   - Backend Services: Pure business logic with zero DB leaks into controllers.\n" +
+        "   - Frontend Composables / Mobile State: All states (loading, success, error, empty, paginated) encapsulated in domain composables/blocs/providers.\n" +
+        "   - Edge-Case Resilience: Offline handling, timeouts, token expiration, idempotency, and race condition prevention.\n\n" +
+        "4. USER EXPERIENCE & INTERFACE (100% COVERED):\n" +
+        "   - UI States: Loading skeletons, error retry banners, empty illustration states, and action confirmation dialogs.\n" +
+        "   - Design System & Pure Tailwind: Modern accessible components (BaseSelect, BaseModal), zero `<style>` tags, and design token CSS variables.\n" +
+        "   - Full Localization: 100% bilingual coverage (Arabic + English) with no hardcoded strings anywhere (using `t()` / `tr()`).\n" +
+        "   - Zero Emojis: All iconography using clean SVGs or Material/Lucide icons.\n\n" +
+        "5. TESTING & QUALITY ASSURANCE (100% COVERED):\n" +
+        "   - Unit & Integration Test Specifications: Test happy paths, boundary values, permission failures, and invalid payloads.\n" +
+        "   - Comprehensive Documentation: JSDoc/PHPDoc/DartDoc on every exported function, class, and interface.\n\n" +
+        "6. 360-DEGREE AUDIT MATRIX & DELIVERABLES:\n" +
+        "   - Matrix Checklist with Status ([DONE] / [GAP] / [ACTION REQUIRED]):\n" +
+        "     [ ] Schemas, Migrations & Numeric Enums\n" +
+        "     [ ] API Endpoints, Validation & Error Handling\n" +
+        "     [ ] Business Logic & State Composables\n" +
+        "     [ ] UI States (Loading, Error, Empty, Success)\n" +
+        "     [ ] Bilingual Localization (All AR & EN keys present)\n" +
+        "     [ ] Accessibility (ARIA, Keyboard Nav, Mobile Touch Targets)\n" +
+        "     [ ] Testing Suite & Automated Assertions\n" +
+        "     [ ] Comprehensive Inline Documentation\n" +
+        "   - Complete production-ready refactoring and implementation files (`[NEW]`, `[MODIFY]`).\n\n" +
+        "Module, feature, or domain to cover completely:",
+      builtin: true,
+    },
   ];
 
   function slugify(s) {
@@ -336,6 +378,7 @@
     "translate-ar": "globe",
     "translate-en": "globe",
     "audit-structure": "tool",
+    "module-cover": "sparkles",
   };
 
   // Legacy custom skills saved an emoji, not an icon name. Map the common
