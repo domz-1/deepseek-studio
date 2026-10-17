@@ -154,9 +154,11 @@
       prompt:
         "Act as a Principal Enterprise Software Architect. Conduct a comprehensive, multi-layer clean-architecture audit and refactoring plan across the entire workspace (Backend [Node.js/Express & PHP], Frontend [Vue/Nuxt], and Mobile [Flutter]).\n\n" +
         "CRITICAL ARCHITECTURAL STANDARDS TO ENFORCE:\n\n" +
-        "1. ENUMS INTEGRITY (NUMERIC & DEDICATED FILES):\n" +
-        "   - ALL Enums must reside exclusively in dedicated enum definition files (e.g., `enums.ts`, `Enums.php`, `enums.dart`, `types/enums/`). Never define enums inline inside controllers, routes, views, or business logic.\n" +
-        "   - ALL Enums MUST use explicit numeric values (e.g., Status { Pending = 1, Active = 2, Rejected = 3 } / enum Status: int { case Pending = 1; case Active = 2; }), synchronized identically across DB, Backend, Frontend, and Mobile schemas.\n\n" +
+        "1. ENUMS INTEGRITY (NUMERIC, PER-MODULE FILES & BARREL EXPORTS):\n" +
+        "   - Per-Module Dedicated Enum Files: Every module must have its own dedicated enum definitions file (e.g., `modules/invoices/enums/invoice.enum.ts` or `modules/invoices/enums.ts`, `invoices/enums.dart`, `Invoices/Enums/InvoiceStatus.php`). Never dump all enums into a single monolithic global file, and never define enums inline inside controllers, models, or views.\n" +
+        "   - Barrel Index Export Pattern: Each module's enums directory must export a clean barrel `index.ts` / `index.dart` (e.g. `export * from './invoice-status.enum';`) allowing consumers to import cleanly from `@/modules/invoices/enums` or the module index.\n" +
+        "   - Explicit Numeric Values: ALL Enums MUST be numeric values (e.g., `enum InvoiceStatus { Draft = 1, Paid = 2, Overdue = 3 }`), matching backend DB columns, API payloads, and frontend/mobile types without string mismatch.\n" +
+        "   - Enum Audit Report: Provide a clear breakdown table of all enums in the module/project (Enum Name, Target File, Numeric Values Mapping, Sync status with DB/API).\n\n" +
         "2. BACKEND — NODE.JS & EXPRESS:\n" +
         "   - Clean 3-Tier Layering: Strict separation: Controller (HTTP/Req/Res parsing) -> Service/UseCase (pure business logic) -> Repository/Model (data access). Never write database queries or business computations inside route handlers or controllers!\n" +
         "   - Input Validation & Error Handling: Every endpoint must validate payload via schema (Zod/Joi) and pass unhandled errors to a centralized Express error middleware.\n" +
@@ -219,7 +221,7 @@
         "   - Identify every missing piece, incomplete TODO, untyped property, unhandled edge-case, and dead code.\n\n" +
         "2. DATA & API LAYER (100% COVERED):\n" +
         "   - Database / Schemas / Migrations: Verify all columns, indexes, foreign keys, and soft deletes.\n" +
-        "   - Enums: Centralized in dedicated file, strict numeric values, perfectly synced with DB.\n" +
+        "   - Per-Module Dedicated Enums: Dedicated enum files per module (e.g., `modules/<feature>/enums/`), strictly numeric values, with clean barrel export (`index.ts` / `index.dart`) to import directly from the module enums index.\n" +
         "   - API Endpoints: Verify complete CRUD coverage, strict payload validation (Zod/Joi/FormRequest), error response structures, and pagination.\n" +
         "   - DTOs & Types: Complete TypeScript / Dart / PHP interfaces for every request, response, and entity.\n\n" +
         "3. BUSINESS & STATE LOGIC (100% COVERED):\n" +
