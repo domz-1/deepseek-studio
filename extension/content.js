@@ -471,7 +471,7 @@ function updateServerBadges() {
     serverStatus,
   );
 
-  serversWrap.querySelectorAll(".ds-pill").forEach((btn) => {
+  serversWrap.querySelectorAll(".ds-pill, .ds-chip-item").forEach((btn) => {
     btn.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();

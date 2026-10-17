@@ -20,20 +20,25 @@
   }
 
   function serverPills(tools, serverStatus) {
-    const names = Object.keys(serverStatus || {})
-      .filter((s) => serverStatus[s] && serverStatus[s].online)
-      .slice(0, 3); // Show only the first 3 active tools cleanly!
+    const onlineServers = Object.keys(serverStatus || {}).filter(
+      (s) => serverStatus[s] && serverStatus[s].online,
+    );
+    const top3 = onlineServers.slice(0, 3);
+    const remainingCount = Math.max(0, onlineServers.length - 3);
 
-    return names
-      .map((name) =>
-        pill({
-          id: name,
-          label: name,
-          count: serverStatus[name].count,
-          online: true,
-        }),
+    const itemsHtml = top3
+      .map(
+        (name) =>
+          `<span class="ds-chip-item" data-srv="${escape(name)}"><span class="ds-dot"></span><b>@${escape(name)}</b><span class="ds-count">(${serverStatus[name].count || 0})</span></span>`,
       )
       .join("");
+
+    const moreHtml =
+      remainingCount > 0
+        ? `<span class="ds-chip-more" title="${onlineServers.slice(3).join(", ")}">+${remainingCount} more</span>`
+        : "";
+
+    return `<div class="ds-mcp-unified-chip">${itemsHtml}${moreHtml}</div>`;
   }
 
   function badgeBar({ selectedProject }) {

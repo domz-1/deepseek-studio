@@ -182,6 +182,48 @@
   box-shadow: 0 0 6px var(--ds-accent);
 }
 
+/* ---- Unified MCP chip (all 3 in one round chip + X more) ---- */
+.ds-mcp-unified-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ds-bg-base);
+  border: 1px solid var(--ds-bg-hover);
+  color: var(--ds-fg);
+  padding: 5px 12px;
+  border-radius: var(--ds-radius-pill);
+  font-weight: 500;
+  font-size: 11px;
+}
+.ds-chip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 1px 3px;
+  border-radius: 4px;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+.ds-chip-item:hover {
+  color: var(--ds-accent);
+  background: var(--ds-bg-hover);
+}
+.ds-chip-item .ds-count {
+  color: var(--ds-fg-muted);
+  font-size: 10px;
+}
+.ds-chip-more {
+  color: var(--ds-accent);
+  font-weight: 600;
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--ds-blue-soft);
+  border-radius: 8px;
+  cursor: default;
+}
+
 /* ---- Running-task chip ---- */
 .ds-task {
   display: none;
@@ -217,11 +259,16 @@
 
 /* ---- Project Select ---- */
 .ds-project-wrap {
-  background: var(--ds-bg-inset);
-  border: 1px solid var(--ds-border);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ds-bg-base);
+  border: 1px solid var(--ds-bg-hover);
   border-radius: var(--ds-radius-pill);
-  padding: 3px 8px;
+  padding: 4px 10px;
   transition: border-color 0.15s ease;
+  height: 28px;
+  box-sizing: border-box;
 }
 .ds-project-wrap:hover,
 .ds-project-wrap:focus-within {
@@ -237,7 +284,8 @@
   cursor: pointer;
   outline: none;
   max-width: 170px;
-  padding: 2px 4px;
+  padding: 0 4px;
+  height: 100%;
 }
 .ds-project-select option {
   background: var(--ds-bg-elev);
