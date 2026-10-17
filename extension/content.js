@@ -156,27 +156,32 @@ function getSendButton() {
   const input = getChatInput();
   if (!input) return null;
 
-  // Search in input wrapper or entire bottom input area
-  const searchRoots = [
+  // 1. Locate the container surrounding the input and controls
+  const containers = [
     input.closest("div.ds-textarea-wrapper"),
     input.closest("div[class*='textarea']"),
+    input.parentElement?.parentElement?.parentElement,
     input.parentElement?.parentElement,
     document.querySelector("div[class*='chat-input']"),
     document.querySelector("div[class*='input-wrapper']"),
-    document.body,
   ].filter(Boolean);
 
-  for (const root of searchRoots) {
-    const buttons = Array.from(
-      root.querySelectorAll('div[role="button"], button'),
+  for (const container of containers) {
+    // Collect all buttons or role=button elements inside the container
+    const candidates = Array.from(
+      container.querySelectorAll(
+        'button, div[role="button"], span[role="button"]',
+      ),
     );
 
-    // Filter out attachment and file buttons
-    const candidates = buttons.filter((b) => {
-      const aria = (b.getAttribute("aria-label") || "").toLowerCase();
-      const title = (b.getAttribute("title") || "").toLowerCase();
-      const html = (b.innerHTML || "").toLowerCase();
+    // Look from bottom-right (last elements first)
+    for (let i = candidates.length - 1; i >= 0; i--) {
+      const btn = candidates[i];
+      const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+      const title = (btn.getAttribute("title") || "").toLowerCase();
+      const html = (btn.innerHTML || "").toLowerCase();
 
+      // Exclude attachment, paperclip, upload buttons
       if (
         aria.includes("file") ||
         aria.includes("attach") ||
@@ -184,33 +189,30 @@ function getSendButton() {
         title.includes("file") ||
         title.includes("attach") ||
         title.includes("upload") ||
-        b.querySelector('input[type="file"]') ||
-        html.includes('type="file"')
+        btn.querySelector('input[type="file"]') ||
+        html.includes("paperclip")
       ) {
-        return false;
+        continue;
       }
-      return true;
-    });
 
-    // 1. Look for explicit send in aria or title
-    for (const b of candidates) {
-      const aria = (b.getAttribute("aria-label") || "").toLowerCase();
-      const title = (b.getAttribute("title") || "").toLowerCase();
-      if (aria.includes("send") || title.includes("send")) return b;
-    }
-
-    // 2. Look for up-arrow svg button
-    for (let i = candidates.length - 1; i >= 0; i--) {
-      const b = candidates[i];
+      // Check if it has an SVG (DeepSeek's blue circle button with arrow)
+      // or if it matches aria/title send
       if (
-        b.querySelector("svg") &&
-        (b.classList.contains("ds-icon-button") ||
-          b.getAttribute("role") === "button")
+        aria.includes("send") ||
+        title.includes("send") ||
+        btn.querySelector("svg") ||
+        btn.classList.contains("ds-icon-button")
       ) {
-        return b;
+        return btn;
       }
     }
   }
+
+  // Fallback: search globally for button with aria-label send
+  const globalSend = document.querySelector(
+    'button[aria-label*="Send" i], div[role="button"][aria-label*="Send" i]',
+  );
+  if (globalSend) return globalSend;
 
   return null;
 }
@@ -231,25 +233,32 @@ async function sendText(text) {
     }
 
     setInputValue(el, text);
-    await new Promise((r) => setTimeout(r, 150));
+    await new Promise((r) => setTimeout(r, 100));
 
-    // Try finding and clicking the send button
-    let sendBtn = getSendButton();
-
-    if (sendBtn) {
-      sendBtn.click();
-      sendBtn.dispatchEvent(
+    // Helper to click element with all mouse events
+    const triggerClick = (target) => {
+      if (!target) return;
+      target.dispatchEvent(
+        new MouseEvent("pointerdown", { bubbles: true, cancelable: true }),
+      );
+      target.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
-      sendBtn.dispatchEvent(
+      target.dispatchEvent(
+        new MouseEvent("pointerup", { bubbles: true, cancelable: true }),
+      );
+      target.dispatchEvent(
         new MouseEvent("mouseup", { bubbles: true, cancelable: true }),
       );
-      sendBtn.dispatchEvent(
-        new MouseEvent("click", { bubbles: true, cancelable: true }),
-      );
+      target.click();
+    };
+
+    let sendBtn = getSendButton();
+    if (sendBtn) {
+      triggerClick(sendBtn);
     }
 
-    // Also trigger Enter event on the textarea
+    // Also trigger native Enter key event
     el.dispatchEvent(
       new KeyboardEvent("keydown", {
         key: "Enter",
@@ -260,23 +269,34 @@ async function sendText(text) {
         cancelable: true,
       }),
     );
+    el.dispatchEvent(
+      new KeyboardEvent("keypress", {
+        key: "Enter",
+        code: "Enter",
+        keyCode: 13,
+        which: 13,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    el.dispatchEvent(
+      new KeyboardEvent("keyup", {
+        key: "Enter",
+        code: "Enter",
+        keyCode: 13,
+        which: 13,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
 
-    await new Promise((r) => setTimeout(r, 400));
+    // If still not empty after 350ms, try clicking the button again
+    await new Promise((r) => setTimeout(r, 350));
     if (el.value.trim().length > 0) {
       sendBtn = getSendButton();
       if (sendBtn) {
-        sendBtn.click();
+        triggerClick(sendBtn);
       }
-      el.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: "Enter",
-          code: "Enter",
-          keyCode: 13,
-          which: 13,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
     }
     scrollToBottom();
   } finally {
@@ -347,10 +367,11 @@ function attachInputMentionInterceptor() {
         window.DSUI.removeAutocomplete();
         window.DSUI.removeSkillMenu();
         const rawVal = input.value.trim();
+        if (!rawVal) return;
 
-        // Check if skills list is loaded
+        // Ensure skills list is loaded
         if (!loadedSkills.length && window.DSSkills) {
-          await refreshSkills();
+          loadedSkills = (await window.DSSkills.loadSkills()) || [];
         }
 
         // Detect any @mention in the message
@@ -383,7 +404,7 @@ function attachInputMentionInterceptor() {
               loadedSkills,
             );
 
-            // If an @mention is present or skill has servers
+            // If an @mention is present
             if (activeMention) {
               await fetchActiveTools();
               const selectedTools = window.DSTools.filterToolsByMention(
