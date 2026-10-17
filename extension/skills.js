@@ -165,9 +165,15 @@
         "   - Modern Clean PHP: Strict typing (`declare(strict_types=1);`), backed enums, and constructor promotion.\n" +
         "   - Separation: Controllers must remain thin (delegate to Action/Service classes). Use FormRequests for validation and API Resources for JSON responses.\n" +
         "   - Avoid raw DB calls: Encapsulate queries in Eloquent scopes, repositories, or query objects.\n\n" +
-        "4. FRONTEND — VUE 3 / NUXT:\n" +
+        "4. FRONTEND — VUE 3 / NUXT & DESIGN SYSTEM:\n" +
         "   - Zero Logic in Views: `.vue` page files must ONLY contain layout templates, styles, and high-level component bindings. Zero raw API fetches, computations, or state manipulation in page components!\n" +
         "   - Composables: ALL reactive states, API queries, lifecycle watchers, and business mutations MUST reside in domain composables (e.g., `use<Feature>.ts`).\n" +
+        "   - Design System & Component Library:\n" +
+        "     * Detect repeated raw HTML elements or unstyled components (e.g., raw `<select>`, raw `<input>`, unstyled dropdowns, pagination, modal popups, buttons).\n" +
+        "     * Extract them into modern, reusable, atomic UI components (e.g., `BaseSelect.vue`, `BaseInput.vue`, `BaseModal.vue`, `BaseDropdown.vue`) with full WAI-ARIA accessibility (keyboard navigation, focus states, screen-reader labels) and smooth micro-interactions/transitions.\n" +
+        "   - Zero Inline `<style>` Blocks & Pure Tailwind:\n" +
+        "     * Strictly eliminate inline `<style>` or `<style scoped>` blocks in Vue/Nuxt components! Replace all custom CSS rules with utility Tailwind classes.\n" +
+        "     * Color Variables & Theme Tokens: NEVER use hardcoded hex/rgb color codes in classes or styles (e.g. `bg-[#181825]`). All colors, radiuses, and shadows must resolve from Tailwind theme tokens or centralized CSS custom properties in `globals.css` / `tailwind.config.ts` (e.g., `var(--color-bg)`, `var(--color-primary)`).\n" +
         "   - Module Localization: Each module must store its own dedicated translation keys (e.g., `modules/<feature>/locales/en.json`, `ar.json`). Never dump all strings into one giant root file. Identify and add all missing Arabic & English keys.\n" +
         "   - File Length Limit: Strictly refactor any file exceeding 250 lines into sub-components, composables, or atomic widgets.\n\n" +
         "5. MOBILE — FLUTTER / DART:\n" +
@@ -182,6 +188,8 @@
         "     [ ] Centralized Numeric Enums from Dedicated Files\n" +
         "     [ ] Backend (Node/PHP) Controller/Service/Repo Layering\n" +
         "     [ ] Frontend (Vue/Nuxt) Composables vs Views Separation\n" +
+        "     [ ] Reusable Accessible UI Components (Replacing raw `<select>`, `<input>`)\n" +
+        "     [ ] Zero `<style>` Blocks & Pure Tailwind (Design Tokens / CSS Variables)\n" +
         "     [ ] Modular Architecture & Per-Module Translations (en/ar)\n" +
         "     [ ] Mobile (Flutter) Translation Functions & Zero Emojis\n" +
         "     [ ] File Size Limit Compliance (< 250 lines)\n" +
