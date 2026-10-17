@@ -1388,11 +1388,47 @@ let lastRetriedEl = null;
 function checkAndHandleRetryButton() {
   if (!autoApprove) return;
 
-  // Search for Retry button or container
-  // DeepSeek renders Retry with an orange/yellow circle icon or button with text "Retry"
+  // 1. Direct match for DeepSeek's circular retry/refresh button:
+  // Usually .ds-button--warning or button containing SVG refresh arrow
+  const directRetryBtn =
+    document.querySelector(
+      '.ds-button--warning, [class*="ds-button--warning"], [class*="retry-button"]',
+    ) || document.querySelector('div[role="button"].ds-button--warning');
+
+  if (
+    directRetryBtn &&
+    directRetryBtn !== lastRetriedEl &&
+    directRetryBtn.offsetParent !== null
+  ) {
+    if (retryTimeout) return;
+    console.log(
+      "[DeepSeek Studio] Detected circular Warning/Retry button. Triggering click in 1s...",
+    );
+    retryTimeout = setTimeout(() => {
+      retryTimeout = null;
+      lastRetriedEl = directRetryBtn;
+      console.log("[DeepSeek Studio] Clicking Warning/Retry button now.");
+      directRetryBtn.dispatchEvent(
+        new MouseEvent("pointerdown", { bubbles: true, cancelable: true }),
+      );
+      directRetryBtn.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+      directRetryBtn.dispatchEvent(
+        new MouseEvent("pointerup", { bubbles: true, cancelable: true }),
+      );
+      directRetryBtn.dispatchEvent(
+        new MouseEvent("mouseup", { bubbles: true, cancelable: true }),
+      );
+      directRetryBtn.click();
+    }, 1000);
+    return;
+  }
+
+  // 2. Search all buttons or role=button or clickable elements
   const buttons = Array.from(
     document.querySelectorAll(
-      'button, div[role="button"], span[role="button"], div[class*="retry" i], button[class*="retry" i]',
+      'button, div[role="button"], span[role="button"], div[class*="retry" i], button[class*="retry" i], .ds-button',
     ),
   );
 
@@ -1401,12 +1437,19 @@ function checkAndHandleRetryButton() {
     const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
     const title = (btn.getAttribute("title") || "").toLowerCase();
 
+    // Check if parent text has "retry" or "check network and retry"
+    const parentText = (btn.parentElement?.textContent || "")
+      .trim()
+      .toLowerCase();
+
     const isRetryOrContinue =
       text === "retry" ||
       text.includes("retry") ||
+      parentText.includes("retry") ||
       aria.includes("retry") ||
       title.includes("retry") ||
       btn.classList.contains("ds-retry-button") ||
+      btn.classList.contains("ds-button--warning") ||
       text === "continue" ||
       (text.includes("continue") && !text.includes("discontinue")) ||
       aria.includes("continue") ||
@@ -1539,6 +1582,9 @@ function checkInactivityAndResend() {
     lastText.includes("DSML") ||
     lastText.includes("Output of ") ||
     lastText.includes("<|DSML|") ||
+    lastText.includes("Execution notice") ||
+    lastText.includes("Execution failed") ||
+    lastText.includes("Check network and retry") ||
     (lastSentMessage &&
       (lastSentMessage.includes("```json") ||
         lastSentMessage.includes("Output of [") ||
