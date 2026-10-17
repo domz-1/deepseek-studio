@@ -346,25 +346,14 @@ function attachInputMentionInterceptor() {
           activeTools,
           serverStatus,
           fileResults,
-          async (label, fileObj) => {
+          (label, fileObj) => {
             const currentVal = input.value;
-            // If it is a file selection, fetch and inject content Antigravity style!
+            // Inject file link with path so MCP filesystem reads it cleanly on demand
             if (fileObj && fileObj.path) {
-              try {
-                const readRes = await new Promise((r) =>
-                  chrome.runtime.sendMessage(
-                    { type: "READ_FILE", path: fileObj.path, maxLines: 350 },
-                    r,
-                  ),
-                );
-                if (readRes?.ok && readRes.data?.content !== undefined) {
-                  const ext = fileObj.name.split(".").pop() || "";
-                  const contentBlock = `\n[${fileObj.name}](file://${fileObj.path})\n\`\`\`${ext}\n${readRes.data.content}\n\`\`\`\n`;
-                  const newVal = currentVal.replace(/@[^\s@]*$/, contentBlock);
-                  setInputValue(input, newVal);
-                  return;
-                }
-              } catch (_) {}
+              const fileLink = `[${fileObj.name}](file://${fileObj.path}) `;
+              const newVal = currentVal.replace(/@[^\s@]*$/, fileLink);
+              setInputValue(input, newVal);
+              return;
             }
             const newVal = currentVal.replace(/@[^\s@]*$/, `${label} `);
             setInputValue(input, newVal);
