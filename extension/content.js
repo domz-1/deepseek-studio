@@ -264,7 +264,7 @@ function showSkillAutocomplete(inputEl, query) {
   if (!loadedSkills.length) return;
   const q = (query || '').toLowerCase();
   const opts = loadedSkills.filter(
-    (s) => !q || s.name.startsWith(q) || (s.description || '').toLowerCase().includes(q),
+    (s) => !q || s.name.startsWith(q) || (s.description || '').toLowerCase().split(/\W+/).some((w) => w.startsWith(q)),
   );
   if (!opts.length) return;
 
