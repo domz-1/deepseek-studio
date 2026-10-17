@@ -234,10 +234,23 @@ function getSendButton() {
   return null;
 }
 
+let lastSentMessage = "";
+let lastActivityTime = Date.now();
+const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+const GRILL_AUTO_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
+function recordActivity() {
+  lastActivityTime = Date.now();
+}
+
 // Reliable message sender
 async function sendText(text, isUserInput = false) {
   if (isSending) return;
   isSending = true;
+  recordActivity();
+  if (text) {
+    lastSentMessage = text;
+  }
 
   try {
     const el = getChatInput();
@@ -1170,27 +1183,63 @@ function renderGrillQuestionCard(
   const submitBtn = card.querySelector(".grill-submit-btn");
   const customInput = card.querySelector(".grill-custom-input");
 
-  submitBtn.onclick = () => {
+  const doSubmitDecision = (isAuto = false) => {
+    if (card.__grillAutoTimer) {
+      clearInterval(card.__grillAutoTimer);
+      card.__grillAutoTimer = null;
+    }
+
     const answers = [];
 
     qList.forEach((q, idx) => {
-      const checkedInputs = Array.from(
+      let checkedInputs = Array.from(
         card.querySelectorAll(`input[name="grill_q_${idx}"]:checked`),
       );
+
+      // If auto-answering or no selection made, automatically select recommended option
+      if (isAuto && checkedInputs.length === 0) {
+        // Find option that contains "(Recommended)" or default to the first option
+        const recIndex = (q.options || []).findIndex((o) => {
+          const text =
+            typeof o === "string" ? o : `${o.label || ""} ${o.details || ""}`;
+          return text.toLowerCase().includes("recommended");
+        });
+        const targetIdx = recIndex !== -1 ? recIndex : 0;
+        const opt = (q.options || [])[targetIdx];
+        if (opt) {
+          const optId =
+            typeof opt === "object" && opt?.id
+              ? opt.id
+              : String.fromCharCode(65 + targetIdx);
+          const inputEl = card.querySelector(
+            `input[name="grill_q_${idx}"][value="${optId}"]`,
+          );
+          if (inputEl) inputEl.checked = true;
+          checkedInputs = [inputEl].filter(Boolean);
+        }
+      }
+
       const selectedIds = checkedInputs.map((i) => i.value);
       const selectedOpts = (q.options || []).filter((o, i) =>
-        selectedIds.includes(o.id || String.fromCharCode(65 + i)),
+        selectedIds.includes(
+          typeof o === "object" && o?.id ? o.id : String.fromCharCode(65 + i),
+        ),
       );
 
       if (selectedOpts.length > 0) {
         const labelStr = selectedOpts
-          .map(
-            (o, i) =>
-              `[${o.id || String.fromCharCode(65 + i)}] "${o.label || o.text || ""}"`,
-          )
+          .map((o, i) => {
+            const id =
+              typeof o === "object" && o?.id
+                ? o.id
+                : String.fromCharCode(65 + i);
+            const lbl =
+              typeof o === "string" ? o : o.label || o.text || o.title || "";
+            return `[${id}] "${lbl}"`;
+          })
           .join(", ");
         const detailsStr = selectedOpts
-          .map((o) => o.details)
+          .map((o) => (typeof o === "object" ? o.details : ""))
           .filter(Boolean)
           .join("; ");
         answers.push(
@@ -1205,9 +1254,11 @@ function renderGrillQuestionCard(
     }
 
     if (answers.length === 0 && !customText) {
-      alert(
-        "Please select an option or type a custom response before submitting.",
-      );
+      if (!isAuto) {
+        alert(
+          "Please select an option or type a custom response before submitting.",
+        );
+      }
       return;
     }
 
@@ -1215,16 +1266,59 @@ function renderGrillQuestionCard(
       targetEl.setAttribute("data-mcp-executed", "true");
     }
     executedCalls.add(callKey);
-    const fullAnswer = `My Architecture Decision:\n${answers.join("\n\n")}\n\nWhat is the next step or question?`;
+    const reasonPrefix = isAuto
+      ? "[Auto-selected Recommended Options after 10m timeout]\n"
+      : "";
+    const fullAnswer = `${reasonPrefix}My Architecture Decision:\n${answers.join("\n\n")}\n\nWhat is the next step or question?`;
 
     card.innerHTML = `
       <div class="ds-grill-answered">
-        <span><span class="ds-ic" data-ic="check"></span> Architecture Decision Submitted!</span>
+        <span><span class="ds-ic" data-ic="check"></span> ${isAuto ? "Recommended Decisions Auto-Submitted (Timeout)!" : "Architecture Decision Submitted!"}</span>
       </div>
     `;
 
     sendText(fullAnswer, true);
   };
+
+  submitBtn.onclick = () => doSubmitDecision(false);
+
+  // Set 10-minute auto-answer timer for recommended options
+  const startTime = Date.now();
+  const timerBadge = document.createElement("span");
+  timerBadge.className = "ds-grill-badge";
+  timerBadge.style.cssText =
+    "background:var(--ds-bg-hover);color:var(--ds-fg-muted);margin-left:6px;font-size:10px;";
+  timerBadge.textContent = "Auto-answering in 10:00";
+  const titleContainer = card.querySelector(".ds-grill-head .ds-title");
+  if (titleContainer) {
+    titleContainer.insertBefore(timerBadge, titleContainer.firstChild);
+  }
+
+  card.__grillAutoTimer = setInterval(() => {
+    // If card detached or already answered, stop
+    if (
+      !document.body.contains(card) ||
+      card.querySelector(".ds-grill-answered")
+    ) {
+      clearInterval(card.__grillAutoTimer);
+      return;
+    }
+
+    const elapsed = Date.now() - startTime;
+    const remaining = Math.max(0, GRILL_AUTO_TIMEOUT_MS - elapsed);
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    timerBadge.textContent = `Auto-answering in ${mins}:${secs < 10 ? "0" : ""}${secs}`;
+
+    if (remaining <= 0) {
+      clearInterval(card.__grillAutoTimer);
+      card.__grillAutoTimer = null;
+      console.log(
+        "[DeepSeek Studio] 10 minutes passed without answering. Auto-selecting recommended options and submitting...",
+      );
+      doSubmitDecision(true);
+    }
+  }, 1000);
 }
 
 function scanMessages() {
@@ -1343,6 +1437,53 @@ function checkAndHandleRetryButton() {
     }
   }
 }
+
+// 5-minute Chat Inactivity Watchdog
+// If the chat remains idle with no new messages/activity for 5 minutes, resend the last sent message
+function checkInactivityAndResend() {
+  // If DeepSeek is actively generating or a task is executing, don't intervene
+  if (isDeepSeekGenerating() || isSending || runningTaskCount > 0) {
+    recordActivity();
+    return;
+  }
+
+  // If there's an active, unanswered question card on screen, let the 10m question timer handle it
+  const activeQuestionCard = Array.from(
+    document.querySelectorAll(".deepseek-grill-card"),
+  ).find((c) => !c.querySelector(".ds-grill-answered"));
+  if (activeQuestionCard) {
+    return;
+  }
+
+  // If there is an actionable tool permission card waiting for user click (when not auto-approve), don't resend
+  const pendingToolCard = Array.from(
+    document.querySelectorAll(
+      ".deepseek-mcp-action-card:not(.deepseek-grill-card)",
+    ),
+  ).find((c) => c.querySelector(".mcp-approve-btn"));
+  if (pendingToolCard && !autoApprove) {
+    return;
+  }
+
+  // If Retry button is present, Retry handler will click it
+  const retryBtn = document.querySelector(
+    'button[class*="retry" i], div[class*="retry" i]',
+  );
+  if (retryBtn) {
+    return;
+  }
+
+  const idleTime = Date.now() - lastActivityTime;
+  if (idleTime >= INACTIVITY_TIMEOUT_MS && lastSentMessage) {
+    console.log(
+      `[DeepSeek Studio] Chat idle for ${Math.round(idleTime / 1000)}s with no action. Resending last message...`,
+    );
+    recordActivity();
+    sendText(lastSentMessage, true);
+  }
+}
+
+setInterval(checkInactivityAndResend, 15000);
 
 // Observer
 new MutationObserver(() => {
