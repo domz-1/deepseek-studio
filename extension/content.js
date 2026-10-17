@@ -39,27 +39,51 @@ try {
 
 async function fetchActiveTools() {
   try {
-    const res = await fetch("http://localhost:43210/mcp");
-    if (res.ok) {
-      const data = await res.json();
-      activeTools = data.tools || [];
-      serverStatus = data.status || {};
+    // Always route through the background worker so the bridge token is
+    // attached and the page never performs an unauthenticated fetch.
+    const bgRes = await new Promise((r) =>
+      chrome.runtime.sendMessage({ type: "GET_MCP" }, r),
+    );
+    if (bgRes?.ok && bgRes.data?.tools) {
+      activeTools = bgRes.data.tools;
+      serverStatus = bgRes.data.status || {};
       return activeTools;
     }
-  } catch (_) {
-    try {
-      const bgRes = await new Promise((r) =>
-        chrome.runtime.sendMessage({ type: "GET_MCP" }, r),
-      );
-      if (bgRes?.ok && bgRes.data?.tools) {
-        activeTools = bgRes.data.tools;
-        serverStatus = bgRes.data.status || {};
-        return activeTools;
-      }
-    } catch (_) {}
+  } catch (e) {
+    console.warn("[MCP] fetchActiveTools failed", e);
   }
   return [];
 }
+
+// Best-effort: adopt DeepSeek's live palette when discoverable. Never throws;
+// theme.css hardcoded tokens remain the source of truth on failure.
+function probeDeepSeekTheme() {
+  try {
+    const cs = getComputedStyle(document.documentElement);
+    const get = (...names) =>
+      names.map((n) => cs.getPropertyValue(n).trim()).find(Boolean);
+    const accent = get(
+      "--ds-color-primary",
+      "--primary-color",
+      "--color-primary",
+    );
+    const bg = get("--ds-color-bg", "--bg-color", "--background-color");
+    const root = document.documentElement;
+    if (accent) root.style.setProperty("--ds-accent", accent);
+    if (bg) {
+      const m = bg.match(/rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+      if (m) {
+        const lum =
+          (Number(m[1]) * 0.299 + Number(m[2]) * 0.587 + Number(m[3]) * 0.114) /
+          255;
+        root.dataset.dsTheme = lum < 0.5 ? "dark" : "light";
+      }
+    }
+  } catch (_) {}
+}
+try {
+  probeDeepSeekTheme();
+} catch (_) {}
 
 async function refreshSkills() {
   try {
@@ -313,7 +337,7 @@ function attachInputMentionInterceptor() {
   input.addEventListener("input", () => {
     const val = input.value;
     const slashMatch = val.match(/\/([\w-]*)$/);
-    const mentionMatch = val.match(/@([\w-]*)$/);
+    const mentionMatch = val.match(/@([^\s@]*)$/);
 
     if (slashMatch) {
       window.DSUI.removeAutocomplete();
@@ -329,17 +353,29 @@ function attachInputMentionInterceptor() {
       );
     } else if (mentionMatch) {
       window.DSUI.removeSkillMenu();
-      window.DSUI.showAutocomplete(
-        input,
-        mentionMatch[1],
-        activeTools,
-        serverStatus,
-        (label) => {
-          const currentVal = input.value;
-          const newVal = currentVal.replace(/@[\w-]*$/, `${label} `);
-          setInputValue(input, newVal);
-        },
-      );
+      const q = mentionMatch[1];
+      if (input.__mentionDebounce) clearTimeout(input.__mentionDebounce);
+      input.__mentionDebounce = setTimeout(async () => {
+        let fileResults = [];
+        try {
+          const res = await new Promise((r) =>
+            chrome.runtime.sendMessage({ type: "FS_INDEX", q, limit: 30 }, r),
+          );
+          if (res?.ok && res.data?.results) fileResults = res.data.results;
+        } catch (_) {}
+        window.DSUI.showAutocomplete(
+          input,
+          q,
+          activeTools,
+          serverStatus,
+          fileResults,
+          (label) => {
+            const currentVal = input.value;
+            const newVal = currentVal.replace(/@[^\s@]*$/, `${label} `);
+            setInputValue(input, newVal);
+          },
+        );
+      }, 120);
     } else {
       window.DSUI.removeAutocomplete();
       window.DSUI.removeSkillMenu();
@@ -484,11 +520,9 @@ function updateServerBadges() {
 
 async function killActiveTask(callId = null) {
   try {
-    await fetch("http://localhost:43210/kill", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(callId ? { callId } : {}),
-    });
+    await new Promise((r) =>
+      chrome.runtime.sendMessage({ type: "KILL", callId }, r),
+    );
   } catch (e) {
     console.warn("[MCP] kill task failed", e);
   }
@@ -646,16 +680,13 @@ async function executeTool(payload, cardStatusEl, callKey, targetEl) {
   updateTaskBadge();
 
   try {
-    const res = await fetch("http://localhost:43210/call", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (!res.ok || data.isError) {
-      if (data.isCancelled) {
-        throw new Error("Task was cancelled by user");
-      }
+    const bgRes = await new Promise((r) =>
+      chrome.runtime.sendMessage({ type: "CALL", payload }, r),
+    );
+    if (!bgRes?.ok) throw new Error(bgRes?.error || "Bridge unreachable");
+    const data = bgRes.data;
+    if (data?.isError) {
+      if (data.isCancelled) throw new Error("Task was cancelled by user");
       throw new Error(data.error || "Execution failed");
     }
 
@@ -703,6 +734,11 @@ function renderPermissionCard(
   callKey,
   isAlreadyExecuted = false,
 ) {
+  // Hide the raw JSON code block so the user only sees the custom UI card
+  if (targetEl) {
+    targetEl.style.display = "none";
+  }
+
   const isSafe = window.DSTools.SAFE_TOOLS.has(payload.name);
   const card = document.createElement("div");
   card.className = "deepseek-mcp-action-card";
@@ -722,21 +758,34 @@ function renderPermissionCard(
 
   if (isAlreadyExecuted) {
     card.innerHTML = `
-      <div style="font-weight:bold;color:#a6adc8;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
-        <span>✓ Completed Historical Call:</span>
-        <code style="background:#11111b;padding:3px 8px;border-radius:4px;color:#a6e3a1;font-size:12px;">${payload.name}</code>
+      <div style="font-weight:bold;color:#a6adc8;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span>✓ Completed Historical Call:</span>
+          <code style="background:#11111b;padding:3px 8px;border-radius:4px;color:#a6e3a1;font-size:12px;">${payload.name}</code>
+        </div>
+        <button class="view-raw-btn" style="background:#313244;color:#a6adc8;border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">Toggle JSON</button>
       </div>
       <div style="font-size:11px;color:#a6adc8;">Arguments:</div>
       <pre style="background:#11111b;color:#a6adc8;padding:6px;border-radius:4px;font-size:11px;overflow:auto;max-height:80px;">${JSON.stringify(payload.arguments || {}, null, 2)}</pre>
     `;
+    const btn = card.querySelector(".view-raw-btn");
+    if (btn && targetEl) {
+      btn.onclick = () => {
+        targetEl.style.display =
+          targetEl.style.display === "none" ? "block" : "none";
+      };
+    }
     targetEl.insertAdjacentElement("afterend", card);
     return;
   }
 
   card.innerHTML = `
-    <div style="font-weight:bold;color:${isSafe ? "#89b4fa" : "#f38ba8"};margin-bottom:8px;display:flex;align-items:center;gap:8px;">
-      <span style="font-size:15px;">${isSafe ? "🔍 MCP Read / Safe" : "⚡ MCP Action / Bash"}</span>
-      <code style="background:#11111b;padding:3px 8px;border-radius:4px;color:#a6e3a1;font-size:12px;">${payload.name}</code>
+    <div style="font-weight:bold;color:${isSafe ? "#89b4fa" : "#f38ba8"};margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:15px;">${isSafe ? "🔍 MCP Read / Safe" : "⚡ MCP Action / Bash"}</span>
+        <code style="background:#11111b;padding:3px 8px;border-radius:4px;color:#a6e3a1;font-size:12px;">${payload.name}</code>
+      </div>
+      <button class="view-raw-btn" style="background:#313244;color:#a6adc8;border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">Toggle JSON</button>
     </div>
     <div style="font-size:11px;color:#a6adc8;margin-bottom:4px;">Arguments:</div>
     <textarea class="ed" style="width:100%;box-sizing:border-box;height:75px;background:#11111b;color:#a6e3a1;border:1px solid #45475a;border-radius:6px;padding:8px;font-family:monospace;font-size:12px;margin-bottom:10px;">${JSON.stringify(payload.arguments || {}, null, 2)}</textarea>
@@ -745,6 +794,14 @@ function renderPermissionCard(
       <button class="no" style="background:#f38ba8;color:#11111b;border:none;padding:8px 18px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;">✕ Reject</button>
     </div>
   `;
+
+  const btn = card.querySelector(".view-raw-btn");
+  if (btn && targetEl) {
+    btn.onclick = () => {
+      targetEl.style.display =
+        targetEl.style.display === "none" ? "block" : "none";
+    };
+  }
 
   targetEl.insertAdjacentElement("afterend", card);
 
