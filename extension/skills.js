@@ -77,24 +77,27 @@
       prompt:
         "Act as an exceptionally demanding Principal Engineer and Architect. You are conducting an interactive architecture interview (Grill-Me session).\n" +
         "CRITICAL RULES:\n" +
-        "1. Focus on the core architectural bottlenecks, trade-offs, and design decisions.\n" +
-        "2. Provide a short 2-3 sentence technical context/rationale in prose.\n" +
-        "3. DO NOT print a duplicate text list of options or bullet points in your message text!\n" +
-        "4. Instead, place ALL questions and choices directly into this JSON block at the end of your message so the extension renders the interactive UI cards:\n" +
+        "1. NEVER ask any questions or present decisions until you have FIRST thoroughly read and inspected the relevant project codebase and files using filesystem MCP tools! Only formulate questions based on actual code context.\n" +
+        "2. Focus on the core architectural bottlenecks, trade-offs, and design decisions.\n" +
+        "3. Provide a short 2-3 sentence technical context/rationale in prose.\n" +
+        "4. DO NOT print a duplicate text list of options or bullet points in your message text!\n" +
+        '5. For every question, always identify the best architectural path and prefix that option\'s label with "(Recommended)".\n' +
+        '6. Always enable multi-selection boolean ("multi_select": true) so the user can choose multiple applicable options.\n' +
+        "7. Place ALL questions and choices directly into this JSON block at the end of your message so the extension renders the interactive UI cards:\n" +
         "```json\n" +
         "{\n" +
         '  "grill_question": "Exact critical decision question?",\n' +
         '  "options": [\n' +
-        '    {"id": "A", "label": "Option A summary", "details": "Trade-offs and architectural implications..."},\n' +
+        '    {"id": "A", "label": "(Recommended) Option A summary", "details": "Trade-offs and architectural implications..."},\n' +
         '    {"id": "B", "label": "Option B summary", "details": "Trade-offs and architectural implications..."},\n' +
         '    {"id": "C", "label": "Option C summary", "details": "Trade-offs and architectural implications..."}\n' +
         "  ],\n" +
-        '  "multi_select": false,\n' +
+        '  "multi_select": true,\n' +
         '  "allow_custom": true\n' +
         "}\n" +
         "```\n" +
-        '(Or use `"questions": [...]` if you have multiple related decisions to ask at once).\n' +
-        "5. When I submit my decision, analyze my choice, challenge any remaining edge cases or move forward.\n\n" +
+        '(Or use `"questions": [...]` if you have multiple related decisions to ask at once, each with `"multi_select": true` and a `(Recommended)` option).\n' +
+        "8. When I submit my decision, analyze my choice, challenge any remaining edge cases or move forward.\n\n" +
         "Topic to grill me on:",
       builtin: true,
     },
@@ -214,9 +217,7 @@
   }
 
   function helpText(skills) {
-    const lines = skills.map(
-      (s) => "- `/" + s.name + "` — " + s.description,
-    );
+    const lines = skills.map((s) => "- `/" + s.name + "` — " + s.description);
     return [
       "### DeepSeek Workstation & MCP Tools Guide",
       "",
@@ -310,12 +311,30 @@
     "\u{1F1EC}\u{1F1E7}": "globe",
   };
 
-
   const ICON_NAMES = [
-    "sparkles", "zap", "check", "close", "clock", "alert", "search",
-    "flame", "arrowRight", "file", "folder", "brain", "help", "tool",
-    "flask", "bug", "pen", "clipboard", "build", "globe", "rocket",
-    "bulb", "server",
+    "sparkles",
+    "zap",
+    "check",
+    "close",
+    "clock",
+    "alert",
+    "search",
+    "flame",
+    "arrowRight",
+    "file",
+    "folder",
+    "brain",
+    "help",
+    "tool",
+    "flask",
+    "bug",
+    "pen",
+    "clipboard",
+    "build",
+    "globe",
+    "rocket",
+    "bulb",
+    "server",
   ];
 
   const DSIcon = {

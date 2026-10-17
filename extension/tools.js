@@ -31,6 +31,8 @@ Rules:
 }
 \`\`\`
 3. Do not stop until the user's objective is fully accomplished. Output only one tool call per turn, wait for the tool output, and then proceed with the next step autonomously.
+4. CRITICAL RULE FOR ASKING QUESTIONS: NEVER ask questions or present decisions until you have THOROUGHLY inspected and read the project codebase using the filesystem/tools MCP first!
+5. When asking questions/decisions, ALWAYS prefix your recommended choice with "(Recommended)", and enable multi-selection boolean (\`"multi_select": true\`) so the user can select multiple options.
 `,
     (list) => `Workstation MCP tools active:
 ${list}
@@ -42,6 +44,8 @@ Guidelines:
 {"name": "tool_name", "arguments": {}}
 \`\`\`
 - After receiving tool results, analyze them and continue with the next tool call until the goal is fully achieved.
+- CRITICAL: Never ask questions until you have read and analyzed the project code using filesystem tools first.
+- When asking questions, always prefix the recommended option with "(Recommended)" and enable multi-selection (\`"multi_select": true\`).
 `,
   ];
 
