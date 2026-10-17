@@ -146,6 +146,42 @@
       prompt: "Translate the following text into natural, fluent English:",
       builtin: true,
     },
+    {
+      id: "audit-structure",
+      name: "audit-structure",
+      description:
+        "Full codebase audit & refactor for clean modular architecture, numeric enums from file, Nuxt composables vs views, Flutter t-functions, and per-module translations.",
+      prompt:
+        "Act as a Principal Software Architect. Conduct a comprehensive, multi-layer architecture and clean-code audit & refactoring plan across the entire workspace (Backend, Frontend, and Mobile/Flutter).\n\n" +
+        "CRITICAL RULES & STANDARDS TO ENFORCE:\n" +
+        "1. ENUMS INTEGRITY:\n" +
+        "   - ALL Enums must be centralized in dedicated enum definition files (e.g., `enums.ts`, `enums.dart`, `enums/`). Never define enums inline inside business or view files.\n" +
+        "   - ALL Enums MUST be numeric values (e.g., Status { Pending = 1, Active = 2, Inactive = 3 }), matching database/API schemas consistently across Backend, Frontend, and Mobile.\n\n" +
+        "2. MODULAR ARCHITECTURE & ISOLATION:\n" +
+        "   - Every feature/domain must be structured as an autonomous inner module inside the project.\n" +
+        "   - Module Localization: Each module must maintain its own dedicated translation files/keys (e.g., `modules/<feature>/locales/en.json`, `ar.json`). Never dump all strings into one giant root translation file.\n" +
+        "   - Identify and add ALL missing translation keys (English + Arabic).\n\n" +
+        "3. FRONTEND (VUE / NUXT / WEB):\n" +
+        "   - Separation of Concerns: Pages/Views must ONLY handle template structure, styles, and high-level component binding. Zero raw business logic in `.vue` page files!\n" +
+        "   - Composables: ALL reactive states, API queries, data transformations, and event handlers MUST reside in domain composables (e.g., `use<Feature>.ts`).\n" +
+        "   - Clean Utilities: Reuse shared utility functions from `/utils` rather than duplicate inline parsing/formatting.\n" +
+        "   - Maximum lines per file limit: Refactor any file exceeding 250 lines into sub-components and composables.\n\n" +
+        "4. MOBILE (FLUTTER / DART):\n" +
+        "   - Clean Localization: Always use translation functions (e.g. `tr()`, `t('key')`, `context.tr()`). Never hardcode raw string literals in UI widgets.\n" +
+        "   - Zero Emojis in Code: Never use literal emojis in source code or UI strings. Use SVG icons, Material/Cupertino Icons, or asset icon vectors.\n" +
+        "   - Clean widget hierarchy: Extract complex UI into clean, reusable atomic widgets.\n\n" +
+        "5. EXECUTION & VERIFICATION PROTOCOL:\n" +
+        "   - First, inspect the workspace directories and file structure using MCP filesystem tools.\n" +
+        "   - Produce a structured Markdown Audit Checklist:\n" +
+        "     [ ] Enums from File & Numeric Standardization\n" +
+        "     [ ] Modular Folder Structure & Per-Module Translation\n" +
+        "     [ ] Composables vs Views Separation\n" +
+        "     [ ] Mobile/Flutter Translation Functions & Icon Cleanup\n" +
+        "     [ ] Line-count compliance (< 250 lines) & Shared Utilities\n" +
+        "   - List exact files needing refactoring (`[MODIFY]`, `[NEW]`) with clear rationale and code snippets.\n\n" +
+        "Scope or target module to audit:",
+      builtin: true,
+    },
   ];
 
   function slugify(s) {
@@ -283,6 +319,7 @@
     build: "build",
     "translate-ar": "globe",
     "translate-en": "globe",
+    "audit-structure": "tool",
   };
 
   // Legacy custom skills saved an emoji, not an icon name. Map the common
