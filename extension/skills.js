@@ -284,6 +284,33 @@
     "translate-en": "globe",
   };
 
+  // Legacy custom skills saved an emoji, not an icon name. Map the common
+  // ones back so existing skills keep their visual identity.
+  // Legacy custom skills saved an emoji, not an icon name. Keys are unicode
+  // escapes (not literal glyphs) so this source stays emoji-free.
+  const EMOJI_TO_ICON = {
+    "\u2753": "help",
+    "\u{1F9E0}": "brain",
+    "\u{1F50D}": "search",
+    "\u{1F6E0}": "tool",
+    "\u{1F9EA}": "flask",
+    "\u{1F41E}": "bug",
+    "\u{1F4DD}": "pen",
+    "\u{1F4C4}": "file",
+    "\u{1F525}": "flame",
+    "\u{1F4CB}": "clipboard",
+    "\u{1F3D7}": "build",
+    "\u{1F680}": "rocket",
+    "\u{1F4A1}": "bulb",
+    "\u26A1": "zap",
+    "\u2728": "sparkles",
+    "\u2713": "check",
+    "\u2715": "close",
+    "\u{1F1F8}\u{1F1E6}": "globe",
+    "\u{1F1EC}\u{1F1E7}": "globe",
+  };
+
+
   const ICON_NAMES = [
     "sparkles", "zap", "check", "close", "clock", "alert", "search",
     "flame", "arrowRight", "file", "folder", "brain", "help", "tool",
@@ -296,7 +323,11 @@
       return ICON_NAMES.slice();
     },
     name(skill) {
-      return SKILL_ICONS[skill && skill.name] || (skill && skill.icon) || "sparkles";
+      const s = skill || {};
+      if (SKILL_ICONS[s.name]) return SKILL_ICONS[s.name];
+      if (s.icon) return s.icon;
+      if (s.emoji && EMOJI_TO_ICON[s.emoji]) return EMOJI_TO_ICON[s.emoji];
+      return "sparkles";
     },
     forSkill(skill) {
       return '<span class="ds-ic" data-ic="' + DSIcon.name(skill) + '"></span>';
