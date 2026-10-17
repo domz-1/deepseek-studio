@@ -1,6 +1,6 @@
 {
   "name": "deepseek-mcp-bridge",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Local MCP hub that proxies tool calls for the DeepSeek MCP Studio extension.",
   "module": "server.js",
   "type": "module",

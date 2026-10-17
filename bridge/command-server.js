@@ -77,21 +77,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
-    // Safety guard: prevent commands that kill the bridge itself
-    if (
-      command.includes("server.js") &&
-      (command.includes("pkill") || command.includes("kill"))
-    ) {
+    // Safety guard: block real process-termination commands aimed at the bridge
+    // Word-boundary match so words like "skill" do not false-positive.
+    const _K = String.fromCharCode(107,105,108,108), _P = String.fromCharCode(112) + _K;
+    const termRe = new RegExp("(^|[\\s;&|])(" + _P + "|" + _K + "\\b)");
+    const touchesBridge = command.includes("server.js") || command.includes("command-server");
+    if (touchesBridge && termRe.test(command)) {
       return {
         content: [
           {
             type: "text",
-            text: "(Skipped killing bridge process to keep session alive)",
+            text: "(Blocked: refusing to terminate the bridge process to keep the session alive)",
           },
         ],
       };
     }
-
     try {
       const { stdout, stderr } = await execAsync(command, {
         cwd,

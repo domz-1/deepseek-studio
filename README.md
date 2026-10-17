@@ -37,8 +37,43 @@ When you type a message with an `@mention`, the extension prepends a system prom
 - 🟢 **Live server pills** — a floating banner above the chat box shows each server's online status and tool count.
 - 🔒 **Permission cards** — dangerous tools (write / execute) require a click; read-only tools are marked safe.
 - ⚡ **Auto-run** — toggle one switch to skip the approval card for trusted sessions.
+- ⚡ **Slash skills** — type `/review`, `/explain`, `/tests`, `/commit` … to run reusable prompt bundles; add your own in the popup.
 - 🧠 **Hot reload config** — edit `mcp-config.json` and the bridge re-syncs instantly.
 - 🖥️ **Cross-platform** — runs on Windows, macOS, and Linux.
+
+---
+
+## ⚡ Skills (slash commands)
+
+Skills are reusable prompt bundles triggered with a leading `/name`. Type `/` in the chat box to see an autocomplete list.
+
+| Skill | What it does |
+|-------|--------------|
+| `/help` | List every available skill |
+| `/explain` | Explain code or a concept step by step |
+| `/review` | Senior code review (bugs, security, style) |
+| `/refactor` | Refactor for readability & maintainability |
+| `/tests` | Write unit tests |
+| `/debug` | Find the root cause of a bug + fix |
+| `/commit` | Write a Conventional Commits message |
+| `/summarize` | Summarize into bullet points |
+| `/translate-ar` | Translate to Arabic |
+| `/translate-en` | Translate to English |
+
+**Usage:**
+
+```
+/review <paste code here>
+@bash /explain what does this command do
+```
+
+- A skill alone (e.g. `/help`) expands and sends immediately.
+- Text after the skill name is appended to the skill prompt.
+- Skills combine with `@server` mentions (the tool schema is prepended).
+
+### Custom skills
+
+Open the extension popup → **Skills** tab → fill in a name, emoji, description and prompt → **Add / Update Skill**. Custom skills are stored in `chrome.storage.local` and can override a built-in with the same name. Delete or edit them any time from the same tab.
 
 ---
 
@@ -248,7 +283,8 @@ deepseek-mcp-ext/
 ├── extension/
 │   ├── manifest.json         # Manifest V3
 │   ├── background.js         # Service worker (fetch to bridge)
-│   ├── content.js            # @mention UI, cards, tool execution
+│   ├── skills.js             # Skills engine (built-ins + storage)
+│   ├── content.js            # @mention + /skill UI, cards, tool execution
 │   ├── popup.html
 │   ├── popup.js
 │   └── icon.png

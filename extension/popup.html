@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <style>
-    body { width: 360px; margin: 0; padding: 12px; background: #181825; color: #cdd6f4; font-family: system-ui, sans-serif; font-size: 12px; }
+    body { width: 380px; margin: 0; padding: 12px; background: #181825; color: #cdd6f4; font-family: system-ui, sans-serif; font-size: 12px; }
     .hdr { display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: #cba6f7; margin-bottom: 10px; }
     .tabs { display: flex; gap: 4px; margin-bottom: 10px; background: #11111b; padding: 4px; border-radius: 8px; }
     .tab { flex: 1; text-align: center; padding: 6px; border-radius: 6px; cursor: pointer; font-weight: 600; color: #a6adc8; font-size: 11px; }
@@ -11,24 +11,34 @@
     .pane { display: none; }
     .pane.active { display: block; }
     .srv-card { display: flex; justify-content: space-between; align-items: center; background: #11111b; padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; border: 1px solid #313244; }
+    .skill-card { background: #11111b; padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; border: 1px solid #313244; }
+    .skill-card .nm { color: #cba6f7; font-weight: 700; }
+    .skill-card .ds { color: #a6adc8; font-size: 10px; margin: 2px 0 4px; }
+    .skill-card .pr { color: #a6e3a1; font-size: 10px; font-family: monospace; max-height: 32px; overflow: hidden; }
     .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; background: #f38ba8; }
     .dot.on { background: #a6e3a1; box-shadow: 0 0 6px #a6e3a1; }
-    textarea { width: 100%; height: 180px; box-sizing: border-box; background: #11111b; color: #a6e3a1; border: 1px solid #45475a; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 11px; }
+    textarea, input[type=text] { width: 100%; box-sizing: border-box; background: #11111b; color: #a6e3a1; border: 1px solid #45475a; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 11px; }
+    textarea { height: 160px; }
+    input[type=text] { height: 28px; margin-bottom: 6px; }
     .row { display: flex; gap: 6px; margin-top: 10px; }
     button { flex: 1; padding: 8px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 11px; }
     .pri { background: #89b4fa; color: #11111b; }
     .sec { background: #a6e3a1; color: #11111b; }
+    .dang { background: #f38ba8; color: #11111b; flex: 0 0 auto; padding: 4px 8px; }
+    .mini { background: #45475a; color: #cdd6f4; flex: 0 0 auto; padding: 4px 8px; }
+    .muted { color:#a6adc8; font-size:10px; margin: 4px 0 8px; }
   </style>
 </head>
 <body>
   <div class="hdr">
-    <span>⚡ DeepSeek MCP Servers</span>
+    <span>⚡ DeepSeek MCP Studio</span>
     <span id="tot" style="color:#a6e3a1;font-size:11px;">0 tools</span>
   </div>
 
   <div class="tabs">
-    <div class="tab active" id="t-list">Servers List</div>
-    <div class="tab" id="t-json">mcpServers JSON</div>
+    <div class="tab active" id="t-list">Servers</div>
+    <div class="tab" id="t-json">JSON</div>
+    <div class="tab" id="t-skills">Skills</div>
   </div>
 
   <div class="pane active" id="p-list">
@@ -42,10 +52,23 @@
     </div>
   </div>
 
+  <div class="pane" id="p-skills">
+    <div class="muted">Type <b>/name</b> in the DeepSeek chat to run a skill. Built-in skills can be overridden by creating one with the same name.</div>
+    <input type="text" id="sk-name" placeholder="skill name (e.g. explain) — no spaces" />
+    <input type="text" id="sk-emoji" placeholder="emoji (optional, e.g. 🧠)" maxlength="4" />
+    <input type="text" id="sk-desc" placeholder="short description" />
+    <textarea id="sk-prompt" placeholder="Prompt text. Example: Act as a senior engineer and review:"></textarea>
+    <div class="row">
+      <button class="sec" id="sk-add">Add / Update Skill</button>
+    </div>
+    <div id="sk-list" style="margin-top:10px;"></div>
+  </div>
+
   <div class="row">
     <button class="sec" id="inj">Inject Active MCPs to Chat</button>
   </div>
 
+  <script src="skills.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 {
   "name": "deepseek-mcp-studio",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Connect DeepSeek Chat to any MCP server via a local bridge + Chrome extension.",
   "type": "module",
   "private": true,

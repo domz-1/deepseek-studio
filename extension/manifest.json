@@ -3,8 +3,13 @@
   "name": "DeepSeek MCP Studio",
   "short_name": "DS MCP",
   "description": "Connect DeepSeek Chat to real MCP tools (filesystem, bash, memory and more) through a local bridge. @mention tools, preview and run them with one click.",
-  "version": "1.0.0",
-  "permissions": ["storage", "activeTab", "scripting"],
+  "version": "1.1.0",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "unlimitedStorage"
+  ],
   "host_permissions": [
     "https://chat.deepseek.com/*",
     "http://localhost/*",
@@ -32,8 +37,13 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://chat.deepseek.com/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://chat.deepseek.com/*"
+      ],
+      "js": [
+        "skills.js",
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ]

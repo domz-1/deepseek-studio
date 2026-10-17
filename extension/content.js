@@ -238,6 +238,89 @@ function removeAutocomplete() {
   }
 }
 
+// ---- Skills slash-autocomplete ----
+let skillMenu = null;
+let loadedSkills = [];
+
+async function refreshSkills() {
+  try {
+    if (window.DSSkills) loadedSkills = await window.DSSkills.loadSkills();
+  } catch (_) {}
+}
+refreshSkills();
+
+function removeSkillMenu() {
+  if (skillMenu) {
+    skillMenu.remove();
+    skillMenu = null;
+  }
+}
+
+function showSkillAutocomplete(inputEl, query) {
+  removeSkillMenu();
+  removeAutocomplete();
+  if (!loadedSkills.length) return;
+  const q = (query || "").toLowerCase();
+  const opts = loadedSkills.filter(
+    (s) => !q || s.name.startsWith(q) || s.description.toLowerCase().includes(q),
+  );
+  if (!opts.length) return;
+
+  const menu = document.createElement("div");
+  skillMenu = menu;
+  menu.id = "deepseek-mcp-skillmenu";
+  menu.style.cssText = `
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 12px;
+    background: #181825;
+    border: 1px solid #45475a;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    z-index: 99999;
+    padding: 6px;
+    min-width: 260px;
+    max-height: 280px;
+    overflow-y: auto;
+    font-family: system-ui, sans-serif;
+    color: #cdd6f4;
+  `;
+
+  opts.forEach((s) => {
+    const item = document.createElement("div");
+    item.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    `;
+    item.innerHTML = `
+      <span style="font-size:14px;">${s.emoji}</span>
+      <span style="color:#cba6f7;font-weight:bold;">/${s.name}</span>
+      <span style="color:#a6adc8;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.description}</span>
+    `;
+    item.onmouseenter = () => (item.style.background = "#313244");
+    item.onmouseleave = () => (item.style.background = "transparent");
+    item.onmousedown = (e) => {
+      e.preventDefault();
+      const val = inputEl.value;
+      const newVal = val.replace(/\/[\w-]*$/, `/${s.name} `);
+      setInputValue(inputEl, newVal);
+      removeSkillMenu();
+    };
+    menu.appendChild(item);
+  });
+
+  const wrapper =
+    inputEl.closest("div.ds-textarea-wrapper") || inputEl.parentElement;
+  wrapper.style.position = "relative";
+  wrapper.appendChild(menu);
+}
+
+
 function showAutocomplete(inputEl, query) {
   removeAutocomplete();
   const availableServers = Object.keys(serverStatus).length
@@ -341,11 +424,17 @@ function attachInputMentionInterceptor() {
 
   input.addEventListener("input", () => {
     const val = input.value;
-    const match = val.match(/@([\w-]*)$/);
-    if (match) {
-      showAutocomplete(input, match[1]);
+    const slashMatch = val.match(/\/([\w-]*)$/);
+    const mentionMatch = val.match(/@([\w-]*)$/);
+    if (slashMatch) {
+      removeAutocomplete();
+      showSkillAutocomplete(input, slashMatch[1]);
+    } else if (mentionMatch) {
+      removeSkillMenu();
+      showAutocomplete(input, mentionMatch[1]);
     } else {
       removeAutocomplete();
+      removeSkillMenu();
     }
   });
 
@@ -354,12 +443,37 @@ function attachInputMentionInterceptor() {
     async (e) => {
       if (e.key === "Escape") {
         removeAutocomplete();
+        removeSkillMenu();
         return;
       }
 
       if (e.key === "Enter" && !e.shiftKey) {
         removeAutocomplete();
+        removeSkillMenu();
         const val = input.value.trim();
+
+        // ---- Skills: leading /skillname ----
+        if (window.DSSkills && loadedSkills.length) {
+          const sk = window.DSSkills.matchSkill(val, loadedSkills);
+          if (sk) {
+            e.preventDefault();
+            e.stopPropagation();
+            const expanded = window.DSSkills.expandSkill(sk.skill, sk.rest, loadedSkills);
+            if (sk.skill.prompt === "__HELP__") {
+              sendText(expanded, 300);
+            } else {
+              const mm = sk.rest.match(/(@[\w-]+)/i);
+              if (mm && activeTools.length) {
+                const sel = filterToolsByMention(mm[1], activeTools);
+                sendText(`${buildSysPrompt(sel)}\n[TASK]\n${expanded}`, 300);
+              } else {
+                sendText(expanded, 300);
+              }
+            }
+            return;
+          }
+        }
+
         const mentionMatch = val.match(/(@[\w-]+)/i);
         if (mentionMatch) {
           e.preventDefault();

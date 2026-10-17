@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-10-17
+
+### Added
+- **Skills system** — reusable prompt bundles triggered with a leading `/name`.
+  - 10 built-in skills: `/help`, `/explain`, `/review`, `/refactor`, `/tests`, `/debug`, `/commit`, `/summarize`, `/translate-ar`, `/translate-en`.
+  - Slash-autocomplete dropdown in the chat box.
+  - Custom skills managed from a new **Skills** tab in the popup (add / edit / delete), stored in `chrome.storage.local`.
+  - Skills combine with `@server` mentions.
+- New `extension/skills.js` engine.
+- `unlimitedStorage` permission.
+
+### Changed
+- `content.js` input handler now recognises both `@` and `/` triggers.
+- Popup reworked with three tabs: Servers, JSON, Skills.
+
 ## [1.0.0] - 2026-10-17
 
 ### Added
