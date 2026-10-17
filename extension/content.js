@@ -588,25 +588,41 @@ function getCustomProjects() {
   }
 }
 
+function isContextValid() {
+  return typeof chrome !== "undefined" && Boolean(chrome.runtime?.id);
+}
+
 function fetchAllProjects(cb) {
   const customs = getCustomProjects();
-  chrome.runtime.sendMessage({ type: "GET_PROJECTS" }, (res) => {
-    let list = [];
-    if (res?.ok && Array.isArray(res.data?.projects)) {
-      list = res.data.projects;
-      projectList = list;
-    }
-    const all = [...customs, ...list];
-    const seen = new Set();
-    const unique = [];
-    for (const item of all) {
-      if (!seen.has(item.path)) {
-        seen.add(item.path);
-        unique.push(item);
+  if (!isContextValid()) {
+    cb(customs);
+    return;
+  }
+  try {
+    chrome.runtime.sendMessage({ type: "GET_PROJECTS" }, (res) => {
+      if (chrome.runtime.lastError) {
+        cb(customs);
+        return;
       }
-    }
-    cb(unique);
-  });
+      let list = [];
+      if (res?.ok && Array.isArray(res.data?.projects)) {
+        list = res.data.projects;
+        projectList = list;
+      }
+      const all = [...customs, ...list];
+      const seen = new Set();
+      const unique = [];
+      for (const item of all) {
+        if (!seen.has(item.path)) {
+          seen.add(item.path);
+          unique.push(item);
+        }
+      }
+      cb(unique);
+    });
+  } catch (_) {
+    cb(customs);
+  }
 }
 
 function updateProjectLabel() {
