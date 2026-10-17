@@ -150,35 +150,43 @@
       id: "audit-structure",
       name: "audit-structure",
       description:
-        "Full codebase audit & refactor for clean modular architecture, numeric enums from file, Nuxt composables vs views, Flutter t-functions, and per-module translations.",
+        "Full enterprise codebase audit & refactoring across Node/Express, PHP, Vue/Nuxt, and Flutter. Enforces numeric file-based enums, clean modular architecture, composables, t-functions, and inline documentation.",
       prompt:
-        "Act as a Principal Software Architect. Conduct a comprehensive, multi-layer architecture and clean-code audit & refactoring plan across the entire workspace (Backend, Frontend, and Mobile/Flutter).\n\n" +
-        "CRITICAL RULES & STANDARDS TO ENFORCE:\n" +
-        "1. ENUMS INTEGRITY:\n" +
-        "   - ALL Enums must be centralized in dedicated enum definition files (e.g., `enums.ts`, `enums.dart`, `enums/`). Never define enums inline inside business or view files.\n" +
-        "   - ALL Enums MUST be numeric values (e.g., Status { Pending = 1, Active = 2, Inactive = 3 }), matching database/API schemas consistently across Backend, Frontend, and Mobile.\n\n" +
-        "2. MODULAR ARCHITECTURE & ISOLATION:\n" +
-        "   - Every feature/domain must be structured as an autonomous inner module inside the project.\n" +
-        "   - Module Localization: Each module must maintain its own dedicated translation files/keys (e.g., `modules/<feature>/locales/en.json`, `ar.json`). Never dump all strings into one giant root translation file.\n" +
-        "   - Identify and add ALL missing translation keys (English + Arabic).\n\n" +
-        "3. FRONTEND (VUE / NUXT / WEB):\n" +
-        "   - Separation of Concerns: Pages/Views must ONLY handle template structure, styles, and high-level component binding. Zero raw business logic in `.vue` page files!\n" +
-        "   - Composables: ALL reactive states, API queries, data transformations, and event handlers MUST reside in domain composables (e.g., `use<Feature>.ts`).\n" +
-        "   - Clean Utilities: Reuse shared utility functions from `/utils` rather than duplicate inline parsing/formatting.\n" +
-        "   - Maximum lines per file limit: Refactor any file exceeding 250 lines into sub-components and composables.\n\n" +
-        "4. MOBILE (FLUTTER / DART):\n" +
-        "   - Clean Localization: Always use translation functions (e.g. `tr()`, `t('key')`, `context.tr()`). Never hardcode raw string literals in UI widgets.\n" +
-        "   - Zero Emojis in Code: Never use literal emojis in source code or UI strings. Use SVG icons, Material/Cupertino Icons, or asset icon vectors.\n" +
-        "   - Clean widget hierarchy: Extract complex UI into clean, reusable atomic widgets.\n\n" +
-        "5. EXECUTION & VERIFICATION PROTOCOL:\n" +
-        "   - First, inspect the workspace directories and file structure using MCP filesystem tools.\n" +
-        "   - Produce a structured Markdown Audit Checklist:\n" +
-        "     [ ] Enums from File & Numeric Standardization\n" +
-        "     [ ] Modular Folder Structure & Per-Module Translation\n" +
-        "     [ ] Composables vs Views Separation\n" +
-        "     [ ] Mobile/Flutter Translation Functions & Icon Cleanup\n" +
-        "     [ ] Line-count compliance (< 250 lines) & Shared Utilities\n" +
-        "   - List exact files needing refactoring (`[MODIFY]`, `[NEW]`) with clear rationale and code snippets.\n\n" +
+        "Act as a Principal Enterprise Software Architect. Conduct a comprehensive, multi-layer clean-architecture audit and refactoring plan across the entire workspace (Backend [Node.js/Express & PHP], Frontend [Vue/Nuxt], and Mobile [Flutter]).\n\n" +
+        "CRITICAL ARCHITECTURAL STANDARDS TO ENFORCE:\n\n" +
+        "1. ENUMS INTEGRITY (NUMERIC & DEDICATED FILES):\n" +
+        "   - ALL Enums must reside exclusively in dedicated enum definition files (e.g., `enums.ts`, `Enums.php`, `enums.dart`, `types/enums/`). Never define enums inline inside controllers, routes, views, or business logic.\n" +
+        "   - ALL Enums MUST use explicit numeric values (e.g., Status { Pending = 1, Active = 2, Rejected = 3 } / enum Status: int { case Pending = 1; case Active = 2; }), synchronized identically across DB, Backend, Frontend, and Mobile schemas.\n\n" +
+        "2. BACKEND — NODE.JS & EXPRESS:\n" +
+        "   - Clean 3-Tier Layering: Strict separation: Controller (HTTP/Req/Res parsing) -> Service/UseCase (pure business logic) -> Repository/Model (data access). Never write database queries or business computations inside route handlers or controllers!\n" +
+        "   - Input Validation & Error Handling: Every endpoint must validate payload via schema (Zod/Joi) and pass unhandled errors to a centralized Express error middleware.\n" +
+        "   - Shared Utilities: Leverage reusable helpers from `/utils` (date formatting, currency, crypt, sanitization) instead of duplicate inline code.\n\n" +
+        "3. BACKEND — PHP / LARAVEL:\n" +
+        "   - Modern Clean PHP: Strict typing (`declare(strict_types=1);`), backed enums, and constructor promotion.\n" +
+        "   - Separation: Controllers must remain thin (delegate to Action/Service classes). Use FormRequests for validation and API Resources for JSON responses.\n" +
+        "   - Avoid raw DB calls: Encapsulate queries in Eloquent scopes, repositories, or query objects.\n\n" +
+        "4. FRONTEND — VUE 3 / NUXT:\n" +
+        "   - Zero Logic in Views: `.vue` page files must ONLY contain layout templates, styles, and high-level component bindings. Zero raw API fetches, computations, or state manipulation in page components!\n" +
+        "   - Composables: ALL reactive states, API queries, lifecycle watchers, and business mutations MUST reside in domain composables (e.g., `use<Feature>.ts`).\n" +
+        "   - Module Localization: Each module must store its own dedicated translation keys (e.g., `modules/<feature>/locales/en.json`, `ar.json`). Never dump all strings into one giant root file. Identify and add all missing Arabic & English keys.\n" +
+        "   - File Length Limit: Strictly refactor any file exceeding 250 lines into sub-components, composables, or atomic widgets.\n\n" +
+        "5. MOBILE — FLUTTER / DART:\n" +
+        "   - Clean Localization: Always use localization functions (e.g., `tr('key')`, `t('key')`, `context.tr()`). Strictly forbid raw hardcoded strings in UI widgets.\n" +
+        "   - Zero Emojis in Code: Never use literal emojis in source files or UI text. Use SVG vectors, Material/Cupertino Icons, or designated asset assets.\n" +
+        "   - Clean Component Hierarchy: Extract long build methods into reusable, atomic widgets with `const` constructors.\n\n" +
+        "6. COMPREHENSIVE DOCUMENTATION & TYPES:\n" +
+        "   - Every exported function, class, and service must include clear documentation (JSDoc for TypeScript/Node, PHPDoc for PHP, DartDoc for Flutter) explaining parameters, return values, and failure modes.\n\n" +
+        "7. EXECUTION & AUDIT CHECKLIST:\n" +
+        "   - Step 1: Use MCP filesystem tools to inspect the active workspace structure, packages, and code.\n" +
+        "   - Step 2: Present an Architecture Audit Checklist with status markers:\n" +
+        "     [ ] Centralized Numeric Enums from Dedicated Files\n" +
+        "     [ ] Backend (Node/PHP) Controller/Service/Repo Layering\n" +
+        "     [ ] Frontend (Vue/Nuxt) Composables vs Views Separation\n" +
+        "     [ ] Modular Architecture & Per-Module Translations (en/ar)\n" +
+        "     [ ] Mobile (Flutter) Translation Functions & Zero Emojis\n" +
+        "     [ ] File Size Limit Compliance (< 250 lines)\n" +
+        "     [ ] Inline Documentation (JSDoc/PHPDoc/DartDoc)\n" +
+        "   - Step 3: Provide concrete refactoring file actions (`[MODIFY]`, `[NEW]`) with production-ready code snippets.\n\n" +
         "Scope or target module to audit:",
       builtin: true,
     },
