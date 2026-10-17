@@ -271,15 +271,15 @@ function showSkillAutocomplete(inputEl, query) {
   const menu = document.createElement('div');
   skillMenu = menu;
   menu.id = 'deepseek-mcp-skillmenu';
-  menu.style.cssText = 'position:absolute;bottom:calc(100% + 8px);left:12px;background:#181825;border:1px solid #45475a;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.6);z-index:99999;padding:6px;min-width:260px;max-height:280px;overflow-y:auto;font-family:system-ui,sans-serif;color:#cdd6f4;';
+  menu.style.cssText = 'position:absolute;bottom:calc(100% + 8px);left:12px;background:#181825;border:1px solid #45475a;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.7);z-index:99999;padding:10px;width:460px;max-width:90vw;max-height:420px;overflow-y:auto;font-family:system-ui,sans-serif;color:#cdd6f4;';
 
   opts.forEach((s) => {
     const item = document.createElement('div');
-    item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:12px;';
+    item.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:8px;cursor:pointer;font-size:14px;min-height:44px;box-sizing:border-box;';
     item.innerHTML =
-      '<span style="font-size:14px;">' + s.emoji + '</span>' +
+      '<span style="font-size:20px;">' + s.emoji + '</span>' +
       '<span style="color:#cba6f7;font-weight:bold;">/' + s.name + '</span>' +
-      '<span style="color:#a6adc8;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (s.description || '') + '</span>';
+      '<span style="color:#a6adc8;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (s.description || '') + '</span>';
     item.onmouseenter = () => (item.style.background = '#313244');
     item.onmouseleave = () => (item.style.background = 'transparent');
     item.onmousedown = (e) => {
