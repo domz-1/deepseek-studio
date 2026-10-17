@@ -3,6 +3,7 @@ import cors from "cors";
 import fs from "fs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 
 const app = express();
 app.use(cors());
@@ -113,17 +114,16 @@ app.post("/call", async (req, res) => {
     const client = clients.get(target.serverName);
     const result = await client.callTool(
       { name, arguments: args },
+      CallToolResultSchema,
       { signal: abortController.signal },
     );
     res.json({ ...result, callId: activeId });
   } catch (err) {
     if (abortController.signal.aborted) {
-      res
-        .status(499)
-        .json({
-          error: `Task ${name} was cancelled by user`,
-          isCancelled: true,
-        });
+      res.status(499).json({
+        error: `Task ${name} was cancelled by user`,
+        isCancelled: true,
+      });
     } else {
       res.status(500).json({ error: err.message, isError: true });
     }
