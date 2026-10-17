@@ -1049,6 +1049,63 @@ function scanMessages() {
   });
 }
 
+// Auto-handle DeepSeek network/server Retry button
+let retryTimeout = null;
+let lastRetriedEl = null;
+
+function checkAndHandleRetryButton() {
+  if (!autoApprove) return;
+
+  // Search for Retry button or container
+  // DeepSeek renders Retry with an orange/yellow circle icon or button with text "Retry"
+  const buttons = Array.from(
+    document.querySelectorAll(
+      'button, div[role="button"], span[role="button"], div[class*="retry" i], button[class*="retry" i]',
+    ),
+  );
+
+  for (const btn of buttons) {
+    const text = (btn.textContent || "").trim().toLowerCase();
+    const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+    const title = (btn.getAttribute("title") || "").toLowerCase();
+
+    const isRetry =
+      text === "retry" ||
+      text.includes("retry") ||
+      aria.includes("retry") ||
+      title.includes("retry") ||
+      btn.classList.contains("ds-retry-button");
+
+    if (isRetry && btn !== lastRetriedEl && btn.offsetParent !== null) {
+      if (retryTimeout) return;
+
+      console.log(
+        "[DeepSeek Studio] Detected Retry button. Waiting 1 second before clicking...",
+      );
+      retryTimeout = setTimeout(() => {
+        retryTimeout = null;
+        lastRetriedEl = btn;
+        console.log("[DeepSeek Studio] Clicking Retry button now.");
+
+        btn.dispatchEvent(
+          new MouseEvent("pointerdown", { bubbles: true, cancelable: true }),
+        );
+        btn.dispatchEvent(
+          new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+        );
+        btn.dispatchEvent(
+          new MouseEvent("pointerup", { bubbles: true, cancelable: true }),
+        );
+        btn.dispatchEvent(
+          new MouseEvent("mouseup", { bubbles: true, cancelable: true }),
+        );
+        btn.click();
+      }, 1000);
+      return;
+    }
+  }
+}
+
 // Observer
 new MutationObserver(() => {
   clearTimeout(debounceTimer);
@@ -1056,6 +1113,7 @@ new MutationObserver(() => {
     scanMessages();
     attachInputMentionInterceptor();
     injectChatBadge();
+    checkAndHandleRetryButton();
   }, 200);
 }).observe(document.body, {
   childList: true,
@@ -1064,3 +1122,4 @@ new MutationObserver(() => {
 });
 
 scanMessages();
+checkAndHandleRetryButton();
