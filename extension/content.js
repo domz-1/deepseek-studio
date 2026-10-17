@@ -271,7 +271,7 @@ function showSkillAutocomplete(inputEl, query) {
   const menu = document.createElement('div');
   skillMenu = menu;
   menu.id = 'deepseek-mcp-skillmenu';
-  menu.style.cssText = 'position:absolute;bottom:calc(100% + 8px);left:12px;background:#181825;border:1px solid #45475a;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.7);z-index:99999;padding:10px;width:460px;max-width:90vw;max-height:420px;overflow-y:auto;font-family:system-ui,sans-serif;color:#cdd6f4;';
+  menu.style.cssText = 'position:fixed;background:#181825;border:1px solid #45475a;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.7);z-index:99999;padding:10px;width:460px;max-width:90vw;max-height:420px;overflow-y:auto;font-family:system-ui,sans-serif;color:#cdd6f4;';
 
   opts.forEach((s) => {
     const item = document.createElement('div');
@@ -292,9 +292,10 @@ function showSkillAutocomplete(inputEl, query) {
     menu.appendChild(item);
   });
 
-  const wrapper = inputEl.closest('div.ds-textarea-wrapper') || inputEl.parentElement;
-  wrapper.style.position = 'relative';
-  wrapper.appendChild(menu);
+  const rect = inputEl.getBoundingClientRect();
+  menu.style.left = rect.left + 'px';
+  menu.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+  document.body.appendChild(menu);
 }
 
 function showAutocomplete(inputEl, query) {
