@@ -54,70 +54,19 @@ function getChatInput() {
   );
 }
 
-// 1. Natural, non-repetitive prompt templates (rotates style to avoid looking like bot spam)
-const SYSTEM_PROMPT_STYLES = [
-  // Style A: Professional Developer Agent
-  (list) => `You have access to local developer environment tools (MCP):
-${list}
-
-Guidelines:
-1. Always communicate and answer in English or Arabic only. NEVER answer in Chinese.
-2. Only call the exact tool names listed above. Do not guess or invent unlisted tool names.
-3. Whenever you need to perform an action (read/write file, check git, or execute command), respond strictly with:
-\`\`\`json
-{
-  "mcp_call": true,
-  "name": "tool_name",
-  "arguments": {}
-}
-\`\`\`
-`,
-  // Style B: Natural Technical Assistant
-  (list) => `Connected tools on the user workstation:
-${list}
-
-Instructions:
-- Language: English or Arabic only (no Chinese).
-- Use only the declared tools above. For terminal commands use execute_command or bash.
-- Output JSON when invoking tools:
-\`\`\`json
-{"name": "tool_name", "arguments": {}}
-\`\`\`
-`,
-  // Style C: Direct Terminal Assistant
-  (list) => `Workspace tools active:
-${list}
-
-Rules:
-- Respond in the user's language (English or Arabic). Never use Chinese.
-- Call only the specified tools from the list above.
-- Invoke via JSON block:
-\`\`\`json
-{
-  "name": "tool_name",
-  "arguments": {}
-}
-\`\`\`
-`,
-];
-
-function buildSysPrompt(tools) {
-  const list = tools
-    .map(
-      (t) =>
-        `- [${t.server}] ${t.name}(${Object.keys(t.inputSchema?.properties || {}).join(", ")}): ${t.description?.slice(0, 80) || ""}`,
-    )
-    .join("\n");
-
-  // Rotate template randomly to avoid repetitive body signatures
-  const template =
-    SYSTEM_PROMPT_STYLES[
-      Math.floor(Math.random() * SYSTEM_PROMPT_STYLES.length)
-    ];
-  return template(list);
+// Check if DeepSeek is generating (looking for square stop icon in the send button area)
+function isDeepSeekGenerating() {
+  const input = getChatInput();
+  if (!input) return false;
+  const wrapper =
+    input.closest("div.ds-textarea-wrapper") ||
+    input.parentElement?.parentElement ||
+    document;
+  const stopSquare = wrapper.querySelector("svg rect");
+  return Boolean(stopSquare);
 }
 
-// React 18 compatible input setter
+// React 18 / Vue compatible text setter
 function setInputValue(el, text) {
   el.focus();
   const valueSetter = Object.getOwnPropertyDescriptor(
@@ -129,53 +78,61 @@ function setInputValue(el, text) {
   el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-// 2. Reliable Send with Retry, Button Triggering, and Rate-Limit Delay
-async function sendText(text, delayMs = 1200) {
-  if (isSending) {
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  isSending = true;
-
-  const el = getChatInput();
-  if (!el) {
-    isSending = false;
-    return;
-  }
-
-  setInputValue(el, text);
-
-  // Random humanized delay between 1.2s and 2.2s to prevent rate limiting / bans
-  const humanDelay = Math.max(delayMs, 1200) + Math.floor(Math.random() * 800);
-  await new Promise((r) => setTimeout(r, humanDelay));
-
-  // Find the send button
+// Find the blue arrow send button
+function getSendButton() {
+  const input = getChatInput();
+  if (!input) return null;
   const wrapper =
-    el.closest("div.ds-textarea-wrapper") ||
-    el.parentElement?.parentElement ||
+    input.closest("div.ds-textarea-wrapper") ||
+    input.parentElement?.parentElement ||
     document;
   const buttons = Array.from(
     wrapper.querySelectorAll('div[role="button"], button'),
   );
-  let sendBtn = null;
   for (const b of buttons) {
     const aria = (b.getAttribute("aria-label") || "").toLowerCase();
-    const title = (b.getAttribute("title") || "").toLowerCase();
     if (
       aria.includes("file") ||
       aria.includes("attach") ||
-      title.includes("file") ||
       b.querySelector('input[type="file"]')
     ) {
       continue;
     }
-    if (b.classList.contains("ds-icon-button") || b.querySelector("svg")) {
-      sendBtn = b;
+    // DeepSeek send button has svg with path arrow (or blue class)
+    if (b.classList.contains("ds-icon-button") || b.querySelector("svg path")) {
+      return b;
     }
   }
+  return null;
+}
 
-  if (sendBtn && !sendBtn.getAttribute("aria-disabled")) {
-    sendBtn.click();
-  } else {
+// Direct, instant, and reliable sender
+async function sendText(text) {
+  if (isSending) return;
+  isSending = true;
+
+  try {
+    const el = getChatInput();
+    if (!el) return;
+
+    // 1. Wait if currently streaming
+    let waited = 0;
+    while (isDeepSeekGenerating() && waited < 15000) {
+      await new Promise((r) => setTimeout(r, 400));
+      waited += 400;
+    }
+
+    // 2. Set value
+    setInputValue(el, text);
+    await new Promise((r) => setTimeout(r, 150));
+
+    // 3. Dispatch click on send button
+    const sendBtn = getSendButton();
+    if (sendBtn && !sendBtn.getAttribute("aria-disabled")) {
+      sendBtn.click();
+    }
+
+    // Also dispatch Enter on textarea to guarantee trigger
     el.dispatchEvent(
       new KeyboardEvent("keydown", {
         key: "Enter",
@@ -186,31 +143,74 @@ async function sendText(text, delayMs = 1200) {
         cancelable: true,
       }),
     );
-  }
 
-  // Check after 800ms if text is still in input (meaning rate limited or not sent)
-  setTimeout(() => {
-    isSending = false;
-    // Auto retry if blocked by rate limit
-    const retryBtn =
-      document.querySelector(
-        'div[role="button"]:has(span:contains("Retry"))',
-      ) || document.querySelector("div.ds-button:has(svg)");
-    const warning = document.body.textContent.includes("Messages too frequent");
-    if (warning && el.value) {
-      console.log("[MCP] Rate limit detected, will retry sending in 4s...");
-      setTimeout(() => {
-        sendText(el.value, 3000);
-      }, 4000);
+    // 4. Verification check after 500ms
+    await new Promise((r) => setTimeout(r, 500));
+    if (el.value.trim().length > 0) {
+      // If still not submitted, click again
+      const btnAgain = getSendButton();
+      if (btnAgain) btnAgain.click();
+      el.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          code: "Enter",
+          keyCode: 13,
+          bubbles: true,
+        }),
+      );
     }
-  }, 900);
+  } finally {
+    isSending = false;
+  }
+}
+
+// System prompts
+const SYSTEM_PROMPT_STYLES = [
+  (list) => `You have local workstation MCP tools:
+${list}
+
+Rules:
+1. Always respond in English or Arabic only. Never use Chinese.
+2. When you need to run a tool, output only this JSON block:
+\`\`\`json
+{
+  "mcp_call": true,
+  "name": "tool_name",
+  "arguments": {}
+}
+\`\`\`
+`,
+  (list) => `Workstation tools active:
+${list}
+
+Guidelines:
+- Respond in English or Arabic. Never use Chinese.
+- Call tools using JSON:
+\`\`\`json
+{"name": "tool_name", "arguments": {}}
+\`\`\`
+`,
+];
+
+function buildSysPrompt(tools) {
+  const list = tools
+    .map(
+      (t) =>
+        `- [${t.server}] ${t.name}(${Object.keys(t.inputSchema?.properties || {}).join(", ")}): ${t.description?.slice(0, 80) || ""}`,
+    )
+    .join("\n");
+  const template =
+    SYSTEM_PROMPT_STYLES[
+      Math.floor(Math.random() * SYSTEM_PROMPT_STYLES.length)
+    ];
+  return template(list);
 }
 
 // Popup injection
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === "INJECT_NOW" && msg.tools) {
     activeTools = msg.tools;
-    sendText(buildSysPrompt(msg.tools), 400);
+    sendText(buildSysPrompt(msg.tools));
   }
 });
 
@@ -238,14 +238,16 @@ function removeAutocomplete() {
   }
 }
 
-// ---- Skills slash-autocomplete ----
-let skillMenu = null;
+// ===================== SKILLS (/slash commands) =====================
 let loadedSkills = [];
+let skillMenu = null;
 
 async function refreshSkills() {
   try {
     if (window.DSSkills) loadedSkills = await window.DSSkills.loadSkills();
-  } catch (_) {}
+  } catch (e) {
+    console.warn('[MCP] skills load failed', e);
+  }
 }
 refreshSkills();
 
@@ -260,66 +262,40 @@ function showSkillAutocomplete(inputEl, query) {
   removeSkillMenu();
   removeAutocomplete();
   if (!loadedSkills.length) return;
-  const q = (query || "").toLowerCase();
+  const q = (query || '').toLowerCase();
   const opts = loadedSkills.filter(
-    (s) => !q || s.name.startsWith(q) || s.description.toLowerCase().includes(q),
+    (s) => !q || s.name.startsWith(q) || (s.description || '').toLowerCase().includes(q),
   );
   if (!opts.length) return;
 
-  const menu = document.createElement("div");
+  const menu = document.createElement('div');
   skillMenu = menu;
-  menu.id = "deepseek-mcp-skillmenu";
-  menu.style.cssText = `
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 12px;
-    background: #181825;
-    border: 1px solid #45475a;
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-    z-index: 99999;
-    padding: 6px;
-    min-width: 260px;
-    max-height: 280px;
-    overflow-y: auto;
-    font-family: system-ui, sans-serif;
-    color: #cdd6f4;
-  `;
+  menu.id = 'deepseek-mcp-skillmenu';
+  menu.style.cssText = 'position:absolute;bottom:calc(100% + 8px);left:12px;background:#181825;border:1px solid #45475a;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.6);z-index:99999;padding:6px;min-width:260px;max-height:280px;overflow-y:auto;font-family:system-ui,sans-serif;color:#cdd6f4;';
 
   opts.forEach((s) => {
-    const item = document.createElement("div");
-    item.style.cssText = `
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 7px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 12px;
-    `;
-    item.innerHTML = `
-      <span style="font-size:14px;">${s.emoji}</span>
-      <span style="color:#cba6f7;font-weight:bold;">/${s.name}</span>
-      <span style="color:#a6adc8;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.description}</span>
-    `;
-    item.onmouseenter = () => (item.style.background = "#313244");
-    item.onmouseleave = () => (item.style.background = "transparent");
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:12px;';
+    item.innerHTML =
+      '<span style="font-size:14px;">' + s.emoji + '</span>' +
+      '<span style="color:#cba6f7;font-weight:bold;">/' + s.name + '</span>' +
+      '<span style="color:#a6adc8;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (s.description || '') + '</span>';
+    item.onmouseenter = () => (item.style.background = '#313244');
+    item.onmouseleave = () => (item.style.background = 'transparent');
     item.onmousedown = (e) => {
       e.preventDefault();
       const val = inputEl.value;
-      const newVal = val.replace(/\/[\w-]*$/, `/${s.name} `);
+      const newVal = val.replace(/\/[\w-]*$/, '/' + s.name + ' ');
       setInputValue(inputEl, newVal);
       removeSkillMenu();
     };
     menu.appendChild(item);
   });
 
-  const wrapper =
-    inputEl.closest("div.ds-textarea-wrapper") || inputEl.parentElement;
-  wrapper.style.position = "relative";
+  const wrapper = inputEl.closest('div.ds-textarea-wrapper') || inputEl.parentElement;
+  wrapper.style.position = 'relative';
   wrapper.appendChild(menu);
 }
-
 
 function showAutocomplete(inputEl, query) {
   removeAutocomplete();
@@ -416,7 +392,7 @@ function showAutocomplete(inputEl, query) {
   wrapper.appendChild(menu);
 }
 
-// Input Listener: Detect @ typing and Enter submission
+// Input Listener
 function attachInputMentionInterceptor() {
   const input = getChatInput();
   if (!input || input.__mcpAttached) return;
@@ -460,14 +436,14 @@ function attachInputMentionInterceptor() {
             e.stopPropagation();
             const expanded = window.DSSkills.expandSkill(sk.skill, sk.rest, loadedSkills);
             if (sk.skill.prompt === "__HELP__") {
-              sendText(expanded, 300);
+              sendText(expanded);
             } else {
               const mm = sk.rest.match(/(@[\w-]+)/i);
               if (mm && activeTools.length) {
                 const sel = filterToolsByMention(mm[1], activeTools);
-                sendText(`${buildSysPrompt(sel)}\n[TASK]\n${expanded}`, 300);
+                sendText(buildSysPrompt(sel) + "\n" + expanded);
               } else {
-                sendText(expanded, 300);
+                sendText(expanded);
               }
             }
             return;
@@ -488,8 +464,8 @@ function attachInputMentionInterceptor() {
           const rawMention = mentionMatch[1];
           const selectedTools = filterToolsByMention(rawMention, activeTools);
           const userText = val.replace(new RegExp(rawMention, "gi"), "").trim();
-          const combined = `${buildSysPrompt(selectedTools)}\n[TASK]\n${userText}`;
-          sendText(combined, 300);
+          const combined = `${buildSysPrompt(selectedTools)}\n${userText}`;
+          sendText(combined);
         }
       }
     },
@@ -497,7 +473,7 @@ function attachInputMentionInterceptor() {
   );
 }
 
-// Floating Interactive Server Badges above input
+// Server badges
 function updateServerBadges() {
   const container = document.getElementById("deepseek-mcp-badge");
   if (!container) return;
@@ -595,7 +571,7 @@ function injectChatBadge() {
     `;
     autoToggle.innerHTML = `
       <input type="checkbox" id="mcp-auto-cb" ${autoApprove ? "checked" : ""} style="cursor:pointer;" />
-      <span>⚡ Auto-run (Paced)</span>
+      <span>⚡ Auto-run</span>
     `;
 
     autoToggle.querySelector("#mcp-auto-cb").onchange = (e) => {
@@ -614,17 +590,16 @@ function injectChatBadge() {
   updateServerBadges();
 }
 
-// Result formatting: English/Arabic only, natural wording
-const RESULT_TEMPLATES = [
+const HUMAN_RESULT_TEMPLATES = [
   (name, out) =>
-    `Output of ${name}:\n\`\`\`json\n${out}\n\`\`\`\nPlease review and proceed in English or Arabic.`,
+    `Output of ${name}:\n\`\`\`json\n${out}\n\`\`\`\nPlease check and proceed.`,
   (name, out) =>
-    `Execution result for ${name}:\n\`\`\`json\n${out}\n\`\`\`\nContinue solving the task.`,
+    `Results for ${name}:\n\`\`\`json\n${out}\n\`\`\`\nWhat is the next step?`,
   (name, out) =>
-    `Tool ${name} returned:\n\`\`\`json\n${out}\n\`\`\`\nWhat is the next step?`,
+    `Tool ${name} completed:\n\`\`\`json\n${out}\n\`\`\`\nProceed in English or Arabic.`,
 ];
 
-// Tool execution & feedback cards with anti-ban pacing
+// Tool execution & card rendering
 async function executeTool(payload, cardStatusEl) {
   if (cardStatusEl) {
     cardStatusEl.innerHTML = `<div style="color:#89b4fa;font-weight:bold;padding:4px;">⏳ Running <code>${payload.name}</code>...</div>`;
@@ -640,25 +615,23 @@ async function executeTool(payload, cardStatusEl) {
     if (!res.ok || data.isError) {
       throw new Error(data.error || "Execution failed");
     }
-    const out = JSON.stringify(data.content || data, null, 2).slice(0, 12000);
+    const out = JSON.stringify(data.content || data, null, 2).slice(0, 10000);
     if (cardStatusEl) {
       cardStatusEl.innerHTML = `<div style="color:#a6e3a1;font-weight:bold;padding:4px;">✓ Done: <code>${payload.name}</code></div>`;
     }
 
     const template =
-      RESULT_TEMPLATES[Math.floor(Math.random() * RESULT_TEMPLATES.length)];
+      HUMAN_RESULT_TEMPLATES[
+        Math.floor(Math.random() * HUMAN_RESULT_TEMPLATES.length)
+      ];
     const message = template(payload.name, out);
 
-    // Natural paced delay (1.8s ~ 2.8s) so DeepSeek doesn't flag "Messages too frequent"
-    await sendText(message, 1800);
+    await sendText(message);
   } catch (err) {
     if (cardStatusEl) {
       cardStatusEl.innerHTML = `<div style="color:#f38ba8;font-weight:bold;padding:4px;">❌ Error: ${err.message}</div>`;
     }
-    await sendText(
-      `Tool execution error for ${payload.name}: ${err.message}`,
-      1500,
-    );
+    await sendText(`Execution error on ${payload.name}: ${err.message}`);
   }
 }
 
@@ -706,18 +679,14 @@ function renderPermissionCard(targetEl, payload) {
 
   card.querySelector(".no").onclick = () => {
     controls.innerHTML = `<div style="color:#a6adc8;font-style:italic;padding:4px;">✕ Rejected: ${payload.name}</div>`;
-    sendText(
-      `The user skipped running "${payload.name}". Please proceed with other steps.`,
-      1000,
-    );
+    sendText(`I skipped "${payload.name}". Please continue.`);
   };
 
-  // Paced Auto-approve: wait 1.8s before executing
   if (autoApprove) {
-    controls.innerHTML = `<div style="color:#a6e3a1;font-size:12px;">⚡ Paced auto-run: executing <code>${payload.name}</code>...</div>`;
+    controls.innerHTML = `<div style="color:#a6e3a1;font-size:12px;">⚡ Auto-executing <code>${payload.name}</code>...</div>`;
     setTimeout(() => {
       executeTool(payload, controls);
-    }, 1800);
+    }, 400);
   }
 }
 
