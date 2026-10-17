@@ -256,42 +256,22 @@ async function sendText(text) {
     let sendBtn = getSendButton();
     if (sendBtn) {
       triggerClick(sendBtn);
+    } else {
+      // Fallback only if no send button element found
+      el.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          code: "Enter",
+          keyCode: 13,
+          which: 13,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
     }
 
-    // Also trigger native Enter key event
-    el.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "Enter",
-        code: "Enter",
-        keyCode: 13,
-        which: 13,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
-    el.dispatchEvent(
-      new KeyboardEvent("keypress", {
-        key: "Enter",
-        code: "Enter",
-        keyCode: 13,
-        which: 13,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
-    el.dispatchEvent(
-      new KeyboardEvent("keyup", {
-        key: "Enter",
-        code: "Enter",
-        keyCode: 13,
-        which: 13,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
-
-    // If still not empty after 350ms, try clicking the button again
-    await new Promise((r) => setTimeout(r, 350));
+    // Wait and verify input cleared
+    await new Promise((r) => setTimeout(r, 300));
     if (el.value.trim().length > 0) {
       sendBtn = getSendButton();
       if (sendBtn) {
@@ -762,6 +742,7 @@ function renderPermissionCard(
   };
 
   if (autoApprove) {
+    if (callKey) executedCalls.add(callKey);
     controls.innerHTML = `<div style="color:#a6e3a1;font-size:12px;">⚡ Auto-executing <code>${payload.name}</code>...</div>`;
     setTimeout(() => {
       executeTool(payload, controls, callKey);

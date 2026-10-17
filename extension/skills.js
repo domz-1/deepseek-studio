@@ -166,13 +166,28 @@
     const lines = skills.map(
       (s) => "- `/" + s.name + "` " + s.emoji + " — " + s.description,
     );
-    return ["**Available skills** — type `/name` then your message:", ""]
-      .concat(lines)
-      .concat([
-        "",
-        "Tip: `/skillname` alone shows the skill; add text after it to run it on that text. Skills combine with `@server` mentions.",
-      ])
-      .join("\n");
+    return [
+      "### 🛠️ DeepSeek Workstation & MCP Tools Guide",
+      "",
+      "**Available Skills:**",
+      lines.join("\n"),
+      "",
+      "---",
+      "### 🚀 How to Work with Projects & Code:",
+      "1. **Explore & See Existing Projects:**",
+      '   - Type `@filesystem /explain list projects` or ask DeepSeek: `"List all projects and folders in /home/adham/projects"`.',
+      "   - DeepSeek will automatically invoke `list_directory` or `bash` (`ls -la /home/adham/projects`).",
+      "",
+      "2. **Create a New Project:**",
+      '   - Ask DeepSeek: `"Create a new project named my-app in /home/adham/projects with Bun"`.',
+      "   - DeepSeek will use `@bash` to run `mkdir -p /home/adham/projects/my-app && cd /home/adham/projects/my-app && bun init -y`.",
+      "",
+      "3. **Combine Skills & MCP Servers:**",
+      "   - Combine any skill with server mentions, e.g.: `@filesystem /review analyze index.js` or `@bash /tests write unit tests for app.ts`.",
+      "   - Use `@all` to give DeepSeek access to all workstation tools (Filesystem, Bash execution, and Memory).",
+      "",
+      "💡 *Tip: Toggle the **⚡ Auto-run** checkbox above the input to let safe actions execute automatically!*",
+    ].join("\n");
   }
 
   function matchSkill(text, skills) {

@@ -4,30 +4,24 @@
       "command": "bunx",
       "args": [
         "@modelcontextprotocol/server-filesystem",
-        "."
+        "/home/adham/projects",
+        "/home/adham"
       ],
       "enabled": true
     },
     "bash": {
       "command": "bun",
-      "args": [
-        "./command-server.js"
-      ],
+      "args": ["./command-server.js"],
       "enabled": true
     },
     "memory": {
       "command": "bunx",
-      "args": [
-        "@modelcontextprotocol/server-memory"
-      ],
+      "args": ["@modelcontextprotocol/server-memory"],
       "enabled": true
     },
     "context7": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@upstash/context7-mcp"
-      ],
+      "args": ["-y", "@upstash/context7-mcp"],
       "enabled": false
     }
   }
