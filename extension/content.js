@@ -978,13 +978,15 @@ function scanMessages() {
 
     // 1. Check for interactive Grill-Me Question JSON
     if (
-      text.includes("grill_question") &&
+      (text.includes("grill_question") || text.includes('"questions"')) &&
       window.DSTools.extractGrillQuestion
     ) {
       const grillData = window.DSTools.extractGrillQuestion(text);
-      if (grillData && grillData.question) {
+      if (grillData && (grillData.question || grillData.questions)) {
         el.setAttribute("data-mcp-attached", "true");
-        const callKey = `grill:${grillData.question.slice(0, 80)}`;
+        const qTitle =
+          grillData.question || grillData.questions[0]?.question || "multi";
+        const callKey = `grill:${qTitle.slice(0, 80)}`;
         const parentMsg = el.closest(
           "div.ds-message, div._4f9bf79, div.ds-markdown",
         );
