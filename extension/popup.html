@@ -5,7 +5,7 @@
   <link rel="stylesheet" href="theme.css">
   <style>
     body { width: 380px; margin: 0; padding: 12px; background: var(--ds-bg-base); color: var(--ds-fg); font-family: system-ui, sans-serif; font-size: 12px; }
-    .hdr { display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: var(--ds-brand); margin-bottom: 10px; }
+    .hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .tabs { display: flex; gap: 4px; margin-bottom: 10px; background: var(--ds-bg-inset); padding: 4px; border-radius: 8px; }
     .tab { flex: 1; text-align: center; padding: 6px; border-radius: 6px; cursor: pointer; font-weight: 600; color: var(--ds-fg-muted); font-size: 11px; }
     .tab.active { background: var(--ds-bg-hover); color: var(--ds-accent); }
@@ -15,16 +15,16 @@
     .skill-card { background: var(--ds-bg-inset); padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; border: 1px solid var(--ds-bg-hover); }
     .skill-card .nm { color: var(--ds-brand); font-weight: 700; }
     .skill-card .ds { color: var(--ds-fg-muted); font-size: 10px; margin: 2px 0 4px; }
-    .skill-card .pr { color: var(--ds-success); font-size: 10px; font-family: monospace; max-height: 32px; overflow: hidden; }
+    .skill-card .pr { color: var(--ds-accent); font-size: 10px; font-family: monospace; max-height: 32px; overflow: hidden; }
     .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; background: var(--ds-danger); }
-    .dot.on { background: var(--ds-success); box-shadow: 0 0 6px var(--ds-success); }
-    textarea, input[type=text], select { width: 100%; box-sizing: border-box; background: var(--ds-bg-inset); color: var(--ds-success); border: 1px solid var(--ds-border); border-radius: 6px; padding: 8px; font-family: monospace; font-size: 11px; }
+    .dot.on { background: var(--ds-accent); box-shadow: 0 0 6px var(--ds-accent); }
+    textarea, input[type=text], select { width: 100%; box-sizing: border-box; background: var(--ds-bg-inset); color: var(--ds-fg); border: 1px solid var(--ds-border); border-radius: 6px; padding: 8px; font-family: monospace; font-size: 11px; }
     textarea { height: 160px; }
     input[type=text], select { height: 28px; margin-bottom: 6px; }
     .row { display: flex; gap: 6px; margin-top: 10px; }
     button { flex: 1; padding: 8px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 11px; }
     .pri { background: var(--ds-accent); color: var(--ds-bg-inset); }
-    .sec { background: var(--ds-success); color: var(--ds-bg-inset); }
+    .sec { background: var(--ds-accent); color: #fff; }
     .dang { background: var(--ds-danger); color: var(--ds-bg-inset); flex: 0 0 auto; padding: 4px 8px; }
     .mini { background: var(--ds-border); color: var(--ds-fg); flex: 0 0 auto; padding: 4px 8px; }
     .muted { color:var(--ds-fg-muted); font-size:10px; margin: 4px 0 8px; }
@@ -32,7 +32,10 @@
 </head>
 <body>
   <div class="hdr">
-    <span><span class="ds-ic" data-ic="zap"></span> DeepSeek MCP Studio</span>
+    <span class="ds-brand-name">
+      <span class="ds-logo"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l7 4v10l-7 4-7-4V7l7-4z" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.6" fill="#fff"/></svg></span>
+      DeepSeek Studio
+    </span>
     <span id="tot" class="ds-tot">0 tools</span>
   </div>
 

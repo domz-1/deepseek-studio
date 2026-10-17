@@ -15,7 +15,8 @@
   --ds-fg: #ececf1;
   --ds-fg-muted: #9a9aa8;
 
-  --ds-success: #4ade80;
+  --ds-success: #38bdf8;
+  --ds-brand-grad: linear-gradient(135deg, #4d6bfe 0%, #8b7cf6 100%);
   --ds-danger: #f87171;
   --ds-warn: #fbbf24;
 
@@ -97,7 +98,7 @@
 .ds-pill .ds-count { color: var(--ds-fg-muted); font-size: 10px; }
 .ds-dot {
   width: 7px; height: 7px; border-radius: 50%;
-  background: var(--ds-success); box-shadow: 0 0 6px var(--ds-success);
+  background: var(--ds-accent); box-shadow: 0 0 6px var(--ds-accent);
 }
 
 /* ---- Running-task chip ---- */
@@ -140,7 +141,7 @@
 .ds-card-head .ds-title { display: flex; align-items: center; gap: 8px; }
 .ds-card-code {
   background: var(--ds-bg-inset); padding: 4px 10px;
-  border-radius: var(--ds-radius-sm); color: var(--ds-success);
+  border-radius: var(--ds-radius-sm); color: var(--ds-accent);
   font-family: var(--ds-mono); font-size: 12px;
 }
 .ds-card-label { font-size: 11px; color: var(--ds-fg-muted); margin-bottom: 6px; }
@@ -162,7 +163,7 @@
 }
 .ds-btn:hover { filter: brightness(1.1); }
 .ds-btn:active { transform: scale(.97); }
-.ds-btn-ok { background: var(--ds-success); color: var(--ds-bg-inset); }
+.ds-btn-ok { background: var(--ds-accent); color: #fff; }
 .ds-btn-no { background: var(--ds-danger); color: var(--ds-bg-inset); }
 .ds-btn-xs { padding: 3px 10px; font-size: 10px; }
 .ds-btn-sm { padding: 4px 12px; font-size: 11px; }
@@ -178,8 +179,22 @@
 .ds-note-accent { color: var(--ds-accent); }
 .ds-note-danger { color: var(--ds-danger); }
 
+/* ---- Brand ---- */
+.ds-logo {
+  width: 22px; height: 22px; flex: 0 0 auto;
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-brand-grad);
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 10px var(--ds-blue-soft);
+}
+.ds-logo svg { width: 14px; height: 14px; display: block; }
+.ds-brand-name {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-weight: 800; letter-spacing: -0.01em; color: var(--ds-fg);
+}
+
 /* ---- Popup helpers ---- */
-.ds-tot { color: var(--ds-success); font-size: 11px; }
+.ds-tot { color: var(--ds-accent); font-size: 11px; font-weight: 600; }
 .ds-token-row { display: flex; gap: 6px; margin-bottom: 10px; }
 .ds-token-row #token-in { margin-bottom: 0; }
 .ds-token-btn { flex: 0 0 auto; padding: 6px 10px; }
@@ -192,7 +207,7 @@
   font-size: 10px; color: var(--ds-fg-muted); margin-left: 14px;
 }
 .ds-srv-check { cursor: pointer; width: 16px; height: 16px; }
-.ds-flag-custom { color: var(--ds-success); font-size: 9px; }
+.ds-flag-custom { color: var(--ds-accent); font-size: 9px; }
 .ds-flag-builtin { color: var(--ds-fg-muted); font-size: 9px; }
 .ds-row-tight { margin-top: 6px; }
 
@@ -263,7 +278,7 @@
 }
 .ds-grill-submit:hover { filter: brightness(1.08); }
 .ds-grill-submit:active { transform: scale(.97); }
-.ds-grill-answered { color: var(--ds-success); font-weight: 700; padding: 6px; display: flex; align-items: center; gap: 6px; }
+.ds-grill-answered { color: var(--ds-accent); font-weight: 700; padding: 6px; display: flex; align-items: center; gap: 6px; }
 
 /* ---- Floating menus ---- */
 .ds-menu {
@@ -288,7 +303,7 @@
 .ds-menu-label { color: var(--ds-accent); font-weight: 700; }
 .ds-menu-desc { font-size: 10px; color: var(--ds-fg-muted); }
 .ds-menu-count {
-  background: var(--ds-bg-hover); color: var(--ds-success);
+  background: var(--ds-blue-soft); color: var(--ds-accent);
   padding: 1px 8px; border-radius: var(--ds-radius-pill);
   font-size: 10px; font-weight: 700;
 }
@@ -325,7 +340,7 @@
 .ds-file-row:hover { background: var(--ds-bg-hover); }
 .ds-file-meta { display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
 .ds-file-name {
-  color: var(--ds-success); font-weight: 600; white-space: nowrap;
+  color: var(--ds-accent); font-weight: 600; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
   display: inline-flex; align-items: center; gap: 5px;
 }
