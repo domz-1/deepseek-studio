@@ -218,7 +218,7 @@ function getSendButton() {
 }
 
 // Reliable message sender
-async function sendText(text) {
+async function sendText(text, isUserInput = false) {
   if (isSending) return;
   isSending = true;
 
@@ -226,14 +226,21 @@ async function sendText(text) {
     const el = getChatInput();
     if (!el) return;
 
-    let waited = 0;
-    while (isDeepSeekGenerating() && waited < 15000) {
-      await new Promise((r) => setTimeout(r, 400));
-      waited += 400;
+    // For background automated tool results, wait if DeepSeek is generating.
+    // For direct user Enter, send immediately with zero delay/rate-limit restrictions!
+    if (!isUserInput) {
+      let waited = 0;
+      while (isDeepSeekGenerating() && waited < 15000) {
+        await new Promise((r) => setTimeout(r, 400));
+        waited += 400;
+      }
     }
 
     setInputValue(el, text);
-    await new Promise((r) => setTimeout(r, 100));
+    // Instant click without delay
+    if (!isUserInput) {
+      await new Promise((r) => setTimeout(r, 80));
+    }
 
     // Helper to click element with all mouse events
     const triggerClick = (target) => {
@@ -394,7 +401,7 @@ function attachInputMentionInterceptor() {
               prompt = `${window.DSTools.buildSysPrompt(selectedTools)}\n${prompt}`;
             }
 
-            sendText(prompt);
+            sendText(prompt, true);
             return;
           }
         }
@@ -418,7 +425,7 @@ function attachInputMentionInterceptor() {
             .replace(new RegExp(activeMention, "gi"), "")
             .trim();
           const combined = `${window.DSTools.buildSysPrompt(selectedTools)}\n${userText}`;
-          sendText(combined);
+          sendText(combined, true);
         }
       }
     },
