@@ -274,7 +274,7 @@
 .ds-project-wrap:focus-within {
   border-color: var(--ds-accent);
 }
-.ds-project-select {
+.ds-project-trigger {
   background: transparent;
   color: var(--ds-fg);
   border: none;
@@ -283,18 +283,66 @@
   font-weight: 500;
   cursor: pointer;
   outline: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   max-width: 170px;
   padding: 0 4px;
   height: 100%;
-  appearance: auto;
-  -webkit-appearance: menulist;
-  position: relative;
-  z-index: 10;
 }
-.ds-project-select option {
-  background: #181825 !important;
-  color: #cdd6f4 !important;
-  padding: 6px 10px;
+.ds-project-trigger:hover {
+  color: var(--ds-accent);
+}
+.ds-project-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ds-project-dropdown-menu {
+  width: 280px !important;
+  max-height: 360px !important;
+  padding: 8px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+.ds-project-dropdown-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-bottom: 1px solid var(--ds-bg-hover);
+  padding-bottom: 6px;
+}
+.ds-project-dropdown-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ds-brand);
+}
+.ds-project-search {
+  background: var(--ds-bg-inset) !important;
+  border: 1px solid var(--ds-bg-hover) !important;
+  border-radius: var(--ds-radius-sm) !important;
+  color: var(--ds-fg) !important;
+  font-family: var(--ds-font) !important;
+  font-size: 11px !important;
+  padding: 5px 8px !important;
+  outline: none !important;
+}
+.ds-project-search:focus {
+  border-color: var(--ds-accent) !important;
+}
+.ds-project-dropdown-list {
+  overflow-y: auto;
+  max-height: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ds-project-dropdown-item {
+  padding: 6px 8px !important;
 }
 .ds-project-btn {
   display: inline-flex;

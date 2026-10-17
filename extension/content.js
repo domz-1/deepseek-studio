@@ -578,25 +578,24 @@ function showAddProjectModal(onConfirm) {
   };
 }
 
-function populateProjectsDropdown(force = false) {
-  const projSelect = document.getElementById("mcp-project-select");
-  if (!projSelect) return;
-  if (!force && projSelect.options.length > 1) return;
-
-  let customs = [];
+function getCustomProjects() {
   try {
-    customs = JSON.parse(
+    return JSON.parse(
       localStorage.getItem("deepseek_mcp_custom_projects") || "[]",
     );
-  } catch (_) {}
+  } catch (_) {
+    return [];
+  }
+}
 
+function fetchAllProjects(cb) {
+  const customs = getCustomProjects();
   chrome.runtime.sendMessage({ type: "GET_PROJECTS" }, (res) => {
     let list = [];
     if (res?.ok && Array.isArray(res.data?.projects)) {
       list = res.data.projects;
       projectList = list;
     }
-    // Merge custom added projects
     const all = [...customs, ...list];
     const seen = new Set();
     const unique = [];
@@ -606,46 +605,62 @@ function populateProjectsDropdown(force = false) {
         unique.push(item);
       }
     }
-
-    if (unique.length > 0) {
-      projSelect.innerHTML = unique
-        .map(
-          (p) =>
-            `<option value="${p.path}" ${p.path === selectedProject ? "selected" : ""}>${p.name.replace(/^⭐\s*/, "")}</option>`,
-        )
-        .join("");
-    }
+    cb(unique);
   });
 }
 
+function updateProjectLabel() {
+  const label = document.getElementById("mcp-project-label");
+  if (!label) return;
+  const name = selectedProject
+    ? selectedProject.split("/").filter(Boolean).pop() || selectedProject
+    : "Select Project";
+  label.textContent = name;
+  label.title = selectedProject;
+}
+
 function injectSidebarProjectFilter() {
-  // DeepSeek left sidebar container:
-  // Usually contains the "New chat" button and chat history list
-  const newChatBtn = Array.from(
-    document.querySelectorAll("button, div[role='button']"),
-  ).find((el) => (el.textContent || "").toLowerCase().includes("new chat"));
+  // Try several selectors to find DeepSeek's sidebar or New Chat button
+  let newChatBtn = Array.from(
+    document.querySelectorAll("button, div[role='button'], a"),
+  ).find((el) => {
+    const text = (el.textContent || "").trim().toLowerCase();
+    const aria = (el.getAttribute("aria-label") || "").toLowerCase();
+    return text.includes("new chat") || aria.includes("new chat");
+  });
 
   let sidebar = null;
   let insertBeforeNode = null;
 
   if (newChatBtn) {
-    // Find the list/scroll container right below or inside the parent
-    const parentContainer =
-      newChatBtn.closest(
-        "div[class*='sidebar'], aside, nav, div[class*='left']",
-      ) || newChatBtn.parentElement?.parentElement;
-    if (parentContainer) {
-      sidebar = parentContainer;
-      // We want to place the Workspaces filter right below the New chat button container!
-      insertBeforeNode =
-        newChatBtn.parentElement?.nextElementSibling ||
-        newChatBtn.nextElementSibling;
+    // Walk up to find a container that has siblings or houses the chat history
+    let curr = newChatBtn.parentElement;
+    for (let depth = 0; depth < 5 && curr; depth++) {
+      if (
+        curr.tagName === "ASIDE" ||
+        curr.tagName === "NAV" ||
+        curr.classList.contains("ds-sidebar") ||
+        curr.querySelector("div[class*='history'], nav, aside")
+      ) {
+        sidebar = curr;
+        break;
+      }
+      curr = curr.parentElement;
     }
+    if (!sidebar && newChatBtn.parentElement?.parentElement) {
+      sidebar = newChatBtn.parentElement.parentElement;
+    }
+    insertBeforeNode =
+      newChatBtn.parentElement?.nextElementSibling ||
+      newChatBtn.nextElementSibling;
   }
 
   if (!sidebar) {
     sidebar =
-      document.querySelector("div.ds-sidebar, nav[class*='sidebar'], aside") ||
+      document.querySelector("aside") ||
+      document.querySelector("nav") ||
+      document.querySelector("div[class*='sidebar']") ||
+      document.querySelector("div[class*='left']") ||
       document.querySelector("div[class*='chat-history']");
   }
 
@@ -676,6 +691,18 @@ function injectSidebarProjectFilter() {
     filterWrap.appendChild(head);
     filterWrap.appendChild(chips);
 
+    const allBtn = head.querySelector("#ds-sidebar-all-projects");
+    if (allBtn) {
+      allBtn.onclick = () => {
+        selectedProject = "";
+        localStorage.setItem("deepseek_mcp_selected_project", "");
+        updateProjectLabel();
+        chips
+          .querySelectorAll(".ds-sidebar-chip")
+          .forEach((b) => b.classList.remove("is-active"));
+      };
+    }
+
     if (insertBeforeNode && insertBeforeNode.parentElement === sidebar) {
       sidebar.insertBefore(filterWrap, insertBeforeNode);
     } else {
@@ -686,32 +713,30 @@ function injectSidebarProjectFilter() {
   const chipsContainer = document.getElementById("ds-sidebar-chips");
   if (!chipsContainer || chipsContainer.children.length > 0) return;
 
-  chrome.runtime.sendMessage({ type: "GET_PROJECTS" }, (res) => {
-    if (res?.ok && Array.isArray(res.data?.projects)) {
-      const projects = res.data.projects.slice(0, 10);
-      chipsContainer.innerHTML = projects
-        .map((p) => {
-          const isActive = p.path === selectedProject;
-          const short = p.name.split("/").pop();
-          return `<button class="ds-sidebar-chip ${isActive ? "is-active" : ""}" data-path="${p.path}" title="${p.path}" type="button">${short}</button>`;
-        })
-        .join("");
+  fetchAllProjects((unique) => {
+    const projects = unique.slice(0, 10);
+    chipsContainer.innerHTML = projects
+      .map((p) => {
+        const isActive = p.path === selectedProject;
+        const short = p.name
+          .replace(/^⭐\s*/, "")
+          .split("/")
+          .pop();
+        return `<button class="ds-sidebar-chip ${isActive ? "is-active" : ""}" data-path="${p.path}" title="${p.path}" type="button">${short}</button>`;
+      })
+      .join("");
 
-      chipsContainer.querySelectorAll(".ds-sidebar-chip").forEach((btn) => {
-        btn.onclick = () => {
-          selectedProject = btn.dataset.path;
-          localStorage.setItem(
-            "deepseek_mcp_selected_project",
-            selectedProject,
-          );
-          chipsContainer
-            .querySelectorAll(".ds-sidebar-chip")
-            .forEach((b) => b.classList.remove("is-active"));
-          btn.classList.add("is-active");
-          populateProjectsDropdown(true);
-        };
-      });
-    }
+    chipsContainer.querySelectorAll(".ds-sidebar-chip").forEach((btn) => {
+      btn.onclick = () => {
+        selectedProject = btn.dataset.path;
+        localStorage.setItem("deepseek_mcp_selected_project", selectedProject);
+        chipsContainer
+          .querySelectorAll(".ds-sidebar-chip")
+          .forEach((b) => b.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        updateProjectLabel();
+      };
+    });
   });
 }
 
@@ -733,21 +758,40 @@ function injectChatBadge() {
     wrap = document.createElement("div");
     wrap.id = "deepseek-mcp-badge";
     wrap.className = "ds-badge-bar";
-    wrap.innerHTML = window.DSComponents.badgeBar({ autoApprove });
+    wrap.innerHTML = window.DSComponents.badgeBar({ selectedProject });
 
-    const autoInput = wrap.querySelector("#mcp-auto-approve");
-    if (autoInput) {
-      autoInput.onchange = (e) => {
-        autoApprove = e.target.checked;
-        localStorage.setItem("deepseek_mcp_auto_approve", autoApprove);
-      };
-    }
-
-    const projSelect = wrap.querySelector("#mcp-project-select");
-    if (projSelect) {
-      projSelect.onchange = (e) => {
-        selectedProject = e.target.value;
-        localStorage.setItem("deepseek_mcp_selected_project", selectedProject);
+    const projTrigger = wrap.querySelector("#mcp-project-trigger");
+    if (projTrigger) {
+      projTrigger.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        fetchAllProjects((projects) => {
+          if (window.DSUI?.showProjectMenu) {
+            window.DSUI.showProjectMenu(
+              projTrigger,
+              projects,
+              selectedProject,
+              (chosen) => {
+                selectedProject = chosen.path;
+                localStorage.setItem(
+                  "deepseek_mcp_selected_project",
+                  selectedProject,
+                );
+                updateProjectLabel();
+                // Sync sidebar chips
+                const chips = document.getElementById("ds-sidebar-chips");
+                if (chips) {
+                  chips.querySelectorAll(".ds-sidebar-chip").forEach((b) => {
+                    b.classList.toggle(
+                      "is-active",
+                      b.dataset.path === selectedProject,
+                    );
+                  });
+                }
+              },
+            );
+          }
+        });
       };
     }
 
@@ -757,12 +801,7 @@ function injectChatBadge() {
         showAddProjectModal((cleanPath) => {
           if (!cleanPath) return;
           const name = cleanPath.split("/").filter(Boolean).pop() || cleanPath;
-          let customs = [];
-          try {
-            customs = JSON.parse(
-              localStorage.getItem("deepseek_mcp_custom_projects") || "[]",
-            );
-          } catch (_) {}
+          let customs = getCustomProjects();
           if (!customs.find((c) => c.path === cleanPath)) {
             customs.unshift({ name: `⭐ ${name}`, path: cleanPath });
             localStorage.setItem(
@@ -775,7 +814,11 @@ function injectChatBadge() {
             "deepseek_mcp_selected_project",
             selectedProject,
           );
-          populateProjectsDropdown(true);
+          updateProjectLabel();
+          // Force re-render of sidebar chips
+          const filter = document.getElementById("ds-sidebar-project-filter");
+          if (filter) filter.remove();
+          injectSidebarProjectFilter();
         });
       };
     }
@@ -783,8 +826,7 @@ function injectChatBadge() {
     targetParent.parentElement.insertBefore(wrap, targetParent);
   }
 
-  populateProjectsDropdown();
-
+  updateProjectLabel();
   updateServerBadges();
   updateTaskBadge();
 

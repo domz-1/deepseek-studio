@@ -42,14 +42,18 @@
   }
 
   function badgeBar({ selectedProject }) {
+    const projName = selectedProject
+      ? selectedProject.split("/").pop()
+      : "Select Project";
     return `
       <div class="ds-pills" id="mcp-server-pills"></div>
       <div class="ds-task" id="mcp-task-indicator"></div>
       <div class="ds-project-wrap" style="display:inline-flex;align-items:center;gap:6px;margin-left:auto;">
-        <span class="ds-ic" data-ic="folder" style="color:var(--ds-accent);font-size:12px;"></span>
-        <select class="ds-project-select" id="mcp-project-select" title="Active Project">
-          <option value="">Select Project...</option>
-        </select>
+        <button class="ds-project-trigger" id="mcp-project-trigger" type="button" title="Select active workspace">
+          <span class="ds-ic" data-ic="folder" style="color:var(--ds-accent);font-size:12px;"></span>
+          <span class="ds-project-label" id="mcp-project-label">${projName}</span>
+          <span class="ds-ic" data-ic="arrowRight" style="font-size:9px;transform:rotate(90deg);opacity:0.7;"></span>
+        </button>
         <button class="ds-project-btn" id="mcp-add-project-btn" type="button" title="Add custom project path">
           ${ic("plus")} Add
         </button>

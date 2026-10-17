@@ -180,10 +180,143 @@
     document.body.appendChild(menu);
   }
 
+  // ---- Project picker menu -----------------------------------------------
+  let projectMenu = null;
+  function removeProjectMenu() {
+    if (projectMenu) {
+      projectMenu.remove();
+      projectMenu = null;
+    }
+  }
+
+  function showProjectMenu(anchorEl, projects, selectedPath, onSelect) {
+    removeProjectMenu();
+    removeAutocomplete();
+    removeSkillMenu();
+
+    const menu = document.createElement("div");
+    projectMenu = menu;
+    menu.id = "deepseek-mcp-project-menu";
+    menu.className = "ds-menu ds-project-dropdown-menu";
+
+    // Position above or below anchorEl
+    const rect = anchorEl.getBoundingClientRect();
+    const width = Math.max(260, rect.width + 40);
+    const left = Math.max(
+      12,
+      Math.min(rect.left, window.innerWidth - width - 20),
+    );
+    menu.style.left = `${left}px`;
+    menu.style.width = `${width}px`;
+
+    // Try opening upwards first if near bottom
+    const spaceBelow = window.innerHeight - rect.bottom;
+    if (spaceBelow < 280 && rect.top > 280) {
+      menu.style.bottom = `${window.innerHeight - rect.top + 6}px`;
+    } else {
+      menu.style.top = `${rect.bottom + 6}px`;
+    }
+
+    // Header with search box
+    const header = document.createElement("div");
+    header.className = "ds-project-dropdown-head";
+    header.innerHTML = `
+      <div class="ds-project-dropdown-title">
+        <span>${ic("folder")} Workspaces</span>
+        <span class="ds-menu-count">${projects.length}</span>
+      </div>
+      <input type="text" class="ds-project-search" placeholder="Search workspace..." />
+    `;
+    menu.appendChild(header);
+
+    const listContainer = document.createElement("div");
+    listContainer.className = "ds-project-dropdown-list";
+    menu.appendChild(listContainer);
+
+    function renderList(filterText = "") {
+      listContainer.innerHTML = "";
+      const q = filterText.toLowerCase().trim();
+      const filtered = projects.filter(
+        (p) =>
+          !q ||
+          p.name.toLowerCase().includes(q) ||
+          p.path.toLowerCase().includes(q),
+      );
+
+      if (filtered.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "ds-msg ds-msg-muted";
+        empty.style.padding = "10px";
+        empty.style.textAlign = "center";
+        empty.style.fontSize = "11px";
+        empty.textContent = "No projects found";
+        listContainer.appendChild(empty);
+        return;
+      }
+
+      filtered.forEach((p) => {
+        const item = document.createElement("div");
+        const isSel = p.path === selectedPath;
+        item.className = `ds-menu-item ds-project-dropdown-item ${isSel ? "is-active" : ""}`;
+        item.title = p.path;
+        item.innerHTML = `
+          <div class="ds-menu-item-main" style="min-width:0;flex:1;">
+            <span class="ds-ic" data-ic="folder" style="color:var(--ds-accent);flex-shrink:0;"></span>
+            <div style="min-width:0;overflow:hidden;">
+              <div class="ds-menu-label" style="text-overflow:ellipsis;overflow:hidden;white-space:nowrap;font-size:11.5px;">${p.name}</div>
+              <div class="ds-menu-desc" style="text-overflow:ellipsis;overflow:hidden;white-space:nowrap;font-size:9.5px;color:var(--ds-fg-muted);">${p.path}</div>
+            </div>
+          </div>
+          ${isSel ? `<span class="ds-ic" data-ic="check" style="color:var(--ds-accent);margin-left:6px;flex-shrink:0;"></span>` : ""}
+        `;
+
+        item.onmousedown = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onSelect(p);
+          removeProjectMenu();
+        };
+        listContainer.appendChild(item);
+      });
+    }
+
+    renderList();
+
+    const searchInput = header.querySelector(".ds-project-search");
+    if (searchInput) {
+      searchInput.oninput = (e) => {
+        renderList(e.target.value);
+      };
+      // Prevent keydown from bubbling to DeepSeek textarea
+      searchInput.onkeydown = (e) => {
+        e.stopPropagation();
+        if (e.key === "Escape") {
+          removeProjectMenu();
+        }
+      };
+      setTimeout(() => searchInput.focus(), 30);
+    }
+
+    // Dismiss on click outside
+    const outsideListener = (e) => {
+      if (!menu.contains(e.target) && !anchorEl.contains(e.target)) {
+        removeProjectMenu();
+        document.removeEventListener("pointerdown", outsideListener, true);
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener("pointerdown", outsideListener, true);
+    }, 10);
+
+    document.body.appendChild(menu);
+  }
+
   root.DSUI = {
     showAutocomplete,
     removeAutocomplete,
     showSkillAutocomplete,
     removeSkillMenu,
+    showProjectMenu,
+    removeProjectMenu,
   };
 })(typeof window !== "undefined" ? window : globalThis);
