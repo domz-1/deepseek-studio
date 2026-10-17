@@ -182,7 +182,14 @@
         "   - Clean Component Hierarchy: Extract long build methods into reusable, atomic widgets with `const` constructors.\n\n" +
         "6. COMPREHENSIVE DOCUMENTATION & TYPES:\n" +
         "   - Every exported function, class, and service must include clear documentation (JSDoc for TypeScript/Node, PHPDoc for PHP, DartDoc for Flutter) explaining parameters, return values, and failure modes.\n\n" +
-        "7. EXECUTION & AUDIT CHECKLIST:\n" +
+        "7. AUTOMATED UNIT TESTING SUITE (PER MODULE):\n" +
+        "   - Every audited module MUST have a dedicated unit test suite:\n" +
+        "     * Backend Node.js / Express: Vitest / Jest tests covering Service business logic, repository methods, validation schemas, and API response contracts.\n" +
+        "     * Backend PHP: PHPUnit / Pest tests covering Action/Service classes, FormRequest rules, and model factories.\n" +
+        "     * Frontend (Vue/Nuxt): Vitest + Vue Test Utils tests covering domain Composables (`use<Feature>.spec.ts`), reactive state mutations, and component props/emits.\n" +
+        "     * Mobile (Flutter): Unit tests (`test/<feature>_test.dart`) covering business logic, blocs/providers, data models, and JSON serialization.\n" +
+        "   - Test Coverage Priorities: Happy paths, validation failure branches, authentication/authorization failures, boundary numbers, and error handling.\n\n" +
+        "8. EXECUTION & AUDIT CHECKLIST:\n" +
         "   - Step 1: Use MCP filesystem tools to inspect the active workspace structure, packages, and code.\n" +
         "   - Step 2: Present an Architecture Audit Checklist with status markers:\n" +
         "     [ ] Centralized Numeric Enums from Dedicated Files\n" +
@@ -194,7 +201,8 @@
         "     [ ] Mobile (Flutter) Translation Functions & Zero Emojis\n" +
         "     [ ] File Size Limit Compliance (< 250 lines)\n" +
         "     [ ] Inline Documentation (JSDoc/PHPDoc/DartDoc)\n" +
-        "   - Step 3: Provide concrete refactoring file actions (`[MODIFY]`, `[NEW]`) with production-ready code snippets.\n\n" +
+        "     [ ] Automated Unit Test Suite (`.spec.ts` / `Test.php` / `_test.dart`)\n" +
+        "   - Step 3: Provide concrete refactoring file actions (`[MODIFY]`, `[NEW]`) with production-ready code and complete unit test files.\n\n" +
         "Scope or target module to audit:",
       builtin: true,
     },
