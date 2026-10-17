@@ -215,29 +215,34 @@
   }
 }
 
-/* ---- Auto-run toggle & Project Select ---- */
-.ds-project-select {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+/* ---- Project Select ---- */
+.ds-project-wrap {
   background: var(--ds-bg-inset);
-  color: var(--ds-fg);
-  border: 1px solid var(--ds-bg-hover);
-  padding: 4px 10px;
+  border: 1px solid var(--ds-border);
   border-radius: var(--ds-radius-pill);
+  padding: 3px 8px;
+  transition: border-color 0.15s ease;
+}
+.ds-project-wrap:hover,
+.ds-project-wrap:focus-within {
+  border-color: var(--ds-accent);
+}
+.ds-project-select {
+  background: transparent;
+  color: var(--ds-fg);
+  border: none;
   font-size: 11px;
   font-family: var(--ds-font);
+  font-weight: 500;
   cursor: pointer;
   outline: none;
   max-width: 170px;
-}
-.ds-project-select:hover,
-.ds-project-select:focus {
-  border-color: var(--ds-accent);
+  padding: 2px 4px;
 }
 .ds-project-select option {
   background: var(--ds-bg-elev);
   color: var(--ds-fg);
+  padding: 4px;
 }
 .ds-project-btn {
   display: inline-flex;

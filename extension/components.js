@@ -20,16 +20,11 @@
   }
 
   function serverPills(tools, serverStatus) {
-    const names = Object.keys(serverStatus || {}).filter(
-      (s) => serverStatus[s] && serverStatus[s].online,
-    );
-    const allPill = pill({
-      id: "all",
-      label: "all",
-      count: (tools || []).length,
-      isAll: true,
-    });
-    const srvPills = names
+    const names = Object.keys(serverStatus || {})
+      .filter((s) => serverStatus[s] && serverStatus[s].online)
+      .slice(0, 3); // Show only the first 3 active tools cleanly!
+
+    return names
       .map((name) =>
         pill({
           id: name,
@@ -39,24 +34,20 @@
         }),
       )
       .join("");
-    return allPill + srvPills;
   }
 
-  function badgeBar({ autoApprove, selectedProject }) {
+  function badgeBar({ selectedProject }) {
     return `
       <div class="ds-pills" id="mcp-server-pills"></div>
       <div class="ds-task" id="mcp-task-indicator"></div>
-      <div style="display:inline-flex;align-items:center;gap:6px;margin-left:auto;">
-        <select class="ds-project-select" id="mcp-project-select" title="Active Project for @ mentions and MCP tools">
-          <option value="">📁 Select Project...</option>
+      <div class="ds-project-wrap" style="display:inline-flex;align-items:center;gap:6px;margin-left:auto;">
+        <span class="ds-ic" data-ic="folder" style="color:var(--ds-accent);font-size:12px;"></span>
+        <select class="ds-project-select" id="mcp-project-select" title="Active Project">
+          <option value="">Select Project...</option>
         </select>
         <button class="ds-project-btn" id="mcp-add-project-btn" type="button" title="Add custom project path">
           ${ic("plus")} Add
         </button>
-        <label class="ds-auto">
-          <input type="checkbox" id="mcp-auto-approve" ${autoApprove ? "checked" : ""} />
-          <span>${ic("zap")} Auto-run</span>
-        </label>
       </div>`;
   }
 

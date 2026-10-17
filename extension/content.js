@@ -611,7 +611,7 @@ function populateProjectsDropdown(force = false) {
       projSelect.innerHTML = unique
         .map(
           (p) =>
-            `<option value="${p.path}" ${p.path === selectedProject ? "selected" : ""}>📁 ${p.name}</option>`,
+            `<option value="${p.path}" ${p.path === selectedProject ? "selected" : ""}>${p.name.replace(/^⭐\s*/, "")}</option>`,
         )
         .join("");
     }
