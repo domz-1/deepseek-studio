@@ -92,13 +92,33 @@ function isDeepSeekGenerating() {
 
 function setInputValue(el, text) {
   el.focus();
-  const valueSetter = Object.getOwnPropertyDescriptor(
-    window.HTMLTextAreaElement.prototype,
-    "value",
-  ).set;
-  valueSetter.call(el, text);
-  el.dispatchEvent(new Event("input", { bubbles: true }));
-  el.dispatchEvent(new Event("change", { bubbles: true }));
+  const proto = Object.getPrototypeOf(el);
+  const valueSetter =
+    Object.getOwnPropertyDescriptor(proto, "value")?.set ||
+    Object.getOwnPropertyDescriptor(
+      window.HTMLTextAreaElement.prototype,
+      "value",
+    )?.set;
+
+  if (valueSetter) {
+    valueSetter.call(el, text);
+  } else {
+    el.value = text;
+  }
+
+  // Dispatch both InputEvent and generic events so DeepSeek React state updates
+  el.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
+  try {
+    el.dispatchEvent(
+      new InputEvent("input", {
+        bubbles: true,
+        cancelable: true,
+        inputType: "insertText",
+        data: text,
+      }),
+    );
+  } catch (_) {}
+  el.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
 }
 
 function getSendButton() {
@@ -106,16 +126,15 @@ function getSendButton() {
   if (!input) return null;
   const wrapper =
     input.closest("div.ds-textarea-wrapper") ||
+    input.closest("div[class*='textarea']") ||
     input.parentElement?.parentElement ||
     document;
 
-  // 1. Look specifically for the send button (it is usually at the bottom-right of the input bar)
-  // DeepSeek send button has svg with an arrow or role="button" with send aria-label
   const buttons = Array.from(
     wrapper.querySelectorAll('div[role="button"], button'),
   );
 
-  // Filter out any buttons that are file pickers or attachments
+  // 1. Strictly filter out anything related to file upload or attachments
   const validButtons = buttons.filter((b) => {
     const aria = (b.getAttribute("aria-label") || "").toLowerCase();
     const title = (b.getAttribute("title") || "").toLowerCase();
@@ -136,14 +155,14 @@ function getSendButton() {
     return true;
   });
 
-  // Prefer button with explicit "send" or containing svg arrow
+  // 2. Look for send button by aria-label or title
   for (const b of validButtons) {
     const aria = (b.getAttribute("aria-label") || "").toLowerCase();
     const title = (b.getAttribute("title") || "").toLowerCase();
     if (aria.includes("send") || title.includes("send")) return b;
   }
 
-  // Next prefer the last icon button in the input wrapper (send button is always the rightmost)
+  // 3. Look for button containing up-arrow / send svg or rightmost icon button
   for (let i = validButtons.length - 1; i >= 0; i--) {
     const b = validButtons[i];
     if (b.querySelector("svg") || b.classList.contains("ds-icon-button")) {
@@ -170,13 +189,20 @@ async function sendText(text) {
     }
 
     setInputValue(el, text);
-    await new Promise((r) => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 100));
 
+    // Try clicking send button directly
     const sendBtn = getSendButton();
-    if (sendBtn && !sendBtn.getAttribute("aria-disabled")) {
+    const isDisabled =
+      sendBtn &&
+      (sendBtn.getAttribute("aria-disabled") === "true" ||
+        sendBtn.disabled ||
+        sendBtn.classList.contains("disabled"));
+
+    if (sendBtn && !isDisabled) {
       sendBtn.click();
     } else {
-      // Fallback to Enter keydown
+      // Simulate real user Enter key press
       el.dispatchEvent(
         new KeyboardEvent("keydown", {
           key: "Enter",
@@ -187,13 +213,33 @@ async function sendText(text) {
           cancelable: true,
         }),
       );
+      el.dispatchEvent(
+        new KeyboardEvent("keypress", {
+          key: "Enter",
+          code: "Enter",
+          keyCode: 13,
+          which: 13,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      el.dispatchEvent(
+        new KeyboardEvent("keyup", {
+          key: "Enter",
+          code: "Enter",
+          keyCode: 13,
+          which: 13,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
     }
 
-    await new Promise((r) => setTimeout(r, 600));
-    // If text still present in textarea and send button became active, click it
+    // Secondary verification after 400ms
+    await new Promise((r) => setTimeout(r, 400));
     if (el.value.trim().length > 0) {
       const btnAgain = getSendButton();
-      if (btnAgain && !btnAgain.getAttribute("aria-disabled")) {
+      if (btnAgain && btnAgain.getAttribute("aria-disabled") !== "true") {
         btnAgain.click();
       }
     }
