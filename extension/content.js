@@ -121,52 +121,94 @@ function setInputValue(el, text) {
   el.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
 }
 
+function setInputValue(el, text) {
+  el.focus();
+  const proto = Object.getPrototypeOf(el);
+  const valueSetter =
+    Object.getOwnPropertyDescriptor(proto, "value")?.set ||
+    Object.getOwnPropertyDescriptor(
+      window.HTMLTextAreaElement.prototype,
+      "value",
+    )?.set;
+
+  if (valueSetter) {
+    valueSetter.call(el, text);
+  } else {
+    el.value = text;
+  }
+
+  // Dispatch standard events so React/Vue models update
+  el.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
+  try {
+    el.dispatchEvent(
+      new InputEvent("input", {
+        bubbles: true,
+        cancelable: true,
+        inputType: "insertText",
+        data: text,
+      }),
+    );
+  } catch (_) {}
+  el.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
+}
+
 function getSendButton() {
   const input = getChatInput();
   if (!input) return null;
-  const wrapper =
-    input.closest("div.ds-textarea-wrapper") ||
-    input.closest("div[class*='textarea']") ||
-    input.parentElement?.parentElement ||
-    document;
 
-  const buttons = Array.from(
-    wrapper.querySelectorAll('div[role="button"], button'),
-  );
+  // Search in input wrapper or entire bottom input area
+  const searchRoots = [
+    input.closest("div.ds-textarea-wrapper"),
+    input.closest("div[class*='textarea']"),
+    input.parentElement?.parentElement,
+    document.querySelector("div[class*='chat-input']"),
+    document.querySelector("div[class*='input-wrapper']"),
+    document.body,
+  ].filter(Boolean);
 
-  // 1. Strictly filter out anything related to file upload or attachments
-  const validButtons = buttons.filter((b) => {
-    const aria = (b.getAttribute("aria-label") || "").toLowerCase();
-    const title = (b.getAttribute("title") || "").toLowerCase();
-    const html = (b.innerHTML || "").toLowerCase();
+  for (const root of searchRoots) {
+    const buttons = Array.from(
+      root.querySelectorAll('div[role="button"], button'),
+    );
 
-    if (
-      aria.includes("file") ||
-      aria.includes("attach") ||
-      aria.includes("upload") ||
-      title.includes("file") ||
-      title.includes("attach") ||
-      title.includes("upload") ||
-      b.querySelector('input[type="file"]') ||
-      html.includes('type="file"')
-    ) {
-      return false;
+    // Filter out attachment and file buttons
+    const candidates = buttons.filter((b) => {
+      const aria = (b.getAttribute("aria-label") || "").toLowerCase();
+      const title = (b.getAttribute("title") || "").toLowerCase();
+      const html = (b.innerHTML || "").toLowerCase();
+
+      if (
+        aria.includes("file") ||
+        aria.includes("attach") ||
+        aria.includes("upload") ||
+        title.includes("file") ||
+        title.includes("attach") ||
+        title.includes("upload") ||
+        b.querySelector('input[type="file"]') ||
+        html.includes('type="file"')
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    // 1. Look for explicit send in aria or title
+    for (const b of candidates) {
+      const aria = (b.getAttribute("aria-label") || "").toLowerCase();
+      const title = (b.getAttribute("title") || "").toLowerCase();
+      if (aria.includes("send") || title.includes("send")) return b;
     }
-    return true;
-  });
 
-  // 2. Look for send button by aria-label or title
-  for (const b of validButtons) {
-    const aria = (b.getAttribute("aria-label") || "").toLowerCase();
-    const title = (b.getAttribute("title") || "").toLowerCase();
-    if (aria.includes("send") || title.includes("send")) return b;
-  }
-
-  // 3. Look for button containing up-arrow / send svg or rightmost icon button
-  for (let i = validButtons.length - 1; i >= 0; i--) {
-    const b = validButtons[i];
-    if (b.querySelector("svg") || b.classList.contains("ds-icon-button")) {
-      return b;
+    // 2. Look for up-arrow svg button
+    for (let i = candidates.length - 1; i >= 0; i--) {
+      const b = candidates[i];
+      if (
+        b.querySelector("svg") &&
+        (b.classList.contains("ds-icon-button") ||
+          b.getAttribute("role") === "button")
+      ) {
+        return b;
+      }
     }
   }
 
@@ -189,20 +231,42 @@ async function sendText(text) {
     }
 
     setInputValue(el, text);
-    await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 150));
 
-    // Try clicking send button directly
-    const sendBtn = getSendButton();
-    const isDisabled =
-      sendBtn &&
-      (sendBtn.getAttribute("aria-disabled") === "true" ||
-        sendBtn.disabled ||
-        sendBtn.classList.contains("disabled"));
+    // Try finding and clicking the send button
+    let sendBtn = getSendButton();
 
-    if (sendBtn && !isDisabled) {
+    if (sendBtn) {
       sendBtn.click();
-    } else {
-      // Simulate real user Enter key press
+      sendBtn.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+      sendBtn.dispatchEvent(
+        new MouseEvent("mouseup", { bubbles: true, cancelable: true }),
+      );
+      sendBtn.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true }),
+      );
+    }
+
+    // Also trigger Enter event on the textarea
+    el.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        code: "Enter",
+        keyCode: 13,
+        which: 13,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+
+    await new Promise((r) => setTimeout(r, 400));
+    if (el.value.trim().length > 0) {
+      sendBtn = getSendButton();
+      if (sendBtn) {
+        sendBtn.click();
+      }
       el.dispatchEvent(
         new KeyboardEvent("keydown", {
           key: "Enter",
@@ -213,35 +277,6 @@ async function sendText(text) {
           cancelable: true,
         }),
       );
-      el.dispatchEvent(
-        new KeyboardEvent("keypress", {
-          key: "Enter",
-          code: "Enter",
-          keyCode: 13,
-          which: 13,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-      el.dispatchEvent(
-        new KeyboardEvent("keyup", {
-          key: "Enter",
-          code: "Enter",
-          keyCode: 13,
-          which: 13,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-    }
-
-    // Secondary verification after 400ms
-    await new Promise((r) => setTimeout(r, 400));
-    if (el.value.trim().length > 0) {
-      const btnAgain = getSendButton();
-      if (btnAgain && btnAgain.getAttribute("aria-disabled") !== "true") {
-        btnAgain.click();
-      }
     }
     scrollToBottom();
   } finally {
