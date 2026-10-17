@@ -70,6 +70,11 @@ async function refreshSkills() {
 }
 refreshSkills();
 
+// Eagerly fetch active MCP tools on script boot so badges display tools immediately!
+fetchActiveTools().then(() => {
+  updateServerBadges();
+});
+
 // Input elements lookup
 function getChatInput() {
   return (
@@ -598,6 +603,12 @@ function injectChatBadge() {
 
   updateServerBadges();
   updateTaskBadge();
+
+  if (!activeTools.length) {
+    fetchActiveTools().then(() => {
+      updateServerBadges();
+    });
+  }
 }
 
 const HUMAN_RESULT_TEMPLATES = [

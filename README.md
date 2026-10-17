@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="assets/icon.png" alt="DeepSeek MCP Studio" width="128" height="128" />
+<img src="assets/icon.png" alt="DeepSeek Studio" width="128" height="128" />
 
-# DeepSeek MCP Studio
+# DeepSeek Studio
 
 **Give DeepSeek Chat real hands.** A Chrome extension + local bridge that connects [chat.deepseek.com](https://chat.deepseek.com) to any [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server — filesystem, shell, memory, docs and more.
 
