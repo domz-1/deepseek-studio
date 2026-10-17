@@ -1,3 +1,5 @@
+// DeepSeek MCP Studio — Content Script (Orchestrator)
+
 let debounceTimer = null;
 let activeTools = [];
 let serverStatus = {};
@@ -6,6 +8,7 @@ let isSending = false;
 let runningTaskCount = 0;
 let userScrolledUp = false;
 let executedCalls = new Set();
+let loadedSkills = [];
 
 // Track user scroll manually so auto-scroll doesn't fight the user if they scroll up
 window.addEventListener(
@@ -26,21 +29,13 @@ function scrollToBottom() {
   });
 }
 
-const SAFE_TOOLS = new Set([
-  "read_file",
-  "read_text_file",
-  "read_media_file",
-  "read_multiple_files",
-  "list_directory",
-  "list_directory_with_sizes",
-  "directory_tree",
-  "search_files",
-  "get_file_info",
-  "list_allowed_directories",
-  "read_graph",
-  "search_nodes",
-  "open_nodes",
-]);
+// Restore previously executed calls from sessionStorage
+try {
+  const saved = sessionStorage.getItem("deepseek_mcp_executed");
+  if (saved) {
+    executedCalls = new Set(JSON.parse(saved));
+  }
+} catch (_) {}
 
 async function fetchActiveTools() {
   try {
@@ -66,8 +61,16 @@ async function fetchActiveTools() {
   return [];
 }
 
-fetchActiveTools();
+async function refreshSkills() {
+  try {
+    if (window.DSSkills) loadedSkills = await window.DSSkills.loadSkills();
+  } catch (e) {
+    console.warn("[MCP] skills load failed", e);
+  }
+}
+refreshSkills();
 
+// Input elements lookup
 function getChatInput() {
   return (
     document.querySelector('textarea[placeholder*="DeepSeek"]') ||
@@ -76,7 +79,6 @@ function getChatInput() {
   );
 }
 
-// Check if DeepSeek is generating (looking for square stop icon in the send button area)
 function isDeepSeekGenerating() {
   const input = getChatInput();
   if (!input) return false;
@@ -88,7 +90,6 @@ function isDeepSeekGenerating() {
   return Boolean(stopSquare);
 }
 
-// React 18 / Vue compatible text setter
 function setInputValue(el, text) {
   el.focus();
   const valueSetter = Object.getOwnPropertyDescriptor(
@@ -100,7 +101,6 @@ function setInputValue(el, text) {
   el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-// Find the blue arrow send button
 function getSendButton() {
   const input = getChatInput();
   if (!input) return null;
@@ -120,7 +120,6 @@ function getSendButton() {
     ) {
       continue;
     }
-    // DeepSeek send button has svg with path arrow (or blue class)
     if (b.classList.contains("ds-icon-button") || b.querySelector("svg path")) {
       return b;
     }
@@ -128,7 +127,7 @@ function getSendButton() {
   return null;
 }
 
-// Direct, instant, and reliable sender with queue & rate-limit awareness
+// Reliable message sender
 async function sendText(text) {
   if (isSending) return;
   isSending = true;
@@ -137,24 +136,20 @@ async function sendText(text) {
     const el = getChatInput();
     if (!el) return;
 
-    // 1. Wait if currently streaming
     let waited = 0;
     while (isDeepSeekGenerating() && waited < 15000) {
       await new Promise((r) => setTimeout(r, 400));
       waited += 400;
     }
 
-    // 2. Set value
     setInputValue(el, text);
     await new Promise((r) => setTimeout(r, 150));
 
-    // 3. Dispatch click on send button
     const sendBtn = getSendButton();
     if (sendBtn && !sendBtn.getAttribute("aria-disabled")) {
       sendBtn.click();
     }
 
-    // Also dispatch Enter on textarea to guarantee trigger
     el.dispatchEvent(
       new KeyboardEvent("keydown", {
         key: "Enter",
@@ -166,10 +161,8 @@ async function sendText(text) {
       }),
     );
 
-    // 4. Verification check after 500ms
     await new Promise((r) => setTimeout(r, 500));
     if (el.value.trim().length > 0) {
-      // If still not submitted, click again
       const btnAgain = getSendButton();
       if (btnAgain) btnAgain.click();
       el.dispatchEvent(
@@ -187,310 +180,15 @@ async function sendText(text) {
   }
 }
 
-// System prompts
-const SYSTEM_PROMPT_STYLES = [
-  (list) => `You have local workstation MCP tools:
-${list}
-
-Rules:
-1. Always respond in English or Arabic only. Never use Chinese.
-2. When you need to run a tool, output only this JSON block:
-\`\`\`json
-{
-  "mcp_call": true,
-  "name": "tool_name",
-  "arguments": {}
-}
-\`\`\`
-`,
-  (list) => `Workstation tools active:
-${list}
-
-Guidelines:
-- Respond in English or Arabic. Never use Chinese.
-- Call tools using JSON:
-\`\`\`json
-{"name": "tool_name", "arguments": {}}
-\`\`\`
-`,
-];
-
-function buildSysPrompt(tools) {
-  const list = tools
-    .map(
-      (t) =>
-        `- [${t.server}] ${t.name}(${Object.keys(t.inputSchema?.properties || {}).join(", ")}): ${t.description?.slice(0, 80) || ""}`,
-    )
-    .join("\n");
-  const template =
-    SYSTEM_PROMPT_STYLES[
-      Math.floor(Math.random() * SYSTEM_PROMPT_STYLES.length)
-    ];
-  return template(list);
-}
-
-// Popup injection
+// Popup injection listener
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === "INJECT_NOW" && msg.tools) {
     activeTools = msg.tools;
-    sendText(buildSysPrompt(msg.tools));
+    sendText(window.DSTools.buildSysPrompt(msg.tools));
   }
 });
 
-// Mention filtering
-function filterToolsByMention(mention, tools) {
-  const m = mention.toLowerCase().replace(/^[@#/]/, "");
-  if (m === "mcp" || m === "all" || !m) return tools;
-
-  let filtered = tools.filter((t) => t.server && t.server.toLowerCase() === m);
-  if (filtered.length) return filtered;
-
-  filtered = tools.filter(
-    (t) => t.server && t.server.toLowerCase().startsWith(m),
-  );
-  return filtered.length ? filtered : tools;
-}
-
-// Autocomplete Dropdown Popup
-let autocompleteMenu = null;
-
-function removeAutocomplete() {
-  if (autocompleteMenu) {
-    autocompleteMenu.remove();
-    autocompleteMenu = null;
-  }
-}
-
-// ===================== SKILLS (/slash commands) =====================
-let loadedSkills = [];
-let skillMenu = null;
-
-async function refreshSkills() {
-  try {
-    if (window.DSSkills) loadedSkills = await window.DSSkills.loadSkills();
-  } catch (e) {
-    console.warn("[MCP] skills load failed", e);
-  }
-}
-refreshSkills();
-
-function removeSkillMenu() {
-  if (skillMenu) {
-    skillMenu.remove();
-    skillMenu = null;
-  }
-}
-
-function showSkillAutocomplete(inputEl, query) {
-  removeSkillMenu();
-  if (!window.DSSkills) return;
-
-  const matches = window.DSSkills.filterSkills(query, loadedSkills);
-  if (!matches.length) return;
-
-  const menu = document.createElement("div");
-  skillMenu = menu;
-  menu.id = "deepseek-mcp-skill-menu";
-
-  const rect = inputEl.getBoundingClientRect();
-  const menuWidth = 460;
-  const leftPos = Math.max(
-    12,
-    Math.min(rect.left, window.innerWidth - menuWidth - 20),
-  );
-  const bottomPos = window.innerHeight - rect.top + 10;
-
-  menu.style.cssText = `
-    position: fixed !important;
-    bottom: ${bottomPos}px !important;
-    left: ${leftPos}px !important;
-    width: ${menuWidth}px !important;
-    max-height: 380px !important;
-    overflow-y: auto !important;
-    background: #181825 !important;
-    border: 1px solid #45475a !important;
-    border-radius: 12px !important;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.7) !important;
-    z-index: 2147483647 !important;
-    padding: 8px !important;
-    font-family: system-ui, -apple-system, sans-serif !important;
-    color: #cdd6f4 !important;
-    box-sizing: border-box !important;
-  `;
-
-  const header = document.createElement("div");
-  header.style.cssText = `
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 10px 8px 10px;
-    font-size: 11px;
-    font-weight: 700;
-    color: #cba6f7;
-    border-bottom: 1px solid #313244;
-    margin-bottom: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  `;
-  header.innerHTML = `<span>⚡ Skills</span><span style="color:#a6adc8;font-size:10px;">${matches.length} available</span>`;
-  menu.appendChild(header);
-
-  matches.forEach((sk, idx) => {
-    const item = document.createElement("div");
-    item.style.cssText = `
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      padding: 8px 10px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 13px;
-      transition: background 0.12s;
-      ${idx === 0 ? "background: #313244;" : ""}
-    `;
-    item.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:16px;">${sk.emoji || "⚡"}</span>
-        <b style="color:#89b4fa;font-size:13px;">/${sk.name}</b>
-        ${sk.isCustom ? '<span style="background:#f9e2af;color:#11111b;padding:1px 5px;border-radius:6px;font-size:9px;font-weight:700;">CUSTOM</span>' : ""}
-      </div>
-      <div style="font-size:11px;color:#a6adc8;padding-left:24px;line-height:1.3;">${sk.description || ""}</div>
-    `;
-
-    item.onmouseenter = () => {
-      menu
-        .querySelectorAll("div[data-skill-item]")
-        .forEach((el) => (el.style.background = "transparent"));
-      item.style.background = "#313244";
-    };
-    item.onmouseleave = () => {
-      item.style.background = "transparent";
-    };
-    item.setAttribute("data-skill-item", "true");
-
-    item.onmousedown = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const val = inputEl.value;
-      const slashRegex = /\/[\w-]*$/;
-      const newVal = val.replace(slashRegex, `/${sk.name} `);
-      setInputValue(inputEl, newVal);
-      removeSkillMenu();
-    };
-
-    menu.appendChild(item);
-  });
-
-  document.body.appendChild(menu);
-}
-
-function showAutocomplete(inputEl, query) {
-  removeAutocomplete();
-  const availableServers = Object.keys(serverStatus).length
-    ? Object.keys(serverStatus)
-    : ["filesystem", "bash", "memory"];
-  const allOptions = [
-    {
-      id: "all",
-      label: "@all",
-      count: activeTools.length,
-      desc: "All MCP Tools",
-    },
-    ...availableServers.map((s) => {
-      const st = serverStatus[s] || {};
-      return {
-        id: s,
-        label: `@${s}`,
-        count: st.count || 0,
-        desc: `${s} server tools`,
-      };
-    }),
-  ];
-
-  const filtered = allOptions.filter(
-    (o) =>
-      !query ||
-      o.id.toLowerCase().startsWith(query.toLowerCase()) ||
-      o.label.toLowerCase().startsWith(query.toLowerCase()),
-  );
-
-  if (!filtered.length) return;
-
-  const menu = document.createElement("div");
-  autocompleteMenu = menu;
-  menu.id = "deepseek-mcp-autocomplete";
-
-  const rect = inputEl.getBoundingClientRect();
-  const menuWidth = 280;
-  const leftPos = Math.max(
-    12,
-    Math.min(rect.left, window.innerWidth - menuWidth - 20),
-  );
-  const bottomPos = window.innerHeight - rect.top + 10;
-
-  menu.style.cssText = `
-    position: fixed !important;
-    bottom: ${bottomPos}px !important;
-    left: ${leftPos}px !important;
-    width: ${menuWidth}px !important;
-    max-height: 320px !important;
-    overflow-y: auto !important;
-    background: #181825 !important;
-    border: 1px solid #45475a !important;
-    border-radius: 10px !important;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.7) !important;
-    z-index: 2147483647 !important;
-    padding: 6px !important;
-    min-width: 220px !important;
-    font-family: system-ui, -apple-system, sans-serif !important;
-    color: #cdd6f4 !important;
-    box-sizing: border-box !important;
-  `;
-
-  filtered.forEach((opt) => {
-    const item = document.createElement("div");
-    item.style.cssText = `
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 7px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 12px;
-      transition: background 0.15s;
-    `;
-    item.innerHTML = `
-      <div style="display:flex;align-items:center;gap:6px;">
-        <span style="color:#89b4fa;font-weight:bold;">${opt.label}</span>
-        <span style="font-size:10px;color:#a6adc8;">${opt.desc}</span>
-      </div>
-      <span style="background:#313244;color:#a6e3a1;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:bold;">${opt.count}</span>
-    `;
-
-    item.onmouseenter = () => {
-      item.style.background = "#313244";
-    };
-    item.onmouseleave = () => {
-      item.style.background = "transparent";
-    };
-
-    item.onmousedown = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const val = inputEl.value;
-      const mentionRegex = /@[\w-]*$/;
-      const newVal = val.replace(mentionRegex, `${opt.label} `);
-      setInputValue(inputEl, newVal);
-      removeAutocomplete();
-    };
-
-    menu.appendChild(item);
-  });
-
-  document.body.appendChild(menu);
-}
-
-// Input Listener
+// Input Listener & Interceptor
 function attachInputMentionInterceptor() {
   const input = getChatInput();
   if (!input || input.__mcpAttached) return;
@@ -500,15 +198,35 @@ function attachInputMentionInterceptor() {
     const val = input.value;
     const slashMatch = val.match(/\/([\w-]*)$/);
     const mentionMatch = val.match(/@([\w-]*)$/);
+
     if (slashMatch) {
-      removeAutocomplete();
-      showSkillAutocomplete(input, slashMatch[1]);
+      window.DSUI.removeAutocomplete();
+      window.DSUI.showSkillAutocomplete(
+        input,
+        slashMatch[1],
+        loadedSkills,
+        (name) => {
+          const currentVal = input.value;
+          const newVal = currentVal.replace(/\/[\w-]*$/, `/${name} `);
+          setInputValue(input, newVal);
+        },
+      );
     } else if (mentionMatch) {
-      removeSkillMenu();
-      showAutocomplete(input, mentionMatch[1]);
+      window.DSUI.removeSkillMenu();
+      window.DSUI.showAutocomplete(
+        input,
+        mentionMatch[1],
+        activeTools,
+        serverStatus,
+        (label) => {
+          const currentVal = input.value;
+          const newVal = currentVal.replace(/@[\w-]*$/, `${label} `);
+          setInputValue(input, newVal);
+        },
+      );
     } else {
-      removeAutocomplete();
-      removeSkillMenu();
+      window.DSUI.removeAutocomplete();
+      window.DSUI.removeSkillMenu();
     }
   });
 
@@ -516,41 +234,54 @@ function attachInputMentionInterceptor() {
     "keydown",
     async (e) => {
       if (e.key === "Escape") {
-        removeAutocomplete();
-        removeSkillMenu();
+        window.DSUI.removeAutocomplete();
+        window.DSUI.removeSkillMenu();
         return;
       }
 
       if (e.key === "Enter" && !e.shiftKey) {
-        removeAutocomplete();
-        removeSkillMenu();
-        const val = input.value.trim();
+        window.DSUI.removeAutocomplete();
+        window.DSUI.removeSkillMenu();
+        const rawVal = input.value.trim();
 
-        // ---- Skills: leading /skillname ----
+        // 1. Check for skills: /skillname or @mention /skillname
+        let skillText = rawVal;
+        let prefixMention = null;
+        const leadingMentionMatch = rawVal.match(
+          /^(@[\w-]+)\s+(\/[\w-]+[\s\S]*)$/i,
+        );
+        if (leadingMentionMatch) {
+          prefixMention = leadingMentionMatch[1];
+          skillText = leadingMentionMatch[2];
+        }
+
         if (window.DSSkills && loadedSkills.length) {
-          const matched = window.DSSkills.matchSkill(val, loadedSkills);
+          const matched = window.DSSkills.matchSkill(skillText, loadedSkills);
           if (matched && matched.skill) {
             e.preventDefault();
             e.stopPropagation();
 
-            const prompt = window.DSSkills.expandSkill(
+            let prompt = window.DSSkills.expandSkill(
               matched.skill,
               matched.rest,
               loadedSkills,
             );
 
-            const mentionMatch = prompt.match(/(@[\w-]+)/i);
-            if (mentionMatch) {
+            const activeMention =
+              prefixMention ||
+              (prompt.match(/(@[\w-]+)/i)
+                ? prompt.match(/(@[\w-]+)/i)[1]
+                : null);
+            if (activeMention) {
               await fetchActiveTools();
-              const rawMention = mentionMatch[1];
-              const selectedTools = filterToolsByMention(
-                rawMention,
+              const selectedTools = window.DSTools.filterToolsByMention(
+                activeMention,
                 activeTools,
               );
-              const cleanPrompt = prompt
-                .replace(new RegExp(rawMention, "gi"), "")
+              prompt = prompt
+                .replace(new RegExp(activeMention, "gi"), "")
                 .trim();
-              const combined = `${buildSysPrompt(selectedTools)}\n${cleanPrompt}`;
+              const combined = `${window.DSTools.buildSysPrompt(selectedTools)}\n${prompt}`;
               sendText(combined);
             } else {
               sendText(prompt);
@@ -559,8 +290,8 @@ function attachInputMentionInterceptor() {
           }
         }
 
-        // ---- Standard @mention handling ----
-        const mentionMatch = val.match(/(@[\w-]+)/i);
+        // 2. Standard @mention handling
+        const mentionMatch = rawVal.match(/(@[\w-]+)/i);
         if (mentionMatch) {
           e.preventDefault();
           e.stopPropagation();
@@ -572,9 +303,14 @@ function attachInputMentionInterceptor() {
           }
 
           const rawMention = mentionMatch[1];
-          const selectedTools = filterToolsByMention(rawMention, activeTools);
-          const userText = val.replace(new RegExp(rawMention, "gi"), "").trim();
-          const combined = `${buildSysPrompt(selectedTools)}\n${userText}`;
+          const selectedTools = window.DSTools.filterToolsByMention(
+            rawMention,
+            activeTools,
+          );
+          const userText = rawVal
+            .replace(new RegExp(rawMention, "gi"), "")
+            .trim();
+          const combined = `${window.DSTools.buildSysPrompt(selectedTools)}\n${userText}`;
           sendText(combined);
         }
       }
@@ -583,7 +319,7 @@ function attachInputMentionInterceptor() {
   );
 }
 
-// Server badges
+// UI Badges & Indicator
 function updateServerBadges() {
   const container = document.getElementById("deepseek-mcp-badge");
   if (!container) return;
@@ -731,21 +467,18 @@ function injectChatBadge() {
       margin-left: auto;
     `;
     autoToggle.innerHTML = `
-      <input type="checkbox" id="mcp-auto-cb" ${autoApprove ? "checked" : ""} style="cursor:pointer;" />
+      <input type="checkbox" id="mcp-auto-approve" ${autoApprove ? "checked" : ""} style="cursor:pointer;" />
       <span>⚡ Auto-run</span>
     `;
-
-    autoToggle.querySelector("#mcp-auto-cb").onchange = (e) => {
+    autoToggle.querySelector("input").onchange = (e) => {
       autoApprove = e.target.checked;
-      localStorage.setItem(
-        "deepseek_mcp_auto_approve",
-        autoApprove ? "true" : "false",
-      );
+      localStorage.setItem("deepseek_mcp_auto_approve", autoApprove);
     };
 
     wrap.appendChild(pillsWrap);
     wrap.appendChild(taskIndicator);
     wrap.appendChild(autoToggle);
+
     targetParent.parentElement.insertBefore(wrap, targetParent);
   }
 
@@ -841,7 +574,7 @@ function renderPermissionCard(
   callKey,
   isAlreadyExecuted = false,
 ) {
-  const isSafe = SAFE_TOOLS.has(payload.name);
+  const isSafe = window.DSTools.SAFE_TOOLS.has(payload.name);
   const card = document.createElement("div");
   card.className = "deepseek-mcp-action-card";
   card.style.cssText = `
@@ -909,30 +642,6 @@ function renderPermissionCard(
   }
 }
 
-function extractMcpCall(text) {
-  if (!text) return null;
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) return null;
-
-  const candidate = text.slice(start, end + 1);
-  try {
-    const p = JSON.parse(candidate);
-    if (p.name && (p.mcp_call !== undefined || p.arguments !== undefined)) {
-      return { name: p.name, arguments: p.arguments || {} };
-    }
-  } catch (_) {}
-  return null;
-}
-
-// Restore previously executed calls from sessionStorage
-try {
-  const saved = sessionStorage.getItem("deepseek_mcp_executed");
-  if (saved) {
-    executedCalls = new Set(JSON.parse(saved));
-  }
-} catch (_) {}
-
 function scanMessages() {
   const codeBlocks = document.querySelectorAll("div.md-code-block");
   codeBlocks.forEach((el) => {
@@ -946,14 +655,11 @@ function scanMessages() {
     const text = el.textContent || "";
     if (!text.includes("name")) return;
 
-    const payload = extractMcpCall(text);
+    const payload = window.DSTools.extractMcpCall(text);
     if (payload && payload.name) {
       el.setAttribute("data-mcp-attached", "true");
 
-      // Unique call hash based on message context + tool name + args
       const callKey = `${payload.name}:${JSON.stringify(payload.arguments || {})}:${text.slice(0, 100)}`;
-
-      // Check if this block is already followed by a model response or was executed before
       const parentMsg = el.closest(
         "div.ds-message, div._4f9bf79, div.ds-markdown",
       );
@@ -965,6 +671,7 @@ function scanMessages() {
   });
 }
 
+// Observer
 new MutationObserver(() => {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
