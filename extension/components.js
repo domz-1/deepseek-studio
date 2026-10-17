@@ -48,6 +48,7 @@
     return `
       <div class="ds-pills" id="mcp-server-pills"></div>
       <div class="ds-task" id="mcp-task-indicator"></div>
+      <div class="ds-watchdog" id="mcp-watchdog-indicator"></div>
       <div class="ds-project-wrap" style="display:inline-flex;align-items:center;gap:6px;margin-left:auto;">
         <button class="ds-project-trigger" id="mcp-project-trigger" type="button" title="Select active workspace">
           <span class="ds-ic" data-ic="folder" style="color:var(--ds-accent);font-size:12px;"></span>

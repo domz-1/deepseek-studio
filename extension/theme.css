@@ -257,6 +257,36 @@
   }
 }
 
+/* ---- Watchdog countdown chip ---- */
+.ds-watchdog {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  background: var(--ds-bg-base);
+  border: 1px solid var(--ds-bg-hover);
+  color: var(--ds-fg-muted);
+  padding: 4px 10px;
+  border-radius: var(--ds-radius-pill);
+  font-weight: 500;
+  font-size: 11px;
+}
+.ds-watchdog.is-on {
+  display: inline-flex;
+}
+.ds-watchdog .ds-watchdog-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ds-accent);
+  box-shadow: 0 0 5px var(--ds-accent);
+  animation: ds-pulse 1.2s infinite alternate;
+}
+.ds-watchdog .ds-watchdog-time {
+  color: var(--ds-fg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- Project Select ---- */
 .ds-project-wrap {
   display: inline-flex;

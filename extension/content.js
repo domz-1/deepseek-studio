@@ -236,8 +236,8 @@ function getSendButton() {
 
 let lastSentMessage = "";
 let lastActivityTime = Date.now();
-const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-const GRILL_AUTO_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+const INACTIVITY_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+const GRILL_AUTO_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
 function recordActivity() {
   lastActivityTime = Date.now();
@@ -1282,13 +1282,13 @@ function renderGrillQuestionCard(
 
   submitBtn.onclick = () => doSubmitDecision(false);
 
-  // Set 10-minute auto-answer timer for recommended options
+  // Set 2-minute auto-answer timer for recommended options
   const startTime = Date.now();
   const timerBadge = document.createElement("span");
   timerBadge.className = "ds-grill-badge";
   timerBadge.style.cssText =
     "background:var(--ds-bg-hover);color:var(--ds-fg-muted);margin-left:6px;font-size:10px;";
-  timerBadge.textContent = "Auto-answering in 10:00";
+  timerBadge.textContent = "Auto-answering in 2:00";
   const titleContainer = card.querySelector(".ds-grill-head .ds-title");
   if (titleContainer) {
     titleContainer.insertBefore(timerBadge, titleContainer.firstChild);
@@ -1314,7 +1314,7 @@ function renderGrillQuestionCard(
       clearInterval(card.__grillAutoTimer);
       card.__grillAutoTimer = null;
       console.log(
-        "[DeepSeek Studio] 10 minutes passed without answering. Auto-selecting recommended options and submitting...",
+        "[DeepSeek Studio] 2 minutes passed without answering. Auto-selecting recommended options and submitting...",
       );
       doSubmitDecision(true);
     }
@@ -1401,23 +1401,36 @@ function checkAndHandleRetryButton() {
     const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
     const title = (btn.getAttribute("title") || "").toLowerCase();
 
-    const isRetry =
+    const isRetryOrContinue =
       text === "retry" ||
       text.includes("retry") ||
       aria.includes("retry") ||
       title.includes("retry") ||
-      btn.classList.contains("ds-retry-button");
+      btn.classList.contains("ds-retry-button") ||
+      text === "continue" ||
+      (text.includes("continue") && !text.includes("discontinue")) ||
+      aria.includes("continue") ||
+      title.includes("continue") ||
+      btn.classList.contains("ds-continue-button");
 
-    if (isRetry && btn !== lastRetriedEl && btn.offsetParent !== null) {
+    if (
+      isRetryOrContinue &&
+      btn !== lastRetriedEl &&
+      btn.offsetParent !== null
+    ) {
       if (retryTimeout) return;
 
+      const actionName =
+        text.includes("continue") || aria.includes("continue")
+          ? "Continue"
+          : "Retry";
       console.log(
-        "[DeepSeek Studio] Detected Retry button. Waiting 1 second before clicking...",
+        `[DeepSeek Studio] Detected ${actionName} button. Waiting 1 second before clicking...`,
       );
       retryTimeout = setTimeout(() => {
         retryTimeout = null;
         lastRetriedEl = btn;
-        console.log("[DeepSeek Studio] Clicking Retry button now.");
+        console.log(`[DeepSeek Studio] Clicking ${actionName} button now.`);
 
         btn.dispatchEvent(
           new MouseEvent("pointerdown", { bubbles: true, cancelable: true }),
@@ -1438,20 +1451,38 @@ function checkAndHandleRetryButton() {
   }
 }
 
-// 5-minute Chat Inactivity Watchdog
-// If the chat remains idle with no new messages/activity for 5 minutes, resend the last sent message
+// 3-minute Chat Inactivity Watchdog
+// Displays live countdown badge. Only triggers auto-resend if the chat is stalled and the last message contains JSON/tool output (not completed).
+function updateWatchdogBadge(remainingMs) {
+  const badge = document.getElementById("mcp-watchdog-indicator");
+  if (!badge) return;
+
+  if (remainingMs === null || remainingMs === undefined) {
+    badge.classList.remove("is-on");
+    badge.innerHTML = "";
+    return;
+  }
+
+  const mins = Math.floor(remainingMs / 60000);
+  const secs = Math.floor((remainingMs % 60000) / 1000);
+  badge.classList.add("is-on");
+  badge.innerHTML = `<span class="ds-watchdog-dot"></span><span>Auto-continue in <b class="ds-watchdog-time">${mins}:${secs < 10 ? "0" : ""}${secs}</b></span>`;
+}
+
 function checkInactivityAndResend() {
   // If DeepSeek is actively generating or a task is executing, don't intervene
   if (isDeepSeekGenerating() || isSending || runningTaskCount > 0) {
     recordActivity();
+    updateWatchdogBadge(null);
     return;
   }
 
-  // If there's an active, unanswered question card on screen, let the 10m question timer handle it
+  // If there's an active, unanswered question card on screen, let the 2m question timer handle it
   const activeQuestionCard = Array.from(
     document.querySelectorAll(".deepseek-grill-card"),
   ).find((c) => !c.querySelector(".ds-grill-answered"));
   if (activeQuestionCard) {
+    updateWatchdogBadge(null);
     return;
   }
 
@@ -1462,28 +1493,87 @@ function checkInactivityAndResend() {
     ),
   ).find((c) => c.querySelector(".mcp-approve-btn"));
   if (pendingToolCard && !autoApprove) {
+    updateWatchdogBadge(null);
     return;
   }
 
-  // If Retry button is present, Retry handler will click it
-  const retryBtn = document.querySelector(
-    'button[class*="retry" i], div[class*="retry" i]',
+  // Check if DeepSeek stalled with Retry / Continue button
+  const retryOrContinueBtn = Array.from(
+    document.querySelectorAll(
+      'button, div[role="button"], span[role="button"], div[class*="retry" i], button[class*="retry" i]',
+    ),
+  ).find((btn) => {
+    const text = (btn.textContent || "").trim().toLowerCase();
+    const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+    return (
+      (text.includes("retry") ||
+        (text.includes("continue") && !text.includes("discontinue")) ||
+        aria.includes("retry") ||
+        aria.includes("continue")) &&
+      btn.offsetParent !== null
+    );
+  });
+  if (retryOrContinueBtn) {
+    // Retry/Continue handler is processing it, don't resend text
+    updateWatchdogBadge(null);
+    return;
+  }
+
+  // Verify that the conversation is actively needing continuation:
+  // Must check the last message in chat: auto-continue only if it contains JSON / tool call / DSML tags / pending output,
+  // and NOT when the task is done/completed.
+  const chatBlocks = Array.from(
+    document.querySelectorAll(
+      "div.ds-markdown, div.md-code-block, pre, div[class*='message']",
+    ),
   );
-  if (retryBtn) {
+  const lastBlock = chatBlocks.length
+    ? chatBlocks[chatBlocks.length - 1]
+    : null;
+  const lastText = lastBlock ? lastBlock.textContent || "" : "";
+
+  const hasJsonOrTool =
+    lastText.includes("```json") ||
+    lastText.includes('"tool"') ||
+    lastText.includes('"call"') ||
+    lastText.includes("DSML") ||
+    lastText.includes("Output of ") ||
+    lastText.includes("<|DSML|") ||
+    (lastSentMessage &&
+      (lastSentMessage.includes("```json") ||
+        lastSentMessage.includes("Output of [") ||
+        lastSentMessage.includes('"result"') ||
+        lastSentMessage.includes('"questions"')));
+
+  // Check if the chat or task is marked finished/done
+  const isTaskFinished =
+    lastText.toLowerCase().includes("task complete") ||
+    lastText.toLowerCase().includes("task is done") ||
+    lastText.toLowerCase().includes("all tasks completed") ||
+    lastText.toLowerCase().includes("all done!");
+
+  if (!hasJsonOrTool || isTaskFinished || !lastSentMessage) {
+    // Inactive or completed chat — keep watchdog dormant
+    updateWatchdogBadge(null);
     return;
   }
 
   const idleTime = Date.now() - lastActivityTime;
-  if (idleTime >= INACTIVITY_TIMEOUT_MS && lastSentMessage) {
+  const remainingMs = Math.max(0, INACTIVITY_TIMEOUT_MS - idleTime);
+
+  updateWatchdogBadge(remainingMs);
+
+  if (idleTime >= INACTIVITY_TIMEOUT_MS) {
     console.log(
-      `[DeepSeek Studio] Chat idle for ${Math.round(idleTime / 1000)}s with no action. Resending last message...`,
+      `[DeepSeek Studio] Chat stalled with pending tool/JSON output for ${Math.round(idleTime / 1000)}s. Auto-continuing by resending last message...`,
     );
     recordActivity();
+    updateWatchdogBadge(null);
     sendText(lastSentMessage, true);
   }
 }
 
-setInterval(checkInactivityAndResend, 15000);
+setInterval(checkInactivityAndResend, 1000);
 
 // Observer
 new MutationObserver(() => {
