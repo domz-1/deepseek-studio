@@ -430,13 +430,15 @@ function attachInputMentionInterceptor() {
               loadedSkills,
             );
 
-            // If an @mention is present
-            if (activeMention) {
-              await fetchActiveTools();
-              const selectedTools = window.DSTools.filterToolsByMention(
-                activeMention,
-                activeTools,
-              );
+            // Inject active MCP tools and project context into the skill prompt!
+            await fetchActiveTools();
+            if (activeTools.length) {
+              const selectedTools = activeMention
+                ? window.DSTools.filterToolsByMention(
+                    activeMention,
+                    activeTools,
+                  )
+                : activeTools;
               prompt = `${window.DSTools.buildSysPrompt(selectedTools, selectedProject)}\n${prompt}`;
             }
 
