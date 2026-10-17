@@ -350,7 +350,7 @@ function attachInputMentionInterceptor() {
             const currentVal = input.value;
             // Inject file link with path so MCP filesystem reads it cleanly on demand
             if (fileObj && fileObj.path) {
-              const fileLink = `[${fileObj.name}](file://${fileObj.path}) `;
+              const fileLink = `@file:${fileObj.name} [file://${fileObj.path}] `;
               const newVal = currentVal.replace(/@[^\s@]*$/, fileLink);
               setInputValue(input, newVal);
               return;
@@ -614,6 +614,73 @@ function populateProjectsDropdown(force = false) {
             `<option value="${p.path}" ${p.path === selectedProject ? "selected" : ""}>${p.name.replace(/^⭐\s*/, "")}</option>`,
         )
         .join("");
+    }
+  });
+}
+
+// Sidebar Project Filter
+function injectSidebarProjectFilter() {
+  const sidebar =
+    document.querySelector("div.ds-sidebar, nav[class*='sidebar'], aside") ||
+    document.querySelector("div[class*='chat-history']");
+  if (!sidebar) return;
+
+  let filterWrap = document.getElementById("ds-sidebar-project-filter");
+  if (filterWrap && filterWrap.parentElement !== sidebar) {
+    filterWrap.remove();
+    filterWrap = null;
+  }
+
+  if (!filterWrap) {
+    filterWrap = document.createElement("div");
+    filterWrap.id = "ds-sidebar-project-filter";
+    filterWrap.className = "ds-sidebar-filter";
+
+    const head = document.createElement("div");
+    head.className = "ds-sidebar-filter-head";
+    head.innerHTML = `
+      <span><span class="ds-ic" data-ic="folder"></span> Workspaces</span>
+      <span class="ds-chip-more" style="font-size:9px;cursor:pointer;" id="ds-sidebar-all-projects">All</span>
+    `;
+
+    const chips = document.createElement("div");
+    chips.className = "ds-sidebar-chips";
+    chips.id = "ds-sidebar-chips";
+
+    filterWrap.appendChild(head);
+    filterWrap.appendChild(chips);
+
+    sidebar.insertBefore(filterWrap, sidebar.firstChild);
+  }
+
+  const chipsContainer = document.getElementById("ds-sidebar-chips");
+  if (!chipsContainer || chipsContainer.children.length > 0) return;
+
+  chrome.runtime.sendMessage({ type: "GET_PROJECTS" }, (res) => {
+    if (res?.ok && Array.isArray(res.data?.projects)) {
+      const projects = res.data.projects.slice(0, 10);
+      chipsContainer.innerHTML = projects
+        .map((p) => {
+          const isActive = p.path === selectedProject;
+          const short = p.name.split("/").pop();
+          return `<button class="ds-sidebar-chip ${isActive ? "is-active" : ""}" data-path="${p.path}" title="${p.path}" type="button">${short}</button>`;
+        })
+        .join("");
+
+      chipsContainer.querySelectorAll(".ds-sidebar-chip").forEach((btn) => {
+        btn.onclick = () => {
+          selectedProject = btn.dataset.path;
+          localStorage.setItem(
+            "deepseek_mcp_selected_project",
+            selectedProject,
+          );
+          chipsContainer
+            .querySelectorAll(".ds-sidebar-chip")
+            .forEach((b) => b.classList.remove("is-active"));
+          btn.classList.add("is-active");
+          populateProjectsDropdown(true);
+        };
+      });
     }
   });
 }
@@ -1162,6 +1229,7 @@ new MutationObserver(() => {
     scanMessages();
     attachInputMentionInterceptor();
     injectChatBadge();
+    injectSidebarProjectFilter();
     checkAndHandleRetryButton();
   }, 200);
 }).observe(document.body, {
@@ -1171,4 +1239,5 @@ new MutationObserver(() => {
 });
 
 scanMessages();
+injectSidebarProjectFilter();
 checkAndHandleRetryButton();
