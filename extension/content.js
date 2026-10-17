@@ -312,7 +312,7 @@ async function sendText(text, isUserInput = false) {
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === "INJECT_NOW" && msg.tools) {
     activeTools = msg.tools;
-    sendText(window.DSTools.buildSysPrompt(msg.tools));
+    sendText(window.DSTools.buildSysPrompt(msg.tools, selectedProject));
   }
 });
 
@@ -437,7 +437,7 @@ function attachInputMentionInterceptor() {
                 activeMention,
                 activeTools,
               );
-              prompt = `${window.DSTools.buildSysPrompt(selectedTools)}\n${prompt}`;
+              prompt = `${window.DSTools.buildSysPrompt(selectedTools, selectedProject)}\n${prompt}`;
             }
 
             sendText(prompt, true);
@@ -463,7 +463,7 @@ function attachInputMentionInterceptor() {
           const userText = rawVal
             .replace(new RegExp(activeMention, "gi"), "")
             .trim();
-          const combined = `${window.DSTools.buildSysPrompt(selectedTools)}\n${userText}`;
+          const combined = `${window.DSTools.buildSysPrompt(selectedTools, selectedProject)}\n${userText}`;
           sendText(combined, true);
         }
       }
@@ -876,6 +876,28 @@ const HUMAN_RESULT_TEMPLATES = [
 async function executeTool(payload, cardStatusEl, callKey, targetEl) {
   const callId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   payload.callId = callId;
+
+  // Automatically contextualize tool execution to the active workspace
+  if (selectedProject) {
+    payload.project = selectedProject;
+    payload.arguments = payload.arguments || {};
+    // If bash/execute_command without cwd, set to selectedProject
+    if (
+      (payload.name === "execute_command" || payload.name === "bash") &&
+      !payload.arguments.cwd
+    ) {
+      payload.arguments.cwd = selectedProject;
+    }
+    // If filesystem tool called with relative path or empty path, resolve inside selectedProject
+    if (
+      payload.arguments.path &&
+      typeof payload.arguments.path === "string" &&
+      !payload.arguments.path.startsWith("/")
+    ) {
+      payload.arguments.path =
+        `${selectedProject}/${payload.arguments.path}`.replace(/\/+/g, "/");
+    }
+  }
 
   if (cardStatusEl) {
     cardStatusEl.innerHTML = window.DSComponents.status.runningWithKill(

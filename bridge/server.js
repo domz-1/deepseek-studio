@@ -166,12 +166,26 @@ app.post("/mcp", async (req, res) => {
 });
 
 app.post("/call", async (req, res) => {
-  const { name, arguments: args, callId } = req.body;
+  const { name, arguments: args = {}, callId, project } = req.body;
   console.log(`[Bridge] Incoming /call: ${name}`, JSON.stringify(args || {}));
   const target = toolMap.get(name);
   if (!target) {
     console.error(`[Bridge] Tool ${name} not found!`);
     return res.status(404).json({ error: `Tool ${name} not found` });
+  }
+
+  // If a project is specified and arguments contain relative paths or missing cwd, resolve them
+  if (project && typeof project === "string") {
+    if ((name === "execute_command" || name === "bash") && !args.cwd) {
+      args.cwd = project;
+    }
+    if (
+      args.path &&
+      typeof args.path === "string" &&
+      !args.path.startsWith("/")
+    ) {
+      args.path = path.resolve(project, args.path);
+    }
   }
 
   const activeId =

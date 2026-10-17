@@ -17,8 +17,10 @@
   ]);
 
   const SYSTEM_PROMPT_STYLES = [
-    (list) => `You have local workstation MCP tools available:
+    (list, projectPath) => `You have local workstation MCP tools available:
 ${list}
+
+${projectPath ? `ACTIVE PROJECT WORKSPACE: ${projectPath}\nAll relative file operations and bash commands must run inside or relative to this project workspace path: "${projectPath}".` : ""}
 
 Rules:
 1. Always respond in English or Arabic only. Never use Chinese.
@@ -34,8 +36,10 @@ Rules:
 4. CRITICAL RULE FOR ASKING QUESTIONS: NEVER ask questions or present decisions until you have THOROUGHLY inspected and read the project codebase using the filesystem/tools MCP first!
 5. When asking questions/decisions, ALWAYS prefix your recommended choice with "(Recommended)", and enable multi-selection boolean (\`"multi_select": true\`) so the user can select multiple options.
 `,
-    (list) => `Workstation MCP tools active:
+    (list, projectPath) => `Workstation MCP tools active:
 ${list}
+
+${projectPath ? `ACTIVE WORKSPACE: ${projectPath}\nUse "${projectPath}" as the target project directory for all file inspections, directory listings, and bash commands.` : ""}
 
 Guidelines:
 - Respond in English or Arabic. Never use Chinese.
@@ -49,7 +53,7 @@ Guidelines:
 `,
   ];
 
-  function buildSysPrompt(tools) {
+  function buildSysPrompt(tools, projectPath = "") {
     const list = (tools || [])
       .map(
         (t) =>
@@ -60,7 +64,7 @@ Guidelines:
       SYSTEM_PROMPT_STYLES[
         Math.floor(Math.random() * SYSTEM_PROMPT_STYLES.length)
       ];
-    return template(list);
+    return template(list, projectPath);
   }
 
   function filterToolsByMention(mention, tools) {
