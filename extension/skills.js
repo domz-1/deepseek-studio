@@ -78,6 +78,53 @@
       builtin: true,
     },
     {
+      id: "grill-me",
+      name: "grill-me",
+      emoji: "🔥",
+      description:
+        "Interactively interview and challenge design decisions, trade-offs, and edge cases.",
+      prompt:
+        "Act as an exceptionally demanding Principal Engineer and Architect. Grill me thoroughly on my proposed plan/idea/code.\n" +
+        "- Ask 3-5 sharp, probing questions exposing hidden assumptions, performance bottlenecks, concurrency risks, failure modes, and architectural trade-offs.\n" +
+        "- Challenge me to defend my choices with concrete technical rationale.\n" +
+        "- Do NOT write code yet; prioritize stress-testing the architecture and requirements first.\n\n" +
+        "Here is what I want to build or discuss:",
+      builtin: true,
+    },
+    {
+      id: "plan",
+      name: "plan",
+      emoji: "📋",
+      description:
+        "Generate a rigorous step-by-step implementation plan with file changes and verification.",
+      prompt:
+        "Act as a Senior Tech Lead. Create a rigorous, complete, step-by-step Implementation Plan before writing any code.\n" +
+        "Structure your response with:\n" +
+        "1. **Summary & Architecture**: Clear scope and core architectural approach.\n" +
+        "2. **Critical Decisions & Trade-offs**: Key trade-offs or constraints identified.\n" +
+        "3. **Step-by-Step Changes**: Exact files to create/modify (`[NEW]`, `[MODIFY]`, `[DELETE]`) with rationale for each.\n" +
+        "4. **Verification Plan**: Exact commands, unit tests, and edge case validations.\n" +
+        "5. **Open Questions**: Anything needing clarification before implementation starts.\n\n" +
+        "Task to plan:",
+      builtin: true,
+    },
+    {
+      id: "build",
+      name: "build",
+      emoji: "🏗️",
+      description:
+        "Autonomous Build Mode: execute plan, call MCP tools, create files, and verify.",
+      prompt:
+        "You are now in **Autonomous Build Mode**. Your objective is to implement the solution cleanly and verify it using workstation MCP tools.\n" +
+        "Guidelines:\n" +
+        "1. Inspect files or execute commands using MCP tools directly.\n" +
+        "2. Implement production-ready code with complete error handling and tests.\n" +
+        "3. Verify your work (run tests or linting with `@bash`).\n" +
+        "4. Keep me updated with concise progress summaries in English or Arabic.\n\n" +
+        "Objective to build:",
+      builtin: true,
+    },
+    {
       id: "translate-ar",
       name: "translate-ar",
       emoji: "🇸🇦",
