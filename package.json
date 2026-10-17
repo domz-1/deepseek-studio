@@ -1,0 +1,27 @@
+{
+  "name": "deepseek-mcp-studio",
+  "version": "1.0.0",
+  "description": "Connect DeepSeek Chat to any MCP server via a local bridge + Chrome extension.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run bridge/server.js",
+    "dev": "bun --watch run bridge/server.js",
+    "install:bridge": "cd bridge && bun install",
+    "setup": "bun run install:bridge"
+  },
+  "keywords": [
+    "deepseek",
+    "mcp",
+    "model-context-protocol",
+    "chrome-extension",
+    "bun",
+    "ai-tools"
+  ],
+  "author": "domz-1 (Adham)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/domz-1/deepseek-mcp-ext.git"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "deepseek-mcp-bridge",
+  "version": "1.0.0",
+  "description": "Local MCP hub that proxies tool calls for the DeepSeek MCP Studio extension.",
+  "module": "server.js",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run server.js",
+    "dev": "bun --watch run server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "cors": "^2.8.6",
+    "express": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
