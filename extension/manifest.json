@@ -34,6 +34,7 @@
     {
       "matches": ["https://chat.deepseek.com/*"],
       "js": ["skills.js", "tools.js", "ui.js", "content.js"],
+      "css": ["theme.css"],
       "run_at": "document_idle"
     }
   ]

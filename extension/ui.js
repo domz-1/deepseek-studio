@@ -22,6 +22,7 @@
     query,
     activeTools,
     serverStatus,
+    fileResults,
     onSelect,
   ) {
     removeAutocomplete();
@@ -54,7 +55,14 @@
         o.label.toLowerCase().startsWith(query.toLowerCase()),
     );
 
-    if (!filtered.length) return;
+    const files = (fileResults || []).filter(
+      (f) =>
+        !query ||
+        f.name.toLowerCase().includes(query.toLowerCase()) ||
+        f.path.toLowerCase().includes(query.toLowerCase())
+    );
+
+    if (!filtered.length && !files.length) return;
 
     const menu = document.createElement("div");
     autocompleteMenu = menu;
@@ -123,6 +131,47 @@
 
       menu.appendChild(item);
     });
+
+    if (files.length) {
+      const sep = document.createElement("div");
+      sep.style.cssText = `
+        margin: 4px 6px;
+        border-top: 1px solid #313244;
+      `;
+      menu.appendChild(sep);
+
+      files.slice(0, 30).forEach((f) => {
+        const item = document.createElement("div");
+        item.style.cssText = `
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 7px 10px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 12px;
+          transition: background 0.15s;
+        `;
+        const sizeKb = f.size ? (f.size / 1024).toFixed(1) + " KB" : "";
+        const shortPath = f.path.length > 40 ? "…" + f.path.slice(-40) : f.path;
+        item.innerHTML = `
+          <div style="display:flex;flex-direction:column;gap:2px;overflow:hidden;">
+            <span style="color:#a6e3a1;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📄 ${f.name}</span>
+            <span style="font-size:10px;color:#a6adc8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${shortPath}</span>
+          </div>
+          <span style="color:#a6adc8;font-size:9px;white-space:nowrap;margin-left:8px;">${sizeKb}</span>
+        `;
+        item.onmouseenter = () => { item.style.background = "#313244"; };
+        item.onmouseleave = () => { item.style.background = "transparent"; };
+        item.onmousedown = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onSelect(f.path);
+          removeAutocomplete();
+        };
+        menu.appendChild(item);
+      });
+    }
 
     document.body.appendChild(menu);
   }

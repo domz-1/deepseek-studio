@@ -15,32 +15,36 @@ $("t-json").onclick = () => activate("t-json");
 $("t-skills").onclick = () => { activate("t-skills"); renderSkills(); };
 
 async function apiGetMCP() {
-  try {
-    const res = await fetch("http://localhost:43210/mcp");
-    if (!res.ok) throw new Error("HTTP error " + res.status);
-    return await res.json();
-  } catch (err) {
-    const bgRes = await new Promise((r) => chrome.runtime.sendMessage({ type: "GET_MCP" }, r));
-    if (bgRes && bgRes.ok) return bgRes.data;
-    throw new Error((bgRes && bgRes.error) || err.message);
-  }
+  const bgRes = await new Promise((r) => chrome.runtime.sendMessage({ type: "GET_MCP" }, r));
+  if (bgRes && bgRes.ok) return bgRes.data;
+  throw new Error((bgRes && bgRes.error) || "Bridge unreachable");
 }
 
 async function apiSaveMCP(config) {
-  try {
-    const res = await fetch("http://localhost:43210/mcp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(config),
-    });
-    if (!res.ok) throw new Error("HTTP error " + res.status);
-    return await res.json();
-  } catch (err) {
-    const bgRes = await new Promise((r) => chrome.runtime.sendMessage({ type: "SAVE_MCP", config }, r));
-    if (bgRes && bgRes.ok) return bgRes.data;
-    throw new Error((bgRes && bgRes.error) || err.message);
+  const bgRes = await new Promise((r) => chrome.runtime.sendMessage({ type: "SAVE_MCP", config }, r));
+  if (bgRes && bgRes.ok) return bgRes.data;
+  throw new Error((bgRes && bgRes.error) || "Bridge unreachable");
+}
+
+// Load the stored token into the field
+async function loadToken() {
+  const bgRes = await new Promise((r) => chrome.runtime.sendMessage({ type: "GET_TOKEN" }, r));
+  if (bgRes && bgRes.ok && bgRes.data && bgRes.data.token) {
+    $("token-in").value = bgRes.data.token;
   }
 }
+
+$("save-token").onclick = async () => {
+  const token = $("token-in").value.trim();
+  const bgRes = await new Promise((r) => chrome.runtime.sendMessage({ type: "SET_TOKEN", token }, r));
+  if (bgRes && bgRes.ok) {
+    $("save-token").textContent = "✓";
+    setTimeout(() => ($("save-token").textContent = "Set"), 1200);
+    load();
+  } else {
+    alert("Failed to save token: " + (bgRes && bgRes.error));
+  }
+};
 
 async function load() {
   try {
@@ -138,4 +142,4 @@ $("inj").onclick = async () => {
   window.close();
 };
 
-document.addEventListener("DOMContentLoaded", () => { load(); renderSkills(); });
+document.addEventListener("DOMContentLoaded", () => { loadToken(); load(); renderSkills(); });

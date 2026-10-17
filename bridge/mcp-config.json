@@ -1,8 +1,9 @@
 {
+  "indexRoots": ["/home/adham/projects"],
   "mcpServers": {
     "filesystem": {
       "command": "bunx",
-      "args": ["@modelcontextprotocol/server-filesystem", "/", "/home/adham"],
+      "args": ["@modelcontextprotocol/server-filesystem", "/home/adham"],
       "enabled": true
     },
     "bash": {

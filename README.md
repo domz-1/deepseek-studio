@@ -130,6 +130,10 @@ You should see:
 2. Enable **Developer mode** (top-right).
 3. Click **Load unpacked** and select the `extension/` folder.
 4. Pin **DeepSeek MCP Studio** to your toolbar.
+5. **Paste the bridge token.** When the bridge starts (secure mode) it prints
+   `Bridge token (paste into the extension popup): <hex>`. Open the extension
+   popup, paste it into the top field, and click **Set**. This token is required
+   for the bridge to accept requests from the extension.
 
 ### 5. Use it
 
