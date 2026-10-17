@@ -56,31 +56,14 @@ function getChatInput() {
 
 // Check if DeepSeek is generating (looking for square stop icon in the send button area)
 function isDeepSeekGenerating() {
-  // A generation in progress shows a STOP button (square icon) with a
-  // distinctive aria-label / title. We must NOT treat every <rect> as a stop
-  // icon, because the send & attach buttons also contain rects.
   const input = getChatInput();
   if (!input) return false;
   const wrapper =
     input.closest("div.ds-textarea-wrapper") ||
     input.parentElement?.parentElement ||
     document;
-  const buttons = Array.from(
-    wrapper.querySelectorAll('div[role="button"], button'),
-  );
-  for (const b of buttons) {
-    const label = (
-      (b.getAttribute("aria-label") || "") +
-      " " +
-      (b.getAttribute("title") || "")
-    ).toLowerCase();
-    if (label.includes("stop") || label.includes("abort")) return true;
-  }
-  // Fallback: look for an element with a "stop"/"abort" data attribute
-  if (wrapper.querySelector('[aria-label*="Stop" i], [title*="Stop" i]')) {
-    return true;
-  }
-  return false;
+  const stopSquare = wrapper.querySelector("svg rect");
+  return Boolean(stopSquare);
 }
 
 // React 18 / Vue compatible text setter
@@ -123,60 +106,58 @@ function getSendButton() {
   return null;
 }
 
-// Robust sender: waits for generation to end, sends, then verifies the
-// message actually left the input box (retrying if needed).
+// Direct, instant, and reliable sender
 async function sendText(text) {
-  if (isSending) {
-    // Wait for any in-flight send to finish, then continue.
-    let guard = 0;
-    while (isSending && guard < 30) {
-      await new Promise((r) => setTimeout(r, 200));
-      guard++;
-    }
-  }
+  if (isSending) return;
   isSending = true;
 
   try {
-    // 1. Wait (up to 60s) for any ongoing generation to finish.
-    let waited = 0;
-    while (isDeepSeekGenerating() && waited < 60000) {
-      await new Promise((r) => setTimeout(r, 500));
-      waited += 500;
-    }
-
     const el = getChatInput();
     if (!el) return;
 
-    // 2. Put the text in and fire input events.
+    // 1. Wait if currently streaming
+    let waited = 0;
+    while (isDeepSeekGenerating() && waited < 15000) {
+      await new Promise((r) => setTimeout(r, 400));
+      waited += 400;
+    }
+
+    // 2. Set value
     setInputValue(el, text);
-    await new Promise((r) => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 150));
 
-    // 3. Try to send, up to 12 attempts over ~12s.
-    for (let attempt = 0; attempt < 12; attempt++) {
-      // If the box already cleared, the message was sent.
-      if (!el.value || el.value.trim().length === 0) return;
+    // 3. Dispatch click on send button
+    const sendBtn = getSendButton();
+    if (sendBtn && !sendBtn.getAttribute("aria-disabled")) {
+      sendBtn.click();
+    }
 
-      // Prefer clicking the send button.
-      const btn = getSendButton();
-      if (btn && !btn.getAttribute("aria-disabled")) {
-        btn.click();
-      }
+    // Also dispatch Enter on textarea to guarantee trigger
+    el.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        code: "Enter",
+        keyCode: 13,
+        which: 13,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
 
-      // Always also fire Enter as a fallback.
+    // 4. Verification check after 500ms
+    await new Promise((r) => setTimeout(r, 500));
+    if (el.value.trim().length > 0) {
+      // If still not submitted, click again
+      const btnAgain = getSendButton();
+      if (btnAgain) btnAgain.click();
       el.dispatchEvent(
         new KeyboardEvent("keydown", {
           key: "Enter",
           code: "Enter",
           keyCode: 13,
-          which: 13,
           bubbles: true,
-          cancelable: true,
         }),
       );
-
-      await new Promise((r) => setTimeout(r, 700));
-
-      if (!el.value || el.value.trim().length === 0) return;
     }
   } finally {
     isSending = false;
