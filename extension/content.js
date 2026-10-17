@@ -621,7 +621,7 @@ const HUMAN_RESULT_TEMPLATES = [
 ];
 
 // Tool execution & card rendering
-async function executeTool(payload, cardStatusEl, callKey) {
+async function executeTool(payload, cardStatusEl, callKey, targetEl) {
   const callId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   payload.callId = callId;
 
@@ -657,6 +657,10 @@ async function executeTool(payload, cardStatusEl, callKey) {
         throw new Error("Task was cancelled by user");
       }
       throw new Error(data.error || "Execution failed");
+    }
+
+    if (targetEl) {
+      targetEl.setAttribute("data-mcp-executed", "true");
     }
 
     if (callKey) {
@@ -750,20 +754,20 @@ function renderPermissionCard(
     try {
       payload.arguments = JSON.parse(card.querySelector(".ed").value);
     } catch (_) {}
-    executeTool(payload, controls, callKey);
+    executeTool(payload, controls, callKey, targetEl);
   };
 
   card.querySelector(".no").onclick = () => {
+    targetEl.setAttribute("data-mcp-executed", "true");
     executedCalls.add(callKey);
     controls.innerHTML = `<div style="color:#a6adc8;font-style:italic;padding:4px;">✕ Rejected: ${payload.name}</div>`;
     sendText(`I skipped "${payload.name}". Please continue.`);
   };
 
   if (autoApprove) {
-    if (callKey) executedCalls.add(callKey);
     controls.innerHTML = `<div style="color:#a6e3a1;font-size:12px;">⚡ Auto-executing <code>${payload.name}</code>...</div>`;
     setTimeout(() => {
-      executeTool(payload, controls, callKey);
+      executeTool(payload, controls, callKey, targetEl);
     }, 400);
   }
 }
@@ -962,6 +966,9 @@ function renderGrillQuestionCard(
       return;
     }
 
+    if (targetEl) {
+      targetEl.setAttribute("data-mcp-executed", "true");
+    }
     executedCalls.add(callKey);
     const fullAnswer = `My Architecture Decision:\n${answers.join("\n\n")}\n\nWhat is the next step or question?`;
 
@@ -998,11 +1005,25 @@ function scanMessages() {
         const qTitle =
           grillData.question || grillData.questions[0]?.question || "multi";
         const callKey = `grill:${qTitle.slice(0, 80)}`;
-        const parentMsg = el.closest(
-          "div.ds-message, div._4f9bf79, div.ds-markdown",
+
+        // Element-level tracking: if this exact DOM element was already answered
+        const isElementExecuted =
+          el.getAttribute("data-mcp-executed") === "true";
+
+        // Thread-level check: only consider historical if there is another message bubble after this one
+        const messageContainer = el.closest(
+          "div.ds-message, div._4f9bf79, div.chat-message, div[data-message-id]",
         );
-        const hasFollowUp = parentMsg && parentMsg.nextElementSibling !== null;
-        const isHistorical = executedCalls.has(callKey) || hasFollowUp;
+        let hasSubsequentMessage = false;
+        if (messageContainer && messageContainer.parentElement) {
+          const siblings = Array.from(messageContainer.parentElement.children);
+          const idx = siblings.indexOf(messageContainer);
+          if (idx !== -1 && idx < siblings.length - 1) {
+            hasSubsequentMessage = true;
+          }
+        }
+
+        const isHistorical = isElementExecuted || hasSubsequentMessage;
 
         renderGrillQuestionCard(el, grillData, callKey, isHistorical);
         return;
@@ -1016,12 +1037,30 @@ function scanMessages() {
     if (payload && payload.name) {
       el.setAttribute("data-mcp-attached", "true");
 
-      const callKey = `${payload.name}:${JSON.stringify(payload.arguments || {})}:${text.slice(0, 100)}`;
-      const parentMsg = el.closest(
-        "div.ds-message, div._4f9bf79, div.ds-markdown",
+      // Element-level tracking: if this exact code block was already executed
+      const isElementExecuted = el.getAttribute("data-mcp-executed") === "true";
+
+      // Thread-level check: only consider historical if there is another message bubble after this one
+      const messageContainer = el.closest(
+        "div.ds-message, div._4f9bf79, div.chat-message, div[data-message-id]",
       );
-      const hasFollowUp = parentMsg && parentMsg.nextElementSibling !== null;
-      const isHistorical = executedCalls.has(callKey) || hasFollowUp;
+      let hasSubsequentMessage = false;
+      if (messageContainer && messageContainer.parentElement) {
+        const siblings = Array.from(messageContainer.parentElement.children);
+        const idx = siblings.indexOf(messageContainer);
+        if (idx !== -1 && idx < siblings.length - 1) {
+          hasSubsequentMessage = true;
+        }
+      }
+
+      // If this is the latest message in the conversation, it is ACTIVE and NEVER historical!
+      const isHistorical = isElementExecuted || hasSubsequentMessage;
+
+      // Unique identifier per code block in the DOM
+      if (!el.dataset.mcpId) {
+        el.dataset.mcpId = `mcp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      }
+      const callKey = `${el.dataset.mcpId}:${payload.name}`;
 
       renderPermissionCard(el, payload, callKey, isHistorical);
     }
