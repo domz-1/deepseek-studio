@@ -83,15 +83,15 @@
       width: ${menuWidth}px !important;
       max-height: 320px !important;
       overflow-y: auto !important;
-      background: #181825 !important;
-      border: 1px solid #45475a !important;
+      background: var(--ds-bg-base) !important;
+      border: 1px solid var(--ds-border) !important;
       border-radius: 10px !important;
-      box-shadow: 0 12px 32px rgba(0,0,0,0.7) !important;
+      box-shadow: 0 12px 32px var(--ds-shadow-xl) !important;
       z-index: 2147483647 !important;
       padding: 6px !important;
       min-width: 220px !important;
       font-family: system-ui, -apple-system, sans-serif !important;
-      color: #cdd6f4 !important;
+      color: var(--ds-fg) !important;
       box-sizing: border-box !important;
     `;
 
@@ -109,14 +109,14 @@
       `;
       item.innerHTML = `
         <div style="display:flex;align-items:center;gap:6px;">
-          <span style="color:#89b4fa;font-weight:bold;">${opt.label}</span>
-          <span style="font-size:10px;color:#a6adc8;">${opt.desc}</span>
+          <span style="color:var(--ds-accent);font-weight:bold;">${opt.label}</span>
+          <span style="font-size:10px;color:var(--ds-fg-muted);">${opt.desc}</span>
         </div>
-        <span style="background:#313244;color:#a6e3a1;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:bold;">${opt.count}</span>
+        <span style="background:var(--ds-bg-hover);color:var(--ds-success);padding:1px 6px;border-radius:8px;font-size:10px;font-weight:bold;">${opt.count}</span>
       `;
 
       item.onmouseenter = () => {
-        item.style.background = "#313244";
+        item.style.background = "var(--ds-bg-hover)";
       };
       item.onmouseleave = () => {
         item.style.background = "transparent";
@@ -136,7 +136,7 @@
       const sep = document.createElement("div");
       sep.style.cssText = `
         margin: 4px 6px;
-        border-top: 1px solid #313244;
+        border-top: 1px solid var(--ds-bg-hover);
       `;
       menu.appendChild(sep);
 
@@ -156,12 +156,12 @@
         const shortPath = f.path.length > 40 ? "…" + f.path.slice(-40) : f.path;
         item.innerHTML = `
           <div style="display:flex;flex-direction:column;gap:2px;overflow:hidden;">
-            <span style="color:#a6e3a1;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📄 ${f.name}</span>
-            <span style="font-size:10px;color:#a6adc8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${shortPath}</span>
+            <span style="color:var(--ds-success);font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><span class="ds-ic" data-ic="file"></span> ${f.name}</span>
+            <span style="font-size:10px;color:var(--ds-fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${shortPath}</span>
           </div>
-          <span style="color:#a6adc8;font-size:9px;white-space:nowrap;margin-left:8px;">${sizeKb}</span>
+          <span style="color:var(--ds-fg-muted);font-size:9px;white-space:nowrap;margin-left:8px;">${sizeKb}</span>
         `;
-        item.onmouseenter = () => { item.style.background = "#313244"; };
+        item.onmouseenter = () => { item.style.background = "var(--ds-bg-hover)"; };
         item.onmouseleave = () => { item.style.background = "transparent"; };
         item.onmousedown = (e) => {
           e.preventDefault();
@@ -202,14 +202,14 @@
       width: ${menuWidth}px !important;
       max-height: 380px !important;
       overflow-y: auto !important;
-      background: #181825 !important;
-      border: 1px solid #45475a !important;
+      background: var(--ds-bg-base) !important;
+      border: 1px solid var(--ds-border) !important;
       border-radius: 12px !important;
-      box-shadow: 0 12px 32px rgba(0,0,0,0.7) !important;
+      box-shadow: 0 12px 32px var(--ds-shadow-xl) !important;
       z-index: 2147483647 !important;
       padding: 8px !important;
       font-family: system-ui, -apple-system, sans-serif !important;
-      color: #cdd6f4 !important;
+      color: var(--ds-fg) !important;
       box-sizing: border-box !important;
     `;
 
@@ -221,13 +221,13 @@
       padding: 6px 10px 8px 10px;
       font-size: 11px;
       font-weight: 700;
-      color: #cba6f7;
-      border-bottom: 1px solid #313244;
+      color: var(--ds-brand);
+      border-bottom: 1px solid var(--ds-bg-hover);
       margin-bottom: 4px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     `;
-    header.innerHTML = `<span>⚡ Skills</span><span style="color:#a6adc8;font-size:10px;">${matches.length} available</span>`;
+    header.innerHTML = `<span><span class="ds-ic" data-ic="zap"></span> Skills</span><span style="color:var(--ds-fg-muted);font-size:10px;">${matches.length} available</span>`;
     menu.appendChild(header);
 
     matches.forEach((sk, idx) => {
@@ -241,22 +241,22 @@
         cursor: pointer;
         font-size: 13px;
         transition: background 0.12s;
-        ${idx === 0 ? "background: #313244;" : ""}
+        ${idx === 0 ? "background: var(--ds-bg-hover);" : ""}
       `;
       item.innerHTML = `
         <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:16px;">${sk.emoji || "⚡"}</span>
-          <b style="color:#89b4fa;font-size:13px;">/${sk.name}</b>
-          ${sk.builtin ? "" : '<span style="background:#f9e2af;color:#11111b;padding:1px 5px;border-radius:6px;font-size:9px;font-weight:700;">CUSTOM</span>'}
+          <span style="font-size:16px;">${window.DSIcon ? window.DSIcon.forSkill(sk) : (sk.emoji || "")}</span>
+          <b style="color:var(--ds-accent);font-size:13px;">/${sk.name}</b>
+          ${sk.builtin ? "" : '<span style="background:var(--ds-warning);color:var(--ds-bg-inset);padding:1px 5px;border-radius:6px;font-size:9px;font-weight:700;">CUSTOM</span>'}
         </div>
-        <div style="font-size:11px;color:#a6adc8;padding-left:24px;line-height:1.3;">${sk.description || ""}</div>
+        <div style="font-size:11px;color:var(--ds-fg-muted);padding-left:24px;line-height:1.3;">${sk.description || ""}</div>
       `;
 
       item.onmouseenter = () => {
         menu
           .querySelectorAll("div[data-skill-item]")
           .forEach((el) => (el.style.background = "transparent"));
-        item.style.background = "#313244";
+        item.style.background = "var(--ds-bg-hover)";
       };
       item.onmouseleave = () => {
         item.style.background = "transparent";

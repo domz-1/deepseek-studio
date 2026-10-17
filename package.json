@@ -8,7 +8,9 @@
     "start": "bun run bridge/server.js",
     "dev": "bun --watch run bridge/server.js",
     "install:bridge": "cd bridge && bun install",
-    "setup": "bun run install:bridge"
+    "setup": "bun run install:bridge",
+    "theme": "node scripts/gen-theme.mjs",
+    "check": "node --check extension/content.js && node --check extension/ui.js && node --check extension/popup.js && node --check extension/skills.js && node --check extension/background.js && node --check extension/tools.js"
   },
   "keywords": [
     "deepseek",

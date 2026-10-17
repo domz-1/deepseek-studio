@@ -38,7 +38,7 @@ $("save-token").onclick = async () => {
   const token = $("token-in").value.trim();
   const bgRes = await new Promise((r) => chrome.runtime.sendMessage({ type: "SET_TOKEN", token }, r));
   if (bgRes && bgRes.ok) {
-    $("save-token").textContent = "✓";
+    $('save-token').innerHTML = '<span class=\"ds-ic\" data-ic=\"check\"></span>';
     setTimeout(() => ($("save-token").textContent = "Set"), 1200);
     load();
   } else {
@@ -56,22 +56,22 @@ async function load() {
     $("tot").textContent = cachedTools.length + " tools ready";
     $("json-ed").value = JSON.stringify(currentCfg, null, 2);
     const entries = Object.entries(currentCfg.mcpServers || {});
-    if (!entries.length) { $("srv-list").innerHTML = '<div style="color:#a6adc8;padding:8px;">No servers defined in JSON.</div>'; return; }
+    if (!entries.length) { $("srv-list").innerHTML = '<div style="color:var(--ds-fg-muted);padding:8px;">No servers defined in JSON.</div>'; return; }
     $("srv-list").innerHTML = entries.map(([name, srv]) => {
       const st = status[name] || {};
       const checked = srv.enabled !== false ? "checked" : "";
-      return '<div class="srv-card"><div><span class="dot ' + (st.online ? "on" : "") + '"></span><b>' + name + '</b><div style="font-size:10px;color:#a6adc8;margin-left:14px;">' + srv.command + ' ' + (srv.args || []).join(" ") + ' (' + (st.count || 0) + ' tools)</div></div><input type="checkbox" data-srv="' + name + '" ' + checked + ' style="cursor:pointer;width:16px;height:16px;" /></div>';
+      return '<div class="srv-card"><div><span class="dot ' + (st.online ? "on" : "") + '"></span><b>' + name + '</b><div style="font-size:10px;color:var(--ds-fg-muted);margin-left:14px;">' + srv.command + ' ' + (srv.args || []).join(" ") + ' (' + (st.count || 0) + ' tools)</div></div><input type="checkbox" data-srv="' + name + '" ' + checked + ' style="cursor:pointer;width:16px;height:16px;" /></div>';
     }).join("");
     document.querySelectorAll("input[data-srv]").forEach((cb) => {
       cb.onchange = async (e) => {
         const name = e.target.dataset.srv;
         currentCfg.mcpServers[name].enabled = e.target.checked;
-        $("srv-list").innerHTML = '<div style="color:#89b4fa;padding:8px;">Reloading...</div>';
-        try { await apiSaveMCP(currentCfg); await load(); } catch (err) { $("srv-list").innerHTML = '<div style="color:#f38ba8;padding:8px;">Error: ' + err.message + '</div>'; }
+        $("srv-list").innerHTML = '<div style="color:var(--ds-accent);padding:8px;">Reloading...</div>';
+        try { await apiSaveMCP(currentCfg); await load(); } catch (err) { $("srv-list").innerHTML = '<div style="color:var(--ds-danger);padding:8px;">Error: ' + err.message + '</div>'; }
       };
     });
   } catch (err) {
-    $("srv-list").innerHTML = '<div style="color:#f38ba8;padding:8px;"><b>Bridge offline or unreachable:</b><br>' + err.message + '<br><br>Run in terminal:<br><code>cd bridge &amp;&amp; bun run server.js</code></div>';
+    $("srv-list").innerHTML = '<div style="color:var(--ds-danger);padding:8px;"><b>Bridge offline or unreachable:</b><br>' + err.message + '<br><br>Run in terminal:<br><code>cd bridge &amp;&amp; bun run server.js</code></div>';
   }
 }
 
@@ -93,7 +93,7 @@ async function renderSkills() {
   if (!all.length) { list.innerHTML = '<div class="muted">No skills yet.</div>'; return; }
   list.innerHTML = all.map((s) => {
     const isCustom = customSkills.some((c) => window.DSSkills.slugify(c.name) === s.name);
-    return '<div class="skill-card"><div class="nm">' + s.emoji + ' /' + s.name + (isCustom ? ' <span style="color:#a6e3a1;font-size:9px;">custom</span>' : ' <span style="color:#a6adc8;font-size:9px;">built-in</span>') + '</div><div class="ds">' + (s.description || "") + '</div><div class="pr">' + (s.prompt === "__HELP__" ? "(lists all skills)" : (s.prompt || "")) + '</div>' + (isCustom ? '<div class="row" style="margin-top:6px;"><button class="mini" data-edit="' + s.name + '">Edit</button><button class="dang" data-del="' + s.name + '">Delete</button></div>' : '') + '</div>';
+    return '<div class="skill-card"><div class="nm">' + (window.DSIcon ? window.DSIcon.forSkill(s) : (s.emoji||'')) + ' /' + s.name + (isCustom ? ' <span style="color:var(--ds-success);font-size:9px;">custom</span>' : ' <span style="color:var(--ds-fg-muted);font-size:9px;">built-in</span>') + '</div><div class="ds">' + (s.description || "") + '</div><div class="pr">' + (s.prompt === "__HELP__" ? "(lists all skills)" : (s.prompt || "")) + '</div>' + (isCustom ? '<div class="row" style="margin-top:6px;"><button class="mini" data-edit="' + s.name + '">Edit</button><button class="dang" data-del="' + s.name + '">Delete</button></div>' : '') + '</div>';
   }).join("");
   list.querySelectorAll("[data-del]").forEach((b) => {
     b.onclick = async () => {
@@ -109,7 +109,7 @@ async function renderSkills() {
       const s = all.find((x) => x.name === name);
       if (!s) return;
       $("sk-name").value = s.name;
-      $("sk-emoji").value = s.emoji;
+      $("sk-emoji").value = s.icon || (window.DSIcon ? window.DSIcon.name(s) : "");
       $("sk-desc").value = s.description;
       $("sk-prompt").value = s.prompt;
       window.scrollTo(0, document.body.scrollHeight);
@@ -117,16 +117,27 @@ async function renderSkills() {
   });
 }
 
+function populateIconSelect() {
+  const sel = $("sk-emoji");
+  if (!sel || sel.dataset.filled) return;
+  const names =
+    window.DSIcon && window.DSIcon.names ? window.DSIcon.names() : ["sparkles"];
+  sel.innerHTML =
+    '<option value="">default (sparkles)</option>' +
+    names.map((n) => '<option value="' + n + '">' + n + "</option>").join("");
+  sel.dataset.filled = "1";
+}
+
 $("sk-add").onclick = async () => {
   const name = window.DSSkills.slugify($("sk-name").value);
-  const emoji = $("sk-emoji").value.trim() || "✨";
+  const icon = $("sk-emoji").value.trim();
   const desc = $("sk-desc").value.trim();
   const prompt = $("sk-prompt").value.trim();
   if (!name) return alert("Name is required.");
   if (!prompt) return alert("Prompt is required.");
   const list = await window.DSSkills.getCustomSkills();
   const filtered = list.filter((s) => window.DSSkills.slugify(s.name) !== name);
-  filtered.push({ name, emoji, description: desc, prompt });
+  filtered.push({ name, icon, description: desc, prompt });
   await window.DSSkills.saveCustomSkills(filtered);
   $("sk-name").value = "";
   $("sk-emoji").value = "";
@@ -142,4 +153,4 @@ $("inj").onclick = async () => {
   window.close();
 };
 
-document.addEventListener("DOMContentLoaded", () => { loadToken(); load(); renderSkills(); });
+document.addEventListener("DOMContentLoaded", () => { loadToken(); load(); populateIconSelect(); renderSkills(); });

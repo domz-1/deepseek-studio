@@ -2,37 +2,38 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <link rel="stylesheet" href="theme.css">
   <style>
-    body { width: 380px; margin: 0; padding: 12px; background: #181825; color: #cdd6f4; font-family: system-ui, sans-serif; font-size: 12px; }
-    .hdr { display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: #cba6f7; margin-bottom: 10px; }
-    .tabs { display: flex; gap: 4px; margin-bottom: 10px; background: #11111b; padding: 4px; border-radius: 8px; }
-    .tab { flex: 1; text-align: center; padding: 6px; border-radius: 6px; cursor: pointer; font-weight: 600; color: #a6adc8; font-size: 11px; }
-    .tab.active { background: #313244; color: #89b4fa; }
+    body { width: 380px; margin: 0; padding: 12px; background: var(--ds-bg-base); color: var(--ds-fg); font-family: system-ui, sans-serif; font-size: 12px; }
+    .hdr { display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: var(--ds-brand); margin-bottom: 10px; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 10px; background: var(--ds-bg-inset); padding: 4px; border-radius: 8px; }
+    .tab { flex: 1; text-align: center; padding: 6px; border-radius: 6px; cursor: pointer; font-weight: 600; color: var(--ds-fg-muted); font-size: 11px; }
+    .tab.active { background: var(--ds-bg-hover); color: var(--ds-accent); }
     .pane { display: none; }
     .pane.active { display: block; }
-    .srv-card { display: flex; justify-content: space-between; align-items: center; background: #11111b; padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; border: 1px solid #313244; }
-    .skill-card { background: #11111b; padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; border: 1px solid #313244; }
-    .skill-card .nm { color: #cba6f7; font-weight: 700; }
-    .skill-card .ds { color: #a6adc8; font-size: 10px; margin: 2px 0 4px; }
-    .skill-card .pr { color: #a6e3a1; font-size: 10px; font-family: monospace; max-height: 32px; overflow: hidden; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; background: #f38ba8; }
-    .dot.on { background: #a6e3a1; box-shadow: 0 0 6px #a6e3a1; }
-    textarea, input[type=text] { width: 100%; box-sizing: border-box; background: #11111b; color: #a6e3a1; border: 1px solid #45475a; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 11px; }
+    .srv-card { display: flex; justify-content: space-between; align-items: center; background: var(--ds-bg-inset); padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; border: 1px solid var(--ds-bg-hover); }
+    .skill-card { background: var(--ds-bg-inset); padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; border: 1px solid var(--ds-bg-hover); }
+    .skill-card .nm { color: var(--ds-brand); font-weight: 700; }
+    .skill-card .ds { color: var(--ds-fg-muted); font-size: 10px; margin: 2px 0 4px; }
+    .skill-card .pr { color: var(--ds-success); font-size: 10px; font-family: monospace; max-height: 32px; overflow: hidden; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; background: var(--ds-danger); }
+    .dot.on { background: var(--ds-success); box-shadow: 0 0 6px var(--ds-success); }
+    textarea, input[type=text], select { width: 100%; box-sizing: border-box; background: var(--ds-bg-inset); color: var(--ds-success); border: 1px solid var(--ds-border); border-radius: 6px; padding: 8px; font-family: monospace; font-size: 11px; }
     textarea { height: 160px; }
-    input[type=text] { height: 28px; margin-bottom: 6px; }
+    input[type=text], select { height: 28px; margin-bottom: 6px; }
     .row { display: flex; gap: 6px; margin-top: 10px; }
     button { flex: 1; padding: 8px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 11px; }
-    .pri { background: #89b4fa; color: #11111b; }
-    .sec { background: #a6e3a1; color: #11111b; }
-    .dang { background: #f38ba8; color: #11111b; flex: 0 0 auto; padding: 4px 8px; }
-    .mini { background: #45475a; color: #cdd6f4; flex: 0 0 auto; padding: 4px 8px; }
-    .muted { color:#a6adc8; font-size:10px; margin: 4px 0 8px; }
+    .pri { background: var(--ds-accent); color: var(--ds-bg-inset); }
+    .sec { background: var(--ds-success); color: var(--ds-bg-inset); }
+    .dang { background: var(--ds-danger); color: var(--ds-bg-inset); flex: 0 0 auto; padding: 4px 8px; }
+    .mini { background: var(--ds-border); color: var(--ds-fg); flex: 0 0 auto; padding: 4px 8px; }
+    .muted { color:var(--ds-fg-muted); font-size:10px; margin: 4px 0 8px; }
   </style>
 </head>
 <body>
   <div class="hdr">
-    <span>⚡ DeepSeek MCP Studio</span>
-    <span id="tot" style="color:#a6e3a1;font-size:11px;">0 tools</span>
+    <span><span class="ds-ic" data-ic="zap"></span> DeepSeek MCP Studio</span>
+    <span id="tot" style="color:var(--ds-success);font-size:11px;">0 tools</span>
   </div>
 
   <div style="display:flex;gap:6px;margin-bottom:10px;">
@@ -60,7 +61,7 @@
   <div class="pane" id="p-skills">
     <div class="muted">Type <b>/name</b> in the DeepSeek chat to run a skill. Built-in skills can be overridden by creating one with the same name.</div>
     <input type="text" id="sk-name" placeholder="skill name (e.g. explain) — no spaces" />
-    <input type="text" id="sk-emoji" placeholder="emoji (optional, e.g. 🧠)" maxlength="4" />
+    <select id="sk-emoji" title="Icon"></select>
     <input type="text" id="sk-desc" placeholder="short description" />
     <textarea id="sk-prompt" placeholder="Prompt text. Example: Act as a senior engineer and review:"></textarea>
     <div class="row">

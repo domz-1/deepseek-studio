@@ -150,37 +150,6 @@ function setInputValue(el, text) {
   el.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
 }
 
-function setInputValue(el, text) {
-  el.focus();
-  const proto = Object.getPrototypeOf(el);
-  const valueSetter =
-    Object.getOwnPropertyDescriptor(proto, "value")?.set ||
-    Object.getOwnPropertyDescriptor(
-      window.HTMLTextAreaElement.prototype,
-      "value",
-    )?.set;
-
-  if (valueSetter) {
-    valueSetter.call(el, text);
-  } else {
-    el.value = text;
-  }
-
-  // Dispatch standard events so React/Vue models update
-  el.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
-  try {
-    el.dispatchEvent(
-      new InputEvent("input", {
-        bubbles: true,
-        cancelable: true,
-        inputType: "insertText",
-        data: text,
-      }),
-    );
-  } catch (_) {}
-  el.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
-}
-
 function getSendButton() {
   const input = getChatInput();
   if (!input) return null;
@@ -486,15 +455,15 @@ function updateServerBadges() {
   if (!serversWrap) return;
 
   serversWrap.innerHTML = `
-    <span class="mcp-pill" data-srv="all" style="background:#313244;color:#89b4fa;border:1px solid #45475a;padding:4px 10px;border-radius:12px;cursor:pointer;font-weight:bold;display:inline-flex;align-items:center;gap:4px;">
-      ✨ @all (${activeTools.length})
+    <span class="mcp-pill" data-srv="all" style="background:var(--ds-bg-hover);color:var(--ds-accent);border:1px solid var(--ds-border);padding:4px 10px;border-radius:12px;cursor:pointer;font-weight:bold;display:inline-flex;align-items:center;gap:4px;">
+      <span class="ds-ic" data-ic="sparkles"></span> @all (${activeTools.length})
     </span>
     ${serverNames
       .map((name) => {
         const s = serverStatus[name] || {};
-        return `<span class="mcp-pill" data-srv="${name}" style="background:#181825;border:1px solid #313244;color:#cdd6f4;padding:4px 10px;border-radius:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-weight:500;">
-        <span style="width:7px;height:7px;border-radius:50%;background:#a6e3a1;box-shadow:0 0 5px #a6e3a1;"></span>
-        <b>@${name}</b> <span style="color:#a6adc8;font-size:10px;">(${s.count || 0})</span>
+        return `<span class="mcp-pill" data-srv="${name}" style="background:var(--ds-bg-base);border:1px solid var(--ds-bg-hover);color:var(--ds-fg);padding:4px 10px;border-radius:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-weight:500;">
+        <span style="width:7px;height:7px;border-radius:50%;background:var(--ds-success);box-shadow:0 0 5px var(--ds-success);"></span>
+        <b>@${name}</b> <span style="color:var(--ds-fg-muted);font-size:10px;">(${s.count || 0})</span>
       </span>`;
       })
       .join("")}
@@ -535,9 +504,9 @@ function updateTaskBadge() {
   if (runningTaskCount > 0) {
     taskIndicator.style.display = "inline-flex";
     taskIndicator.innerHTML = `
-      <span style="width:7px;height:7px;border-radius:50%;background:#89b4fa;box-shadow:0 0 6px #89b4fa;animation:mcp-pulse 1s infinite alternate;"></span>
+      <span style="width:7px;height:7px;border-radius:50%;background:var(--ds-accent);box-shadow:0 0 6px var(--ds-accent);animation:mcp-pulse 1s infinite alternate;"></span>
       <span>Running task (${runningTaskCount})...</span>
-      <button id="mcp-kill-all-btn" style="background:#f38ba8;color:#11111b;border:none;border-radius:8px;padding:2px 8px;font-size:10px;font-weight:bold;cursor:pointer;margin-left:4px;">✕ Kill</button>
+      <button id="mcp-kill-all-btn" style="background:var(--ds-danger);color:var(--ds-bg-inset);border:none;border-radius:8px;padding:2px 8px;font-size:10px;font-weight:bold;cursor:pointer;margin-left:4px;"><span class="ds-ic" data-ic="close"></span> Kill</button>
     `;
     const btn = taskIndicator.querySelector("#mcp-kill-all-btn");
     if (btn) {
@@ -576,7 +545,7 @@ function injectChatBadge() {
       gap: 8px;
       font-size: 11px;
       font-family: system-ui, sans-serif;
-      color: #a6adc8;
+      color: var(--ds-fg-muted);
       margin-bottom: 8px;
       user-select: none;
       width: 100%;
@@ -596,9 +565,9 @@ function injectChatBadge() {
       display: none;
       align-items: center;
       gap: 6px;
-      background: #1e1e2e;
-      border: 1px solid #89b4fa;
-      color: #89b4fa;
+      background: var(--ds-bg-elev);
+      border: 1px solid var(--ds-accent);
+      color: var(--ds-accent);
       padding: 3px 9px;
       border-radius: 12px;
       font-weight: 600;
@@ -611,17 +580,17 @@ function injectChatBadge() {
       align-items: center;
       gap: 5px;
       cursor: pointer;
-      color: #89b4fa;
+      color: var(--ds-accent);
       font-size: 11px;
-      background: #11111b;
-      border: 1px solid #313244;
+      background: var(--ds-bg-inset);
+      border: 1px solid var(--ds-bg-hover);
       padding: 4px 10px;
       border-radius: 12px;
       margin-left: auto;
     `;
     autoToggle.innerHTML = `
       <input type="checkbox" id="mcp-auto-approve" ${autoApprove ? "checked" : ""} style="cursor:pointer;" />
-      <span>⚡ Auto-run</span>
+      <span><span class="ds-ic" data-ic="zap"></span> Auto-run</span>
     `;
     autoToggle.querySelector("input").onchange = (e) => {
       autoApprove = e.target.checked;
@@ -662,8 +631,8 @@ async function executeTool(payload, cardStatusEl, callKey, targetEl) {
   if (cardStatusEl) {
     cardStatusEl.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
-        <div style="color:#89b4fa;font-weight:bold;padding:4px;">⏳ Running <code>${payload.name}</code>...</div>
-        <button class="mcp-card-kill-btn" style="background:#f38ba8;color:#11111b;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:bold;cursor:pointer;">✕ Kill Task</button>
+        <div style="color:var(--ds-accent);font-weight:bold;padding:4px;"><span class="ds-ic" data-ic="clock"></span> Running <code>${payload.name}</code>...</div>
+        <button class="mcp-card-kill-btn" style="background:var(--ds-danger);color:var(--ds-bg-inset);border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:bold;cursor:pointer;"><span class="ds-ic" data-ic="close"></span> Kill Task</button>
       </div>
     `;
     const killBtn = cardStatusEl.querySelector(".mcp-card-kill-btn");
@@ -706,7 +675,7 @@ async function executeTool(payload, cardStatusEl, callKey, targetEl) {
 
     const out = JSON.stringify(data.content || data, null, 2).slice(0, 10000);
     if (cardStatusEl) {
-      cardStatusEl.innerHTML = `<div style="color:#a6e3a1;font-weight:bold;padding:4px;">✓ Done: <code>${payload.name}</code></div>`;
+      cardStatusEl.innerHTML = `<div style="color:var(--ds-success);font-weight:bold;padding:4px;"><span class="ds-ic" data-ic="check"></span> Done: <code>${payload.name}</code></div>`;
     }
 
     const template =
@@ -718,7 +687,7 @@ async function executeTool(payload, cardStatusEl, callKey, targetEl) {
     await sendText(message);
   } catch (err) {
     if (cardStatusEl) {
-      cardStatusEl.innerHTML = `<div style="color:#f38ba8;font-weight:bold;padding:4px;">❌ Error: ${err.message}</div>`;
+      cardStatusEl.innerHTML = `<div style="color:var(--ds-danger);font-weight:bold;padding:4px;"><span class="ds-ic" data-ic="alert"></span> Error: ${err.message}</div>`;
     }
     await sendText(`Execution notice on ${payload.name}: ${err.message}`);
   } finally {
@@ -744,29 +713,29 @@ function renderPermissionCard(
   card.className = "deepseek-mcp-action-card";
   card.style.cssText = `
     margin: 12px 0 16px 0 !important;
-    background: #1e1e2e !important;
-    border: 2px solid ${isSafe ? "#89b4fa" : "#f38ba8"} !important;
+    background: var(--ds-bg-elev) !important;
+    border: 2px solid ${isSafe ? "var(--ds-accent)" : "var(--ds-danger)"} !important;
     border-radius: 10px !important;
     padding: 14px !important;
     font-family: system-ui, -apple-system, sans-serif !important;
     font-size: 13px !important;
-    color: #cdd6f4 !important;
-    box-shadow: 0 4px 18px rgba(0,0,0,0.5) !important;
+    color: var(--ds-fg) !important;
+    box-shadow: 0 4px 18px var(--ds-shadow-md) !important;
     display: block !important;
     position: relative !important;
   `;
 
   if (isAlreadyExecuted) {
     card.innerHTML = `
-      <div style="font-weight:bold;color:#a6adc8;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-weight:bold;color:var(--ds-fg-muted);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
         <div style="display:flex;align-items:center;gap:8px;">
-          <span>✓ Completed Historical Call:</span>
-          <code style="background:#11111b;padding:3px 8px;border-radius:4px;color:#a6e3a1;font-size:12px;">${payload.name}</code>
+          <span><span class="ds-ic" data-ic="check"></span> Completed Historical Call:</span>
+          <code style="background:var(--ds-bg-inset);padding:3px 8px;border-radius:4px;color:var(--ds-success);font-size:12px;">${payload.name}</code>
         </div>
-        <button class="view-raw-btn" style="background:#313244;color:#a6adc8;border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">Toggle JSON</button>
+        <button class="view-raw-btn" style="background:var(--ds-bg-hover);color:var(--ds-fg-muted);border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">Toggle JSON</button>
       </div>
-      <div style="font-size:11px;color:#a6adc8;">Arguments:</div>
-      <pre style="background:#11111b;color:#a6adc8;padding:6px;border-radius:4px;font-size:11px;overflow:auto;max-height:80px;">${JSON.stringify(payload.arguments || {}, null, 2)}</pre>
+      <div style="font-size:11px;color:var(--ds-fg-muted);">Arguments:</div>
+      <pre style="background:var(--ds-bg-inset);color:var(--ds-fg-muted);padding:6px;border-radius:4px;font-size:11px;overflow:auto;max-height:80px;">${JSON.stringify(payload.arguments || {}, null, 2)}</pre>
     `;
     const btn = card.querySelector(".view-raw-btn");
     if (btn && targetEl) {
@@ -780,18 +749,18 @@ function renderPermissionCard(
   }
 
   card.innerHTML = `
-    <div style="font-weight:bold;color:${isSafe ? "#89b4fa" : "#f38ba8"};margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="font-weight:bold;color:${isSafe ? "var(--ds-accent)" : "var(--ds-danger)"};margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
       <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:15px;">${isSafe ? "🔍 MCP Read / Safe" : "⚡ MCP Action / Bash"}</span>
-        <code style="background:#11111b;padding:3px 8px;border-radius:4px;color:#a6e3a1;font-size:12px;">${payload.name}</code>
+        <span style="font-size:15px;"><span class="ds-ic" data-ic=${isSafe ? "search" : "zap"}></span> ${isSafe ? "MCP Read / Safe" : "MCP Action / Bash"}</span>
+        <code style="background:var(--ds-bg-inset);padding:3px 8px;border-radius:4px;color:var(--ds-success);font-size:12px;">${payload.name}</code>
       </div>
-      <button class="view-raw-btn" style="background:#313244;color:#a6adc8;border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">Toggle JSON</button>
+      <button class="view-raw-btn" style="background:var(--ds-bg-hover);color:var(--ds-fg-muted);border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">Toggle JSON</button>
     </div>
-    <div style="font-size:11px;color:#a6adc8;margin-bottom:4px;">Arguments:</div>
-    <textarea class="ed" style="width:100%;box-sizing:border-box;height:75px;background:#11111b;color:#a6e3a1;border:1px solid #45475a;border-radius:6px;padding:8px;font-family:monospace;font-size:12px;margin-bottom:10px;">${JSON.stringify(payload.arguments || {}, null, 2)}</textarea>
+    <div style="font-size:11px;color:var(--ds-fg-muted);margin-bottom:4px;">Arguments:</div>
+    <textarea class="ed" style="width:100%;box-sizing:border-box;height:75px;background:var(--ds-bg-inset);color:var(--ds-success);border:1px solid var(--ds-border);border-radius:6px;padding:8px;font-family:monospace;font-size:12px;margin-bottom:10px;">${JSON.stringify(payload.arguments || {}, null, 2)}</textarea>
     <div class="card-controls" style="display:flex;gap:10px;">
-      <button class="ok" style="background:#a6e3a1;color:#11111b;border:none;padding:8px 18px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;">✓ Run Now</button>
-      <button class="no" style="background:#f38ba8;color:#11111b;border:none;padding:8px 18px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;">✕ Reject</button>
+      <button class="ok" style="background:var(--ds-success);color:var(--ds-bg-inset);border:none;padding:8px 18px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;"><span class="ds-ic" data-ic="check"></span> Run Now</button>
+      <button class="no" style="background:var(--ds-danger);color:var(--ds-bg-inset);border:none;padding:8px 18px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;"><span class="ds-ic" data-ic="close"></span> Reject</button>
     </div>
   `;
 
@@ -817,12 +786,12 @@ function renderPermissionCard(
   card.querySelector(".no").onclick = () => {
     targetEl.setAttribute("data-mcp-executed", "true");
     executedCalls.add(callKey);
-    controls.innerHTML = `<div style="color:#a6adc8;font-style:italic;padding:4px;">✕ Rejected: ${payload.name}</div>`;
+    controls.innerHTML = `<div style="color:var(--ds-fg-muted);font-style:italic;padding:4px;"><span class="ds-ic" data-ic="close"></span> Rejected: ${payload.name}</div>`;
     sendText(`I skipped "${payload.name}". Please continue.`);
   };
 
   if (autoApprove) {
-    controls.innerHTML = `<div style="color:#a6e3a1;font-size:12px;">⚡ Auto-executing <code>${payload.name}</code>...</div>`;
+    controls.innerHTML = `<div style="color:var(--ds-success);font-size:12px;"><span class="ds-ic" data-ic="zap"></span> Auto-executing <code>${payload.name}</code>...</div>`;
     setTimeout(() => {
       executeTool(payload, controls, callKey, targetEl);
     }, 400);
@@ -844,14 +813,14 @@ function renderGrillQuestionCard(
   card.className = "deepseek-mcp-action-card deepseek-grill-card";
   card.style.cssText = `
     margin: 14px 0 18px 0 !important;
-    background: linear-gradient(145deg, #181825, #1e1e2e) !important;
-    border: 2px solid #fab387 !important;
+    background: linear-gradient(145deg, var(--ds-bg-base), var(--ds-bg-elev)) !important;
+    border: 2px solid var(--ds-warn) !important;
     border-radius: 12px !important;
     padding: 16px !important;
     font-family: system-ui, -apple-system, sans-serif !important;
     font-size: 13px !important;
-    color: #cdd6f4 !important;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.6) !important;
+    color: var(--ds-fg) !important;
+    box-shadow: 0 6px 20px var(--ds-shadow-lg) !important;
     display: block !important;
     position: relative !important;
   `;
@@ -860,12 +829,12 @@ function renderGrillQuestionCard(
 
   if (isHistorical) {
     card.innerHTML = `
-      <div style="font-weight:bold;color:#a6adc8;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-weight:bold;color:var(--ds-fg-muted);display:flex;align-items:center;justify-content:space-between;">
         <div style="display:flex;align-items:center;gap:8px;">
-          <span>🔥 Answered Grill-Me Decision</span>
-          <span style="color:#fab387;font-size:12px;">(${qList.length} question${qList.length > 1 ? "s" : ""})</span>
+          <span><span class="ds-ic" data-ic="flame"></span> Answered Grill-Me Decision</span>
+          <span style="color:var(--ds-warn);font-size:12px;">(${qList.length} question${qList.length > 1 ? "s" : ""})</span>
         </div>
-        <button class="view-raw-btn" style="background:#313244;color:#a6adc8;border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">Toggle JSON</button>
+        <button class="view-raw-btn" style="background:var(--ds-bg-hover);color:var(--ds-fg-muted);border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">Toggle JSON</button>
       </div>
     `;
     const btn = card.querySelector(".view-raw-btn");
@@ -889,11 +858,11 @@ function renderGrillQuestionCard(
           const label = opt.label || opt.text || "";
           const details = opt.details || "";
           return `
-            <label class="grill-opt-card" data-q-idx="${qIdx}" data-opt-id="${optId}" style="background:#11111b;border:1px solid #45475a;border-radius:8px;padding:10px 12px;cursor:pointer;transition:all 0.15s ease;display:flex;align-items:flex-start;gap:10px;">
-              <input type="${isMultiSelect ? "checkbox" : "radio"}" name="grill_q_${qIdx}" value="${optId}" style="margin-top:3px;cursor:pointer;accent-color:#fab387;" />
+            <label class="grill-opt-card" data-q-idx="${qIdx}" data-opt-id="${optId}" style="background:var(--ds-bg-inset);border:1px solid var(--ds-border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all 0.15s ease;display:flex;align-items:flex-start;gap:10px;">
+              <input type="${isMultiSelect ? "checkbox" : "radio"}" name="grill_q_${qIdx}" value="${optId}" style="margin-top:3px;cursor:pointer;accent-color:var(--ds-warn);" />
               <div style="flex:1;display:flex;flex-direction:column;gap:3px;">
-                <b style="color:#fab387;font-size:13px;">[${optId}] ${label}</b>
-                ${details ? `<span style="color:#a6adc8;font-size:11px;line-height:1.35;">${details}</span>` : ""}
+                <b style="color:var(--ds-warn);font-size:13px;">[${optId}] ${label}</b>
+                ${details ? `<span style="color:var(--ds-fg-muted);font-size:11px;line-height:1.35;">${details}</span>` : ""}
               </div>
             </label>
           `;
@@ -901,10 +870,10 @@ function renderGrillQuestionCard(
         .join("");
 
       return `
-        <div class="grill-single-q-block" data-q-idx="${qIdx}" style="margin-bottom:14px;border-bottom:${qIdx < qList.length - 1 ? "1px solid #313244" : "none"};padding-bottom:${qIdx < qList.length - 1 ? "12px" : "0"};">
-          <div style="font-size:14px;font-weight:600;color:#cdd6f4;margin-bottom:10px;line-height:1.4;">
+        <div class="grill-single-q-block" data-q-idx="${qIdx}" style="margin-bottom:14px;border-bottom:${qIdx < qList.length - 1 ? "1px solid var(--ds-bg-hover)" : "none"};padding-bottom:${qIdx < qList.length - 1 ? "12px" : "0"};">
+          <div style="font-size:14px;font-weight:600;color:var(--ds-fg);margin-bottom:10px;line-height:1.4;">
             ${qList.length > 1 ? `<b>#${qIdx + 1}:</b> ` : ""}${q.question}
-            ${isMultiSelect ? '<span style="color:#89b4fa;font-size:11px;font-weight:normal;margin-left:6px;">(Select multiple that apply)</span>' : ""}
+            ${isMultiSelect ? '<span style="color:var(--ds-accent);font-size:11px;font-weight:normal;margin-left:6px;">(Select multiple that apply)</span>' : ""}
           </div>
           <div class="grill-options-grid" style="display:flex;flex-direction:column;gap:8px;">
             ${optionsHtml}
@@ -915,25 +884,25 @@ function renderGrillQuestionCard(
     .join("");
 
   card.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;border-bottom:1px solid #313244;padding-bottom:8px;">
-      <div style="font-weight:bold;color:#fab387;font-size:14px;display:flex;align-items:center;gap:6px;">
-        <span>🔥 Architecture Decision Point</span>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;border-bottom:1px solid var(--ds-bg-hover);padding-bottom:8px;">
+      <div style="font-weight:bold;color:var(--ds-warn);font-size:14px;display:flex;align-items:center;gap:6px;">
+        <span><span class="ds-ic" data-ic="flame"></span> Architecture Decision Point</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
-        <span style="background:#fab387;color:#11111b;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">Interactive Interview</span>
-        <button class="toggle-raw-json-btn" style="background:#313244;color:#a6adc8;border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">JSON</button>
+        <span style="background:var(--ds-warn);color:var(--ds-bg-inset);padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">Interactive Interview</span>
+        <button class="toggle-raw-json-btn" style="background:var(--ds-bg-hover);color:var(--ds-fg-muted);border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">JSON</button>
       </div>
     </div>
     <div class="grill-questions-container">
       ${questionsHtml}
     </div>
-    <div class="grill-custom-wrap" style="display:flex;flex-direction:column;gap:8px;border-top:1px solid #313244;padding-top:10px;margin-top:10px;">
+    <div class="grill-custom-wrap" style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--ds-bg-hover);padding-top:10px;margin-top:10px;">
       <div style="display:flex;gap:8px;align-items:center;">
-        <input type="text" class="grill-custom-input" placeholder="Add custom notes or alternative rationale (optional)..." style="flex:1;background:#11111b;border:1px solid #45475a;color:#cdd6f4;padding:8px 12px;border-radius:6px;font-size:12px;outline:none;" />
+        <input type="text" class="grill-custom-input" placeholder="Add custom notes or alternative rationale (optional)..." style="flex:1;background:var(--ds-bg-inset);border:1px solid var(--ds-border);color:var(--ds-fg);padding:8px 12px;border-radius:6px;font-size:12px;outline:none;" />
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;">
-        <button class="grill-submit-btn" style="background:#fab387;color:#11111b;border:none;padding:8px 20px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-          <span>Submit Decision ➔</span>
+        <button class="grill-submit-btn" style="background:var(--ds-warn);color:var(--ds-bg-inset);border:none;padding:8px 20px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+          <span>Submit Decision <span class="ds-ic" data-ic="arrowRight"></span></span>
         </button>
       </div>
     </div>
@@ -953,11 +922,11 @@ function renderGrillQuestionCard(
   // Hover highlighting
   card.querySelectorAll(".grill-opt-card").forEach((optEl) => {
     optEl.onmouseenter = () => {
-      optEl.style.borderColor = "#fab387";
+      optEl.style.borderColor = "var(--ds-warn)";
     };
     optEl.onmouseleave = () => {
       const radio = optEl.querySelector("input");
-      if (!radio.checked) optEl.style.borderColor = "#45475a";
+      if (!radio.checked) optEl.style.borderColor = "var(--ds-border)";
     };
     optEl.onclick = () => {
       const input = optEl.querySelector("input");
@@ -966,14 +935,14 @@ function renderGrillQuestionCard(
         card
           .querySelectorAll(`.grill-opt-card[data-q-idx="${qIdx}"]`)
           .forEach((sibling) => {
-            sibling.style.borderColor = "#45475a";
-            sibling.style.background = "#11111b";
+            sibling.style.borderColor = "var(--ds-border)";
+            sibling.style.background = "var(--ds-bg-inset)";
           });
-        optEl.style.borderColor = "#fab387";
-        optEl.style.background = "#1e1e2e";
+        optEl.style.borderColor = "var(--ds-warn)";
+        optEl.style.background = "var(--ds-bg-elev)";
       } else {
-        optEl.style.borderColor = input.checked ? "#fab387" : "#45475a";
-        optEl.style.background = input.checked ? "#1e1e2e" : "#11111b";
+        optEl.style.borderColor = input.checked ? "var(--ds-warn)" : "var(--ds-border)";
+        optEl.style.background = input.checked ? "var(--ds-bg-elev)" : "var(--ds-bg-inset)";
       }
     };
   });
@@ -1030,8 +999,8 @@ function renderGrillQuestionCard(
     const fullAnswer = `My Architecture Decision:\n${answers.join("\n\n")}\n\nWhat is the next step or question?`;
 
     card.innerHTML = `
-      <div style="color:#a6e3a1;font-weight:bold;padding:6px;display:flex;align-items:center;gap:6px;">
-        <span>✓ Architecture Decision Submitted!</span>
+      <div style="color:var(--ds-success);font-weight:bold;padding:6px;display:flex;align-items:center;gap:6px;">
+        <span><span class="ds-ic" data-ic="check"></span> Architecture Decision Submitted!</span>
       </div>
     `;
 

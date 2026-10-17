@@ -9,7 +9,6 @@
     {
       id: "help",
       name: "help",
-      emoji: "❓",
       description: "List every available skill and how to use them.",
       prompt: "__HELP__",
       builtin: true,
@@ -17,7 +16,6 @@
     {
       id: "explain",
       name: "explain",
-      emoji: "🧠",
       description: "Explain code or a concept clearly, step by step.",
       prompt:
         "Explain the following clearly and concisely, step by step, with a short example where useful:",
@@ -26,7 +24,6 @@
     {
       id: "review",
       name: "review",
-      emoji: "🔍",
       description: "Senior code review: bugs, edge cases, security, style.",
       prompt:
         "Act as a senior engineer. Review the following code for bugs, edge cases, security issues, performance, and style. Be specific and prioritize fixes:",
@@ -35,7 +32,6 @@
     {
       id: "refactor",
       name: "refactor",
-      emoji: "🛠️",
       description: "Refactor code for readability and maintainability.",
       prompt:
         "Refactor the following code for readability, maintainability, and correctness. Preserve behavior and explain the key changes:",
@@ -44,7 +40,6 @@
     {
       id: "tests",
       name: "tests",
-      emoji: "🧪",
       description: "Write unit tests for the given code.",
       prompt:
         "Write thorough unit tests for the following code. Cover happy paths, edge cases, and failures. Use the project's existing test framework if known:",
@@ -53,7 +48,6 @@
     {
       id: "debug",
       name: "debug",
-      emoji: "🐞",
       description: "Find the root cause of a bug and propose a fix.",
       prompt:
         "Help me debug the following. Identify the most likely root cause, explain the reasoning, then give a concrete fix:",
@@ -62,7 +56,6 @@
     {
       id: "commit",
       name: "commit",
-      emoji: "📝",
       description: "Write a Conventional Commits message from a diff.",
       prompt:
         "Write a Conventional Commits message (type(scope): subject + body) for the following changes:",
@@ -71,7 +64,6 @@
     {
       id: "summarize",
       name: "summarize",
-      emoji: "📄",
       description: "Summarize text into key bullet points.",
       prompt:
         "Summarize the following into concise, high-signal bullet points:",
@@ -80,7 +72,6 @@
     {
       id: "grill-me",
       name: "grill-me",
-      emoji: "🔥",
       description:
         "Interactive architectural interview with clean selectable option cards (single or multi-choice).",
       prompt:
@@ -110,7 +101,6 @@
     {
       id: "plan",
       name: "plan",
-      emoji: "📋",
       description:
         "Generate a rigorous step-by-step implementation plan with file changes and verification.",
       prompt:
@@ -127,7 +117,6 @@
     {
       id: "build",
       name: "build",
-      emoji: "🏗️",
       description:
         "Autonomous Build Mode: execute plan, call MCP tools, create files, and verify.",
       prompt:
@@ -143,7 +132,6 @@
     {
       id: "translate-ar",
       name: "translate-ar",
-      emoji: "🇸🇦",
       description: "Translate text to Arabic.",
       prompt: "Translate the following text into natural, fluent Arabic:",
       builtin: true,
@@ -151,7 +139,6 @@
     {
       id: "translate-en",
       name: "translate-en",
-      emoji: "🇬🇧",
       description: "Translate text to English.",
       prompt: "Translate the following text into natural, fluent English:",
       builtin: true,
@@ -172,7 +159,8 @@
     return {
       id: raw.id || name,
       name: name,
-      emoji: raw.emoji || "✨",
+      emoji: raw.emoji || "",
+      icon: raw.icon || "",
       description: raw.description || "",
       prompt: raw.prompt || "",
       servers: Array.isArray(raw.servers) ? raw.servers : [],
@@ -227,16 +215,16 @@
 
   function helpText(skills) {
     const lines = skills.map(
-      (s) => "- `/" + s.name + "` " + s.emoji + " — " + s.description,
+      (s) => "- `/" + s.name + "` — " + s.description,
     );
     return [
-      "### 🛠️ DeepSeek Workstation & MCP Tools Guide",
+      "### DeepSeek Workstation & MCP Tools Guide",
       "",
       "**Available Skills:**",
       lines.join("\n"),
       "",
       "---",
-      "### 🚀 How to Work with Projects & Code:",
+      "### How to Work with Projects & Code:",
       "1. **Explore & See Existing Projects:**",
       '   - Type `@filesystem /explain list projects` or ask DeepSeek: `"List all projects and folders in /home/adham/projects"`.',
       "   - DeepSeek will automatically invoke `list_directory` or `bash` (`ls -la /home/adham/projects`).",
@@ -249,7 +237,7 @@
       "   - Combine any skill with server mentions, e.g.: `@filesystem /review analyze index.js` or `@bash /tests write unit tests for app.ts`.",
       "   - Use `@all` to give DeepSeek access to all workstation tools (Filesystem, Bash execution, and Memory).",
       "",
-      "💡 *Tip: Toggle the **⚡ Auto-run** checkbox above the input to let safe actions execute automatically!*",
+      "*Tip: Toggle the **Auto-run** checkbox above the input to let safe actions execute automatically!*",
     ].join("\n");
   }
 
@@ -278,6 +266,43 @@
         (s.description && s.description.toLowerCase().includes(lower)),
     );
   }
+
+  // Icon mapping for built-in skills -> theme.css mask names.
+  const SKILL_ICONS = {
+    help: "help",
+    explain: "brain",
+    review: "search",
+    refactor: "tool",
+    tests: "flask",
+    debug: "bug",
+    commit: "pen",
+    summarize: "file",
+    "grill-me": "flame",
+    plan: "clipboard",
+    build: "build",
+    "translate-ar": "globe",
+    "translate-en": "globe",
+  };
+
+  const ICON_NAMES = [
+    "sparkles", "zap", "check", "close", "clock", "alert", "search",
+    "flame", "arrowRight", "file", "folder", "brain", "help", "tool",
+    "flask", "bug", "pen", "clipboard", "build", "globe", "rocket",
+    "bulb", "server",
+  ];
+
+  const DSIcon = {
+    names() {
+      return ICON_NAMES.slice();
+    },
+    name(skill) {
+      return SKILL_ICONS[skill && skill.name] || (skill && skill.icon) || "sparkles";
+    },
+    forSkill(skill) {
+      return '<span class="ds-ic" data-ic="' + DSIcon.name(skill) + '"></span>';
+    },
+  };
+  root.DSIcon = DSIcon;
 
   root.DSSkills = {
     STORAGE_KEY: STORAGE_KEY,
