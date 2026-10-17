@@ -419,19 +419,32 @@ function showAutocomplete(inputEl, query) {
   const menu = document.createElement("div");
   autocompleteMenu = menu;
   menu.id = "deepseek-mcp-autocomplete";
+
+  const rect = inputEl.getBoundingClientRect();
+  const menuWidth = 280;
+  const leftPos = Math.max(
+    12,
+    Math.min(rect.left, window.innerWidth - menuWidth - 20),
+  );
+  const bottomPos = window.innerHeight - rect.top + 10;
+
   menu.style.cssText = `
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 12px;
-    background: #181825;
-    border: 1px solid #45475a;
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-    z-index: 99999;
-    padding: 6px;
-    min-width: 220px;
-    font-family: system-ui, sans-serif;
-    color: #cdd6f4;
+    position: fixed !important;
+    bottom: ${bottomPos}px !important;
+    left: ${leftPos}px !important;
+    width: ${menuWidth}px !important;
+    max-height: 320px !important;
+    overflow-y: auto !important;
+    background: #181825 !important;
+    border: 1px solid #45475a !important;
+    border-radius: 10px !important;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.7) !important;
+    z-index: 2147483647 !important;
+    padding: 6px !important;
+    min-width: 220px !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+    color: #cdd6f4 !important;
+    box-sizing: border-box !important;
   `;
 
   filtered.forEach((opt) => {
@@ -463,6 +476,7 @@ function showAutocomplete(inputEl, query) {
 
     item.onmousedown = (e) => {
       e.preventDefault();
+      e.stopPropagation();
       const val = inputEl.value;
       const mentionRegex = /@[\w-]*$/;
       const newVal = val.replace(mentionRegex, `${opt.label} `);
@@ -473,10 +487,7 @@ function showAutocomplete(inputEl, query) {
     menu.appendChild(item);
   });
 
-  const wrapper =
-    inputEl.closest("div.ds-textarea-wrapper") || inputEl.parentElement;
-  wrapper.style.position = "relative";
-  wrapper.appendChild(menu);
+  document.body.appendChild(menu);
 }
 
 // Input Listener
@@ -517,13 +528,16 @@ function attachInputMentionInterceptor() {
 
         // ---- Skills: leading /skillname ----
         if (window.DSSkills && loadedSkills.length) {
-          const sk = window.DSSkills.matchSkill(val, loadedSkills);
-          if (sk) {
+          const matched = window.DSSkills.matchSkill(val, loadedSkills);
+          if (matched && matched.skill) {
             e.preventDefault();
             e.stopPropagation();
 
-            const rest = window.DSSkills.extractSkillRest(val, sk.name);
-            const prompt = window.DSSkills.buildSkillPrompt(sk, rest);
+            const prompt = window.DSSkills.expandSkill(
+              matched.skill,
+              matched.rest,
+              loadedSkills,
+            );
 
             const mentionMatch = prompt.match(/(@[\w-]+)/i);
             if (mentionMatch) {
@@ -613,6 +627,18 @@ function updateServerBadges() {
   });
 }
 
+async function killActiveTask(callId = null) {
+  try {
+    await fetch("http://localhost:43210/kill", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(callId ? { callId } : {}),
+    });
+  } catch (e) {
+    console.warn("[MCP] kill task failed", e);
+  }
+}
+
 function updateTaskBadge() {
   const taskIndicator = document.getElementById("mcp-task-indicator");
   if (!taskIndicator) return;
@@ -622,7 +648,16 @@ function updateTaskBadge() {
     taskIndicator.innerHTML = `
       <span style="width:7px;height:7px;border-radius:50%;background:#89b4fa;box-shadow:0 0 6px #89b4fa;animation:mcp-pulse 1s infinite alternate;"></span>
       <span>Running task (${runningTaskCount})...</span>
+      <button id="mcp-kill-all-btn" style="background:#f38ba8;color:#11111b;border:none;border-radius:8px;padding:2px 8px;font-size:10px;font-weight:bold;cursor:pointer;margin-left:4px;">✕ Kill</button>
     `;
+    const btn = taskIndicator.querySelector("#mcp-kill-all-btn");
+    if (btn) {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        killActiveTask();
+      };
+    }
   } else {
     taskIndicator.style.display = "none";
   }
@@ -729,8 +764,24 @@ const HUMAN_RESULT_TEMPLATES = [
 
 // Tool execution & card rendering
 async function executeTool(payload, cardStatusEl, callKey) {
+  const callId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  payload.callId = callId;
+
   if (cardStatusEl) {
-    cardStatusEl.innerHTML = `<div style="color:#89b4fa;font-weight:bold;padding:4px;">⏳ Running <code>${payload.name}</code>...</div>`;
+    cardStatusEl.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+        <div style="color:#89b4fa;font-weight:bold;padding:4px;">⏳ Running <code>${payload.name}</code>...</div>
+        <button class="mcp-card-kill-btn" style="background:#f38ba8;color:#11111b;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:bold;cursor:pointer;">✕ Kill Task</button>
+      </div>
+    `;
+    const killBtn = cardStatusEl.querySelector(".mcp-card-kill-btn");
+    if (killBtn) {
+      killBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        killActiveTask(callId);
+      };
+    }
   }
 
   runningTaskCount++;
@@ -744,6 +795,9 @@ async function executeTool(payload, cardStatusEl, callKey) {
     });
     const data = await res.json();
     if (!res.ok || data.isError) {
+      if (data.isCancelled) {
+        throw new Error("Task was cancelled by user");
+      }
       throw new Error(data.error || "Execution failed");
     }
 
@@ -773,7 +827,7 @@ async function executeTool(payload, cardStatusEl, callKey) {
     if (cardStatusEl) {
       cardStatusEl.innerHTML = `<div style="color:#f38ba8;font-weight:bold;padding:4px;">❌ Error: ${err.message}</div>`;
     }
-    await sendText(`Execution error on ${payload.name}: ${err.message}`);
+    await sendText(`Execution notice on ${payload.name}: ${err.message}`);
   } finally {
     runningTaskCount = Math.max(0, runningTaskCount - 1);
     updateTaskBadge();
