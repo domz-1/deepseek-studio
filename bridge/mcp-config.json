@@ -2,11 +2,7 @@
   "mcpServers": {
     "filesystem": {
       "command": "bunx",
-      "args": [
-        "@modelcontextprotocol/server-filesystem",
-        "/home/adham/projects",
-        "/home/adham"
-      ],
+      "args": ["@modelcontextprotocol/server-filesystem", "/", "/home/adham"],
       "enabled": true
     },
     "bash": {

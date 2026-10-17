@@ -95,8 +95,8 @@ Open the extension popup → **Skills** tab → fill in a name, emoji, descripti
 ### 1. Clone
 
 ```bash
-git clone https://github.com/domz-1/deepseek-mcp-ext.git
-cd deepseek-mcp-ext
+git clone https://github.com/domz-1/deepseek-studio.git
+cd deepseek-studio
 ```
 
 ### 2. Install bridge dependencies
@@ -209,8 +209,8 @@ brew install oven-sh/bun/bun
 # …or: curl -fsSL https://bun.com/install | bash
 
 # Clone & install
-git clone https://github.com/domz-1/deepseek-mcp-ext.git
-cd deepseek-mcp-ext/bridge && bun install && cd ..
+git clone https://github.com/domz-1/deepseek-studio.git
+cd deepseek-studio/bridge && bun install && cd ..
 
 # Run
 bun run bridge/server.js
@@ -234,8 +234,8 @@ chmod +x scripts/install-macos.sh
 powershell -c "irm bun.sh/install.ps1 | iex"
 
 # Clone & install
-git clone https://github.com/domz-1/deepseek-mcp-ext.git
-cd deepseek-mcp-ext\bridge
+git clone https://github.com/domz-1/deepseek-studio.git
+cd deepseek-studio\bridge
 bun install
 cd ..
 
