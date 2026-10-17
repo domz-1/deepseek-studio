@@ -108,22 +108,49 @@ function getSendButton() {
     input.closest("div.ds-textarea-wrapper") ||
     input.parentElement?.parentElement ||
     document;
+
+  // 1. Look specifically for the send button (it is usually at the bottom-right of the input bar)
+  // DeepSeek send button has svg with an arrow or role="button" with send aria-label
   const buttons = Array.from(
     wrapper.querySelectorAll('div[role="button"], button'),
   );
-  for (const b of buttons) {
+
+  // Filter out any buttons that are file pickers or attachments
+  const validButtons = buttons.filter((b) => {
     const aria = (b.getAttribute("aria-label") || "").toLowerCase();
+    const title = (b.getAttribute("title") || "").toLowerCase();
+    const html = (b.innerHTML || "").toLowerCase();
+
     if (
       aria.includes("file") ||
       aria.includes("attach") ||
-      b.querySelector('input[type="file"]')
+      aria.includes("upload") ||
+      title.includes("file") ||
+      title.includes("attach") ||
+      title.includes("upload") ||
+      b.querySelector('input[type="file"]') ||
+      html.includes('type="file"')
     ) {
-      continue;
+      return false;
     }
-    if (b.classList.contains("ds-icon-button") || b.querySelector("svg path")) {
+    return true;
+  });
+
+  // Prefer button with explicit "send" or containing svg arrow
+  for (const b of validButtons) {
+    const aria = (b.getAttribute("aria-label") || "").toLowerCase();
+    const title = (b.getAttribute("title") || "").toLowerCase();
+    if (aria.includes("send") || title.includes("send")) return b;
+  }
+
+  // Next prefer the last icon button in the input wrapper (send button is always the rightmost)
+  for (let i = validButtons.length - 1; i >= 0; i--) {
+    const b = validButtons[i];
+    if (b.querySelector("svg") || b.classList.contains("ds-icon-button")) {
       return b;
     }
   }
+
   return null;
 }
 
@@ -143,36 +170,32 @@ async function sendText(text) {
     }
 
     setInputValue(el, text);
-    await new Promise((r) => setTimeout(r, 150));
+    await new Promise((r) => setTimeout(r, 200));
 
     const sendBtn = getSendButton();
     if (sendBtn && !sendBtn.getAttribute("aria-disabled")) {
       sendBtn.click();
-    }
-
-    el.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "Enter",
-        code: "Enter",
-        keyCode: 13,
-        which: 13,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
-
-    await new Promise((r) => setTimeout(r, 500));
-    if (el.value.trim().length > 0) {
-      const btnAgain = getSendButton();
-      if (btnAgain) btnAgain.click();
+    } else {
+      // Fallback to Enter keydown
       el.dispatchEvent(
         new KeyboardEvent("keydown", {
           key: "Enter",
           code: "Enter",
           keyCode: 13,
+          which: 13,
           bubbles: true,
+          cancelable: true,
         }),
       );
+    }
+
+    await new Promise((r) => setTimeout(r, 600));
+    // If text still present in textarea and send button became active, click it
+    if (el.value.trim().length > 0) {
+      const btnAgain = getSendButton();
+      if (btnAgain && !btnAgain.getAttribute("aria-disabled")) {
+        btnAgain.click();
+      }
     }
     scrollToBottom();
   } finally {
@@ -244,55 +267,58 @@ function attachInputMentionInterceptor() {
         window.DSUI.removeSkillMenu();
         const rawVal = input.value.trim();
 
-        // 1. Check for skills: /skillname or @mention /skillname
-        let skillText = rawVal;
-        let prefixMention = null;
-        const leadingMentionMatch = rawVal.match(
-          /^(@[\w-]+)\s+(\/[\w-]+[\s\S]*)$/i,
-        );
-        if (leadingMentionMatch) {
-          prefixMention = leadingMentionMatch[1];
-          skillText = leadingMentionMatch[2];
+        // Check if skills list is loaded
+        if (!loadedSkills.length && window.DSSkills) {
+          await refreshSkills();
         }
 
-        if (window.DSSkills && loadedSkills.length) {
-          const matched = window.DSSkills.matchSkill(skillText, loadedSkills);
-          if (matched && matched.skill) {
+        // Detect any @mention in the message
+        const mentionMatches = rawVal.match(/@([\w-]+)/i);
+        const activeMention = mentionMatches ? mentionMatches[0] : null;
+
+        // Detect any /skill in the message
+        const skillMatch = rawVal.match(/\/([a-z0-9_-]+)\b([\s\S]*)$/i);
+
+        // Case 1: Has /skill (with or without @mention)
+        if (window.DSSkills && skillMatch) {
+          const skillName = skillMatch[1].toLowerCase();
+          const targetSkill = loadedSkills.find((s) => s.name === skillName);
+
+          if (targetSkill) {
             e.preventDefault();
             e.stopPropagation();
 
+            // Extract the rest of the text and expand skill
+            let rest = rawVal
+              .replace(new RegExp(`/${skillName}\\b`, "i"), "")
+              .trim();
+            if (activeMention) {
+              rest = rest.replace(new RegExp(activeMention, "gi"), "").trim();
+            }
+
             let prompt = window.DSSkills.expandSkill(
-              matched.skill,
-              matched.rest,
+              targetSkill,
+              rest,
               loadedSkills,
             );
 
-            const activeMention =
-              prefixMention ||
-              (prompt.match(/(@[\w-]+)/i)
-                ? prompt.match(/(@[\w-]+)/i)[1]
-                : null);
+            // If an @mention is present or skill has servers
             if (activeMention) {
               await fetchActiveTools();
               const selectedTools = window.DSTools.filterToolsByMention(
                 activeMention,
                 activeTools,
               );
-              prompt = prompt
-                .replace(new RegExp(activeMention, "gi"), "")
-                .trim();
-              const combined = `${window.DSTools.buildSysPrompt(selectedTools)}\n${prompt}`;
-              sendText(combined);
-            } else {
-              sendText(prompt);
+              prompt = `${window.DSTools.buildSysPrompt(selectedTools)}\n${prompt}`;
             }
+
+            sendText(prompt);
             return;
           }
         }
 
-        // 2. Standard @mention handling
-        const mentionMatch = rawVal.match(/(@[\w-]+)/i);
-        if (mentionMatch) {
+        // Case 2: Only @mention (no /skill)
+        if (activeMention) {
           e.preventDefault();
           e.stopPropagation();
 
@@ -302,13 +328,12 @@ function attachInputMentionInterceptor() {
             return;
           }
 
-          const rawMention = mentionMatch[1];
           const selectedTools = window.DSTools.filterToolsByMention(
-            rawMention,
+            activeMention,
             activeTools,
           );
           const userText = rawVal
-            .replace(new RegExp(rawMention, "gi"), "")
+            .replace(new RegExp(activeMention, "gi"), "")
             .trim();
           const combined = `${window.DSTools.buildSysPrompt(selectedTools)}\n${userText}`;
           sendText(combined);
