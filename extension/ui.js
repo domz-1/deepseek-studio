@@ -22,14 +22,16 @@
   // Only positional values are inline; visuals come from .ds-menu.
   function place(menu, inputEl, width, bottomGap) {
     const rect = inputEl.getBoundingClientRect();
-    const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 20));
+    const left = Math.max(
+      12,
+      Math.min(rect.left, window.innerWidth - width - 20),
+    );
     menu.style.bottom = `${window.innerHeight - rect.top + (bottomGap || 10)}px`;
     menu.style.left = `${left}px`;
     menu.style.width = `${width}px`;
   }
 
-  const ic = (n) =>
-    window.DSComponents ? window.DSComponents.ic(n) : "";
+  const ic = (n) => (window.DSComponents ? window.DSComponents.ic(n) : "");
 
   // ---- @mention menu (servers + files) -----------------------------------
   function showAutocomplete(
@@ -46,16 +48,29 @@
       : ["filesystem", "bash", "memory"];
 
     const allOptions = [
-      { id: "all", label: "@all", count: activeTools.length, desc: "All MCP Tools" },
+      {
+        id: "all",
+        label: "@all",
+        count: activeTools.length,
+        desc: "All MCP Tools",
+      },
       ...servers.map((s) => {
         const st = serverStatus[s] || {};
-        return { id: s, label: `@${s}`, count: st.count || 0, desc: `${s} server tools` };
+        return {
+          id: s,
+          label: `@${s}`,
+          count: st.count || 0,
+          desc: `${s} server tools`,
+        };
       }),
     ];
 
     const q = (query || "").toLowerCase();
     const filtered = allOptions.filter(
-      (o) => !q || o.id.toLowerCase().startsWith(q) || o.label.toLowerCase().startsWith(q),
+      (o) =>
+        !q ||
+        o.id.toLowerCase().startsWith(q) ||
+        o.label.toLowerCase().startsWith(q),
     );
     const files = (fileResults || []).filter(
       (f) =>
@@ -102,7 +117,7 @@
         item.onmousedown = (e) => {
           e.preventDefault();
           e.stopPropagation();
-          onSelect(f.path);
+          onSelect(f.path, f);
           removeAutocomplete();
         };
         menu.appendChild(item);

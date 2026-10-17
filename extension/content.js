@@ -4,6 +4,10 @@ let debounceTimer = null;
 let activeTools = [];
 let serverStatus = {};
 let autoApprove = localStorage.getItem("deepseek_mcp_auto_approve") !== "false";
+let selectedProject =
+  localStorage.getItem("deepseek_mcp_selected_project") ||
+  "/home/adham/projects/adham/deepseek-mcp-ext";
+let projectList = [];
 let isSending = false;
 let runningTaskCount = 0;
 let userScrolledUp = false;
@@ -328,7 +332,10 @@ function attachInputMentionInterceptor() {
         let fileResults = [];
         try {
           const res = await new Promise((r) =>
-            chrome.runtime.sendMessage({ type: "FS_INDEX", q, limit: 30 }, r),
+            chrome.runtime.sendMessage(
+              { type: "FS_INDEX", q, project: selectedProject, limit: 30 },
+              r,
+            ),
           );
           if (res?.ok && res.data?.results) fileResults = res.data.results;
         } catch (_) {}
@@ -338,13 +345,31 @@ function attachInputMentionInterceptor() {
           activeTools,
           serverStatus,
           fileResults,
-          (label) => {
+          async (label, fileObj) => {
             const currentVal = input.value;
+            // If it is a file selection, fetch and inject content Antigravity style!
+            if (fileObj && fileObj.path) {
+              try {
+                const readRes = await new Promise((r) =>
+                  chrome.runtime.sendMessage(
+                    { type: "READ_FILE", path: fileObj.path, maxLines: 350 },
+                    r,
+                  ),
+                );
+                if (readRes?.ok && readRes.data?.content !== undefined) {
+                  const ext = fileObj.name.split(".").pop() || "";
+                  const contentBlock = `\n[${fileObj.name}](file://${fileObj.path})\n\`\`\`${ext}\n${readRes.data.content}\n\`\`\`\n`;
+                  const newVal = currentVal.replace(/@[^\s@]*$/, contentBlock);
+                  setInputValue(input, newVal);
+                  return;
+                }
+              } catch (_) {}
+            }
             const newVal = currentVal.replace(/@[^\s@]*$/, `${label} `);
             setInputValue(input, newVal);
           },
         );
-      }, 120);
+      }, 100);
     } else {
       window.DSUI.removeAutocomplete();
       window.DSUI.removeSkillMenu();
@@ -532,7 +557,31 @@ function injectChatBadge() {
       };
     }
 
+    const projSelect = wrap.querySelector("#mcp-project-select");
+    if (projSelect) {
+      projSelect.onchange = (e) => {
+        selectedProject = e.target.value;
+        localStorage.setItem("deepseek_mcp_selected_project", selectedProject);
+      };
+    }
+
     targetParent.parentElement.insertBefore(wrap, targetParent);
+  }
+
+  // Populate projects dropdown if needed
+  const projSelect = document.getElementById("mcp-project-select");
+  if (projSelect && projSelect.options.length <= 1) {
+    chrome.runtime.sendMessage({ type: "GET_PROJECTS" }, (res) => {
+      if (res?.ok && Array.isArray(res.data?.projects)) {
+        projectList = res.data.projects;
+        projSelect.innerHTML = projectList
+          .map(
+            (p) =>
+              `<option value="${p.path}" ${p.path === selectedProject ? "selected" : ""}>📁 ${p.name}</option>`,
+          )
+          .join("");
+      }
+    });
   }
 
   updateServerBadges();
@@ -706,7 +755,8 @@ function renderGrillQuestionCard(
   }
 
   const card = document.createElement("div");
-  card.className = "deepseek-mcp-action-card deepseek-grill-card ds-card ds-grill";
+  card.className =
+    "deepseek-mcp-action-card deepseek-grill-card ds-card ds-grill";
 
   const qList = grillData.is_multi_question ? grillData.questions : [grillData];
 

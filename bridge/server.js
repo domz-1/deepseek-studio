@@ -1,6 +1,8 @@
 import express from "express";
 import crypto from "crypto";
 import fs from "fs";
+import path from "path";
+import { execSync, spawnSync } from "child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -20,12 +22,16 @@ const ALLOWED_ORIGINS = new Set([
 const TOKEN_FILE = new URL("./.bridge-token", import.meta.url).pathname;
 const TOKEN = (() => {
   try {
-    if (fs.existsSync(TOKEN_FILE)) return fs.readFileSync(TOKEN_FILE, "utf8").trim();
+    if (fs.existsSync(TOKEN_FILE))
+      return fs.readFileSync(TOKEN_FILE, "utf8").trim();
     const t = crypto.randomBytes(32).toString("hex");
     fs.writeFileSync(TOKEN_FILE, t, { mode: 0o600 });
     return t;
   } catch (e) {
-    console.error("[Bridge] token init failed, using ephemeral token:", e.message);
+    console.error(
+      "[Bridge] token init failed, using ephemeral token:",
+      e.message,
+    );
     return crypto.randomBytes(32).toString("hex");
   }
 })();
@@ -203,85 +209,178 @@ app.post("/kill", (req, res) => {
   res.json({ ok: true, killedCount: count });
 });
 
-// --- Metadata-only file index ---------------------------------------------
-// Never serves file bytes and never indexes "/" or the whole home directory.
-const IGNORE = new Set([
-  "node_modules", ".git", "dist", "build", ".next", ".cache",
-  ".venv", "venv", "target", ".turbo", ".parcel-cache", "coverage",
-]);
-const FORBIDDEN_ROOTS = new Set(["/", "/home", "/home/adham", ""]);
-let indexSnapshot = [];
+// --- Projects & File Intelligence ---
+const FD_BIN = fs.existsSync("/home/adham/.local/bin/fd")
+  ? "/home/adham/.local/bin/fd"
+  : "fd";
+const RG_BIN = fs.existsSync("/home/adham/.local/bin/rg")
+  ? "/home/adham/.local/bin/rg"
+  : "rg";
 
-function buildIndex(roots, maxDepth = 4, maxEntries = 20000) {
-  const out = [];
-  const walk = (dir, depth) => {
-    if (depth > maxDepth || out.length >= maxEntries) return;
-    let entries;
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entries) {
-      if (IGNORE.has(e.name)) continue;
-      const p = `${dir.replace(/\/$/, "")}/${e.name}`;
-      if (e.isDirectory()) {
-        walk(p, depth + 1);
-        continue;
-      }
-      let st;
-      try {
-        st = fs.statSync(p);
-      } catch {
-        continue;
-      }
-      out.push({
-        name: e.name,
-        path: p,
-        type: "file",
-        size: st.size,
-        mtime: st.mtimeMs,
+const DEFAULT_PROJECTS_DIR = "/home/adham/projects";
+
+app.get("/projects", (req, res) => {
+  try {
+    const list = [];
+    if (fs.existsSync(DEFAULT_PROJECTS_DIR)) {
+      const entries = fs.readdirSync(DEFAULT_PROJECTS_DIR, {
+        withFileTypes: true,
       });
-      if (out.length >= maxEntries) return;
-    }
-  };
-  for (const r of roots) walk(r, 0);
-  return out;
-}
+      for (const e of entries) {
+        if (e.isDirectory() && !e.name.startsWith(".")) {
+          const p = path.join(DEFAULT_PROJECTS_DIR, e.name);
+          list.push({ name: e.name, path: p });
 
-function scoreMatch(name, q) {
-  if (!q) return 1;
-  if (name === q) return 100;
-  if (name.startsWith(q)) return 80;
-  if (name.includes(q)) return 50;
-  return 0;
-}
+          // Also check one level deeper for grouped workspaces (e.g. /home/adham/projects/adham/*)
+          try {
+            const sub = fs.readdirSync(p, { withFileTypes: true });
+            for (const s of sub) {
+              if (
+                s.isDirectory() &&
+                !s.name.startsWith(".") &&
+                s.name !== "node_modules"
+              ) {
+                list.push({
+                  name: `${e.name}/${s.name}`,
+                  path: path.join(p, s.name),
+                });
+              }
+            }
+          } catch (_) {}
+        }
+      }
+    }
+    // Also include current directory
+    list.unshift({
+      name: "deepseek-mcp-ext (Current)",
+      path: "/home/adham/projects/adham/deepseek-mcp-ext",
+    });
+
+    // Deduplicate by path
+    const seen = new Set();
+    const unique = [];
+    for (const item of list) {
+      if (!seen.has(item.path)) {
+        seen.add(item.path);
+        unique.push(item);
+      }
+    }
+    res.json({ projects: unique });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.get("/fs-index", (req, res) => {
   try {
-    const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
-    const roots = (cfg.indexRoots || []).filter(
-      (r) => typeof r === "string" && !FORBIDDEN_ROOTS.has(r),
-    );
-    if (!roots.length)
-      return res.json({ results: [], note: "no indexRoots configured" });
+    const projectPath =
+      req.query.project || req.query.root || DEFAULT_PROJECTS_DIR;
+    const q = String(req.query.q || "").trim();
+    const limit = Math.min(Number(req.query.limit) || 40, 100);
 
-    if (req.query.refresh === "1" || indexSnapshot.length === 0)
-      indexSnapshot = buildIndex(roots);
+    const targetDir = fs.existsSync(projectPath)
+      ? projectPath
+      : DEFAULT_PROJECTS_DIR;
 
-    const q = String(req.query.q || "").toLowerCase();
-    const limit = Math.min(Number(req.query.limit) || 50, 200);
-    const results = (
-      q
-        ? indexSnapshot
-            .map((e) => ({ e, s: scoreMatch(e.name.toLowerCase(), q) }))
-            .filter((x) => x.s > 0)
-            .sort((a, b) => b.s - a.s)
-        : indexSnapshot.map((e) => ({ e, s: 1 }))
-    )
-      .slice(0, limit)
-      .map((x) => x.e);
-    res.json({ results, total: indexSnapshot.length });
+    // Use fast binary fd
+    try {
+      const fdArgs = [
+        "--type",
+        "f",
+        "--hidden",
+        "--exclude",
+        ".git",
+        "--exclude",
+        "node_modules",
+        "--exclude",
+        "dist",
+        "--exclude",
+        "build",
+        "--exclude",
+        ".next",
+        "--exclude",
+        ".cache",
+        "--max-results",
+        String(limit),
+      ];
+
+      if (q) {
+        fdArgs.push(q);
+      }
+      fdArgs.push(targetDir);
+
+      const fdRes = spawnSync(FD_BIN, fdArgs, {
+        encoding: "utf8",
+        timeout: 1500,
+      });
+
+      if (!fdRes.error && fdRes.stdout) {
+        const lines = fdRes.stdout.trim().split("\n").filter(Boolean);
+        const results = lines.map((p) => {
+          let st = { size: 0, mtimeMs: 0 };
+          try {
+            st = fs.statSync(p);
+          } catch (_) {}
+          return {
+            name: path.basename(p),
+            path: p,
+            relativePath: path.relative(targetDir, p),
+            type: "file",
+            size: st.size,
+            mtime: st.mtimeMs,
+          };
+        });
+        return res.json({ results, total: results.length, engine: "fd" });
+      }
+    } catch (_) {}
+
+    // Fallback: Node walk
+    const results = [];
+    res.json({ results, total: 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Read file content for @file instant prompt injection
+app.post("/read-file-content", (req, res) => {
+  try {
+    const {
+      path: filePath,
+      maxLines = 400,
+      maxBytes = 150000,
+    } = req.body || {};
+    if (!filePath || typeof filePath !== "string") {
+      return res.status(400).json({ error: "Missing filePath" });
+    }
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: `File not found: ${filePath}` });
+    }
+
+    const st = fs.statSync(filePath);
+    if (st.isDirectory()) {
+      return res.status(400).json({ error: "Path is a directory, not a file" });
+    }
+
+    if (st.size > 2 * 1024 * 1024) {
+      return res
+        .status(400)
+        .json({ error: "File too large (exceeds 2MB limit)" });
+    }
+
+    const raw = fs.readFileSync(filePath, "utf8");
+    const lines = raw.split("\n");
+    const isTruncated = lines.length > maxLines;
+    const content = isTruncated ? lines.slice(0, maxLines).join("\n") : raw;
+
+    res.json({
+      path: filePath,
+      name: path.basename(filePath),
+      content: content.slice(0, maxBytes),
+      lines: lines.length,
+      truncated: isTruncated || content.length < raw.length,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

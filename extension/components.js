@@ -42,14 +42,19 @@
     return allPill + srvPills;
   }
 
-  function badgeBar({ autoApprove }) {
+  function badgeBar({ autoApprove, selectedProject }) {
     return `
       <div class="ds-pills" id="mcp-server-pills"></div>
       <div class="ds-task" id="mcp-task-indicator"></div>
-      <label class="ds-auto">
-        <input type="checkbox" id="mcp-auto-approve" ${autoApprove ? "checked" : ""} />
-        <span>${ic("zap")} Auto-run</span>
-      </label>`;
+      <div style="display:inline-flex;align-items:center;gap:6px;margin-left:auto;">
+        <select class="ds-project-select" id="mcp-project-select" title="Active Project for @ mentions and MCP tools">
+          <option value="">📁 Select Project...</option>
+        </select>
+        <label class="ds-auto">
+          <input type="checkbox" id="mcp-auto-approve" ${autoApprove ? "checked" : ""} />
+          <span>${ic("zap")} Auto-run</span>
+        </label>
+      </div>`;
   }
 
   // ---- Running-task chip -------------------------------------------------
