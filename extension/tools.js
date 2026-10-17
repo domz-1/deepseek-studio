@@ -100,14 +100,31 @@ Guidelines:
     const candidate = text.slice(start, end + 1);
     try {
       const p = JSON.parse(candidate);
+
+      // Support multi-question array: { "questions": [...] }
+      if (Array.isArray(p.questions) && p.questions.length > 0) {
+        return {
+          is_multi_question: true,
+          questions: p.questions.map((q) => ({
+            question: q.question || q.grill_question || "Design Decision",
+            options: Array.isArray(q.options) ? q.options : [],
+            multi_select: Boolean(q.multi_select || q.is_multi_select),
+            allow_custom: q.allow_custom !== false,
+          })),
+        };
+      }
+
+      // Single question format: { "grill_question": ..., "options": [...] }
       if (
-        p.grill_question &&
+        (p.grill_question || p.question) &&
         Array.isArray(p.options) &&
         p.options.length > 0
       ) {
         return {
-          question: p.grill_question,
+          is_multi_question: false,
+          question: p.grill_question || p.question,
           options: p.options,
+          multi_select: Boolean(p.multi_select || p.is_multi_select),
           allow_custom: p.allow_custom !== false,
         };
       }

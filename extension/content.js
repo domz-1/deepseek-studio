@@ -763,6 +763,11 @@ function renderGrillQuestionCard(
   callKey,
   isHistorical = false,
 ) {
+  // Hide the ugly raw JSON code block so the user only sees clean interactive UI!
+  if (targetEl) {
+    targetEl.style.display = "none";
+  }
+
   const card = document.createElement("div");
   card.className = "deepseek-mcp-action-card deepseek-grill-card";
   card.style.cssText = `
@@ -779,104 +784,183 @@ function renderGrillQuestionCard(
     position: relative !important;
   `;
 
+  const qList = grillData.is_multi_question ? grillData.questions : [grillData];
+
   if (isHistorical) {
     card.innerHTML = `
-      <div style="font-weight:bold;color:#a6adc8;display:flex;align-items:center;gap:8px;">
-        <span>🔥 Answered Grill-Me Decision:</span>
-        <span style="color:#fab387;font-size:12px;">${grillData.question || ""}</span>
+      <div style="font-weight:bold;color:#a6adc8;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span>🔥 Answered Grill-Me Decision</span>
+          <span style="color:#fab387;font-size:12px;">(${qList.length} question${qList.length > 1 ? "s" : ""})</span>
+        </div>
+        <button class="view-raw-btn" style="background:#313244;color:#a6adc8;border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">Toggle JSON</button>
       </div>
     `;
+    const btn = card.querySelector(".view-raw-btn");
+    if (btn && targetEl) {
+      btn.onclick = () => {
+        targetEl.style.display =
+          targetEl.style.display === "none" ? "block" : "none";
+      };
+    }
     targetEl.insertAdjacentElement("afterend", card);
     return;
   }
 
-  const optionsHtml = grillData.options
-    .map((opt, i) => {
-      const optId = opt.id || String.fromCharCode(65 + i);
+  // Render question list
+  let questionsHtml = qList
+    .map((q, qIdx) => {
+      const isMultiSelect = Boolean(q.multi_select);
+      const optionsHtml = (q.options || [])
+        .map((opt, i) => {
+          const optId = opt.id || String.fromCharCode(65 + i);
+          const label = opt.label || opt.text || "";
+          const details = opt.details || "";
+          return `
+            <label class="grill-opt-card" data-q-idx="${qIdx}" data-opt-id="${optId}" style="background:#11111b;border:1px solid #45475a;border-radius:8px;padding:10px 12px;cursor:pointer;transition:all 0.15s ease;display:flex;align-items:flex-start;gap:10px;">
+              <input type="${isMultiSelect ? "checkbox" : "radio"}" name="grill_q_${qIdx}" value="${optId}" style="margin-top:3px;cursor:pointer;accent-color:#fab387;" />
+              <div style="flex:1;display:flex;flex-direction:column;gap:3px;">
+                <b style="color:#fab387;font-size:13px;">[${optId}] ${label}</b>
+                ${details ? `<span style="color:#a6adc8;font-size:11px;line-height:1.35;">${details}</span>` : ""}
+              </div>
+            </label>
+          `;
+        })
+        .join("");
+
       return `
-        <div class="grill-opt-card" data-opt-id="${optId}" style="background:#11111b;border:1px solid #45475a;border-radius:8px;padding:10px 12px;cursor:pointer;transition:all 0.15s ease;display:flex;flex-direction:column;gap:4px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <b style="color:#fab387;font-size:13px;">[${optId}] ${opt.label || opt.text || ""}</b>
-            <span style="background:#313244;color:#cdd6f4;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">Choose</span>
+        <div class="grill-single-q-block" data-q-idx="${qIdx}" style="margin-bottom:14px;border-bottom:${qIdx < qList.length - 1 ? "1px solid #313244" : "none"};padding-bottom:${qIdx < qList.length - 1 ? "12px" : "0"};">
+          <div style="font-size:14px;font-weight:600;color:#cdd6f4;margin-bottom:10px;line-height:1.4;">
+            ${qList.length > 1 ? `<b>#${qIdx + 1}:</b> ` : ""}${q.question}
+            ${isMultiSelect ? '<span style="color:#89b4fa;font-size:11px;font-weight:normal;margin-left:6px;">(Select multiple that apply)</span>' : ""}
           </div>
-          ${opt.details ? `<div style="color:#a6adc8;font-size:11px;line-height:1.35;">${opt.details}</div>` : ""}
+          <div class="grill-options-grid" style="display:flex;flex-direction:column;gap:8px;">
+            ${optionsHtml}
+          </div>
         </div>
       `;
     })
     .join("");
 
   card.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;border-bottom:1px solid #313244;padding-bottom:8px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;border-bottom:1px solid #313244;padding-bottom:8px;">
       <div style="font-weight:bold;color:#fab387;font-size:14px;display:flex;align-items:center;gap:6px;">
         <span>🔥 Architecture Decision Point</span>
       </div>
-      <span style="background:#fab387;color:#11111b;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">1-by-1 Interview</span>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="background:#fab387;color:#11111b;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">Interactive Interview</span>
+        <button class="toggle-raw-json-btn" style="background:#313244;color:#a6adc8;border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">JSON</button>
+      </div>
     </div>
-    <div style="font-size:14px;font-weight:600;color:#cdd6f4;margin-bottom:12px;line-height:1.4;">
-      ${grillData.question}
+    <div class="grill-questions-container">
+      ${questionsHtml}
     </div>
-    <div class="grill-options-grid" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
-      ${optionsHtml}
-    </div>
-    <div class="grill-custom-wrap" style="display:flex;gap:8px;align-items:center;border-top:1px solid #313244;padding-top:10px;">
-      <input type="text" class="grill-custom-input" placeholder="Or write custom rationale / trade-off choice..." style="flex:1;background:#11111b;border:1px solid #45475a;color:#cdd6f4;padding:8px 12px;border-radius:6px;font-size:12px;outline:none;" />
-      <button class="grill-custom-submit" style="background:#89b4fa;color:#11111b;border:none;padding:8px 16px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;">Send Custom</button>
+    <div class="grill-custom-wrap" style="display:flex;flex-direction:column;gap:8px;border-top:1px solid #313244;padding-top:10px;margin-top:10px;">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" class="grill-custom-input" placeholder="Add custom notes or alternative rationale (optional)..." style="flex:1;background:#11111b;border:1px solid #45475a;color:#cdd6f4;padding:8px 12px;border-radius:6px;font-size:12px;outline:none;" />
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="grill-submit-btn" style="background:#fab387;color:#11111b;border:none;padding:8px 20px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+          <span>Submit Decision ➔</span>
+        </button>
+      </div>
     </div>
   `;
 
   targetEl.insertAdjacentElement("afterend", card);
 
-  // Bind option clicks
+  // Toggle raw JSON button
+  const toggleBtn = card.querySelector(".toggle-raw-json-btn");
+  if (toggleBtn && targetEl) {
+    toggleBtn.onclick = () => {
+      targetEl.style.display =
+        targetEl.style.display === "none" ? "block" : "none";
+    };
+  }
+
+  // Hover highlighting
   card.querySelectorAll(".grill-opt-card").forEach((optEl) => {
     optEl.onmouseenter = () => {
       optEl.style.borderColor = "#fab387";
-      optEl.style.transform = "translateY(-1px)";
     };
     optEl.onmouseleave = () => {
-      optEl.style.borderColor = "#45475a";
-      optEl.style.transform = "none";
+      const radio = optEl.querySelector("input");
+      if (!radio.checked) optEl.style.borderColor = "#45475a";
     };
     optEl.onclick = () => {
-      executedCalls.add(callKey);
-      const optId = optEl.getAttribute("data-opt-id");
-      const chosen =
-        grillData.options.find((o) => (o.id || "") === optId) || {};
-      const answerText = `I choose Option [${optId}]: "${chosen.label || chosen.text || optId}".\nRationale & Trade-offs: ${chosen.details || "Proceeding with this architectural approach."}\n\nWhat is the next question?`;
-
-      card.innerHTML = `
-        <div style="color:#a6e3a1;font-weight:bold;padding:6px;display:flex;align-items:center;gap:6px;">
-          <span>✓ Selected Option [${optId}]:</span>
-          <span style="color:#cdd6f4;">${chosen.label || optId}</span>
-        </div>
-      `;
-      sendText(answerText, true);
+      const input = optEl.querySelector("input");
+      if (input.type === "radio") {
+        const qIdx = optEl.getAttribute("data-q-idx");
+        card
+          .querySelectorAll(`.grill-opt-card[data-q-idx="${qIdx}"]`)
+          .forEach((sibling) => {
+            sibling.style.borderColor = "#45475a";
+            sibling.style.background = "#11111b";
+          });
+        optEl.style.borderColor = "#fab387";
+        optEl.style.background = "#1e1e2e";
+      } else {
+        optEl.style.borderColor = input.checked ? "#fab387" : "#45475a";
+        optEl.style.background = input.checked ? "#1e1e2e" : "#11111b";
+      }
     };
   });
 
-  // Custom response handling
+  // Submit decision handling
+  const submitBtn = card.querySelector(".grill-submit-btn");
   const customInput = card.querySelector(".grill-custom-input");
-  const customBtn = card.querySelector(".grill-custom-submit");
 
-  const sendCustom = () => {
-    const val = customInput.value.trim();
-    if (!val) return;
+  submitBtn.onclick = () => {
+    const answers = [];
+
+    qList.forEach((q, idx) => {
+      const checkedInputs = Array.from(
+        card.querySelectorAll(`input[name="grill_q_${idx}"]:checked`),
+      );
+      const selectedIds = checkedInputs.map((i) => i.value);
+      const selectedOpts = (q.options || []).filter((o, i) =>
+        selectedIds.includes(o.id || String.fromCharCode(65 + i)),
+      );
+
+      if (selectedOpts.length > 0) {
+        const labelStr = selectedOpts
+          .map(
+            (o, i) =>
+              `[${o.id || String.fromCharCode(65 + i)}] "${o.label || o.text || ""}"`,
+          )
+          .join(", ");
+        const detailsStr = selectedOpts
+          .map((o) => o.details)
+          .filter(Boolean)
+          .join("; ");
+        answers.push(
+          `Question "${q.question}":\n- Decision: ${labelStr}${detailsStr ? `\n- Details: ${detailsStr}` : ""}`,
+        );
+      }
+    });
+
+    const customText = customInput ? customInput.value.trim() : "";
+    if (customText) {
+      answers.push(`- Custom Rationale/Notes: ${customText}`);
+    }
+
+    if (answers.length === 0 && !customText) {
+      alert(
+        "Please select an option or type a custom response before submitting.",
+      );
+      return;
+    }
+
     executedCalls.add(callKey);
-    const answerText = `Custom architecture decision for question "${grillData.question}":\n${val}\n\nWhat is the next question?`;
+    const fullAnswer = `My Architecture Decision:\n${answers.join("\n\n")}\n\nWhat is the next step or question?`;
+
     card.innerHTML = `
-      <div style="color:#89b4fa;font-weight:bold;padding:6px;">
-        ✓ Submitted Custom Decision: <span style="color:#cdd6f4;">${val}</span>
+      <div style="color:#a6e3a1;font-weight:bold;padding:6px;display:flex;align-items:center;gap:6px;">
+        <span>✓ Architecture Decision Submitted!</span>
       </div>
     `;
-    sendText(answerText, true);
-  };
 
-  customBtn.onclick = sendCustom;
-  customInput.onkeydown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      e.stopPropagation();
-      sendCustom();
-    }
+    sendText(fullAnswer, true);
   };
 }
 

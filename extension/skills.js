@@ -82,26 +82,28 @@
       name: "grill-me",
       emoji: "🔥",
       description:
-        "Interactive interview challenging design decisions, trade-offs, and edge cases one question at a time.",
+        "Interactive architectural interview with clean selectable option cards (single or multi-choice).",
       prompt:
         "Act as an exceptionally demanding Principal Engineer and Architect. You are conducting an interactive architecture interview (Grill-Me session).\n" +
         "CRITICAL RULES:\n" +
-        "1. Ask ONE focused, critical design question at a time (never dump a long list of questions all at once!).\n" +
-        "2. Explain briefly why this decision is pivotal (trade-offs, failure modes, scale).\n" +
-        "3. Provide 2 to 4 concrete, realistic choices for me to select from, plus what each choice implies.\n" +
-        "4. Output this EXACT JSON block at the end of your message so the interactive UI can render selectable buttons for me:\n" +
+        "1. Focus on the core architectural bottlenecks, trade-offs, and design decisions.\n" +
+        "2. Provide a short 2-3 sentence technical context/rationale in prose.\n" +
+        "3. DO NOT print a duplicate text list of options or bullet points in your message text!\n" +
+        "4. Instead, place ALL questions and choices directly into this JSON block at the end of your message so the extension renders the interactive UI cards:\n" +
         "```json\n" +
         "{\n" +
-        '  "grill_question": "Summary of the critical decision question?",\n' +
+        '  "grill_question": "Exact critical decision question?",\n' +
         '  "options": [\n' +
-        '    {"id": "A", "label": "Option A summary", "details": "Trade-off details..."},\n' +
-        '    {"id": "B", "label": "Option B summary", "details": "Trade-off details..."},\n' +
-        '    {"id": "C", "label": "Option C summary", "details": "Trade-off details..."}\n' +
+        '    {"id": "A", "label": "Option A summary", "details": "Trade-offs and architectural implications..."},\n' +
+        '    {"id": "B", "label": "Option B summary", "details": "Trade-offs and architectural implications..."},\n' +
+        '    {"id": "C", "label": "Option C summary", "details": "Trade-offs and architectural implications..."}\n' +
         "  ],\n" +
+        '  "multi_select": false,\n' +
         '  "allow_custom": true\n' +
         "}\n" +
         "```\n" +
-        "5. When I answer, evaluate my choice, challenge any remaining edge cases or move to the next pivotal architectural question.\n\n" +
+        '(Or use `"questions": [...]` if you have multiple related decisions to ask at once).\n' +
+        "5. When I submit my decision, analyze my choice, challenge any remaining edge cases or move forward.\n\n" +
         "Topic to grill me on:",
       builtin: true,
     },
