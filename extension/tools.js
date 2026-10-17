@@ -22,7 +22,7 @@ ${list}
 
 Rules:
 1. Always respond in English or Arabic only. Never use Chinese.
-2. When you need to execute a tool, output ONLY this JSON code block:
+2. When you need to inspect files, execute commands, or perform actions, call ONE tool at a time using this exact JSON code block:
 \`\`\`json
 {
   "mcp_call": true,
@@ -30,16 +30,18 @@ Rules:
   "arguments": {}
 }
 \`\`\`
+3. Do not stop until the user's objective is fully accomplished. Output only one tool call per turn, wait for the tool output, and then proceed with the next step autonomously.
 `,
     (list) => `Workstation MCP tools active:
 ${list}
 
 Guidelines:
 - Respond in English or Arabic. Never use Chinese.
-- Call tools using this JSON block:
+- Call tools autonomously to complete the task. Call one tool at a time using:
 \`\`\`json
 {"name": "tool_name", "arguments": {}}
 \`\`\`
+- After receiving tool results, analyze them and continue with the next tool call until the goal is fully achieved.
 `,
   ];
 

@@ -613,11 +613,11 @@ function injectChatBadge() {
 
 const HUMAN_RESULT_TEMPLATES = [
   (name, out) =>
-    `Output of ${name}:\n\`\`\`json\n${out}\n\`\`\`\nPlease check and proceed.`,
+    `Output of ${name}:\n\`\`\`json\n${out}\n\`\`\`\nAnalyze this result and proceed with the next tool call or action to finish the task.`,
   (name, out) =>
-    `Results for ${name}:\n\`\`\`json\n${out}\n\`\`\`\nWhat is the next step?`,
+    `Results for ${name}:\n\`\`\`json\n${out}\n\`\`\`\nContinue executing the next step autonomously until complete.`,
   (name, out) =>
-    `Tool ${name} completed:\n\`\`\`json\n${out}\n\`\`\`\nProceed in English or Arabic.`,
+    `Tool ${name} completed:\n\`\`\`json\n${out}\n\`\`\`\nCheck the output and proceed with the next tool call.`,
 ];
 
 // Tool execution & card rendering
@@ -983,7 +983,18 @@ function renderGrillQuestionCard(
 }
 
 function scanMessages() {
-  const codeBlocks = document.querySelectorAll("div.md-code-block");
+  const codeBlocks = Array.from(document.querySelectorAll("div.md-code-block"));
+  if (!codeBlocks.length) return;
+
+  // Find all messages in the thread
+  const messages = Array.from(
+    document.querySelectorAll(
+      "div.ds-message, div._4f9bf79, div.chat-message, div[data-message-id]",
+    ),
+  );
+  const lastMessage =
+    messages.length > 0 ? messages[messages.length - 1] : null;
+
   codeBlocks.forEach((el) => {
     if (el.hasAttribute("data-mcp-attached")) return;
     const nextEl = el.nextElementSibling;
@@ -1006,24 +1017,17 @@ function scanMessages() {
           grillData.question || grillData.questions[0]?.question || "multi";
         const callKey = `grill:${qTitle.slice(0, 80)}`;
 
-        // Element-level tracking: if this exact DOM element was already answered
         const isElementExecuted =
           el.getAttribute("data-mcp-executed") === "true";
 
-        // Thread-level check: only consider historical if there is another message bubble after this one
         const messageContainer = el.closest(
           "div.ds-message, div._4f9bf79, div.chat-message, div[data-message-id]",
         );
-        let hasSubsequentMessage = false;
-        if (messageContainer && messageContainer.parentElement) {
-          const siblings = Array.from(messageContainer.parentElement.children);
-          const idx = siblings.indexOf(messageContainer);
-          if (idx !== -1 && idx < siblings.length - 1) {
-            hasSubsequentMessage = true;
-          }
-        }
 
-        const isHistorical = isElementExecuted || hasSubsequentMessage;
+        // A grill card is historical only if it was already submitted or is in a superseded older message turn
+        const isHistorical =
+          isElementExecuted ||
+          (lastMessage && messageContainer && messageContainer !== lastMessage);
 
         renderGrillQuestionCard(el, grillData, callKey, isHistorical);
         return;
@@ -1037,26 +1041,17 @@ function scanMessages() {
     if (payload && payload.name) {
       el.setAttribute("data-mcp-attached", "true");
 
-      // Element-level tracking: if this exact code block was already executed
       const isElementExecuted = el.getAttribute("data-mcp-executed") === "true";
-
-      // Thread-level check: only consider historical if there is another message bubble after this one
       const messageContainer = el.closest(
         "div.ds-message, div._4f9bf79, div.chat-message, div[data-message-id]",
       );
-      let hasSubsequentMessage = false;
-      if (messageContainer && messageContainer.parentElement) {
-        const siblings = Array.from(messageContainer.parentElement.children);
-        const idx = siblings.indexOf(messageContainer);
-        if (idx !== -1 && idx < siblings.length - 1) {
-          hasSubsequentMessage = true;
-        }
-      }
 
-      // If this is the latest message in the conversation, it is ACTIVE and NEVER historical!
-      const isHistorical = isElementExecuted || hasSubsequentMessage;
+      // It is only historical if it already executed, OR if a newer message turn has already arrived.
+      // If it is in the latest assistant response, it is ACTIVE and MUST RUN!
+      const isHistorical =
+        isElementExecuted ||
+        (lastMessage && messageContainer && messageContainer !== lastMessage);
 
-      // Unique identifier per code block in the DOM
       if (!el.dataset.mcpId) {
         el.dataset.mcpId = `mcp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       }

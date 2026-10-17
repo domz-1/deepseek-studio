@@ -102,8 +102,12 @@ app.post("/mcp", async (req, res) => {
 
 app.post("/call", async (req, res) => {
   const { name, arguments: args, callId } = req.body;
+  console.log(`[Bridge] Incoming /call: ${name}`, JSON.stringify(args || {}));
   const target = toolMap.get(name);
-  if (!target) return res.status(404).json({ error: `Tool ${name} not found` });
+  if (!target) {
+    console.error(`[Bridge] Tool ${name} not found!`);
+    return res.status(404).json({ error: `Tool ${name} not found` });
+  }
 
   const activeId =
     callId || `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -117,8 +121,10 @@ app.post("/call", async (req, res) => {
       CallToolResultSchema,
       { signal: abortController.signal },
     );
+    console.log(`[Bridge] Success /call: ${name}`);
     res.json({ ...result, callId: activeId });
   } catch (err) {
+    console.error(`[Bridge] Error /call: ${name}`, err.message);
     if (abortController.signal.aborted) {
       res.status(499).json({
         error: `Task ${name} was cancelled by user`,
