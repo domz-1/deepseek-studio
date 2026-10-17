@@ -17,13 +17,13 @@
 
 ## 📖 What is this?
 
-DeepSeek's web chat can reason about code, but it can't actually *touch* your machine — it can't read a file, list a directory, or run a command. **DeepSeek MCP Studio** closes that gap.
+DeepSeek's web chat can reason about code, but it can't actually _touch_ your machine — it can't read a file, list a directory, or run a command. **DeepSeek MCP Studio** closes that gap.
 
 It is made of two parts:
 
-| Component | What it does |
-|-----------|--------------|
-| **Bridge** (`bridge/`) | A small local server (default `http://localhost:43210`) that spawns your MCP servers over stdio, lists their tools, and proxies tool calls. |
+| Component                    | What it does                                                                                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Bridge** (`bridge/`)       | A small local server (default `http://localhost:43210`) that spawns your MCP servers over stdio, lists their tools, and proxies tool calls.                                          |
 | **Extension** (`extension/`) | A Manifest V3 Chrome extension that injects a tool banner + `@mention` autocomplete into the DeepSeek chat box, renders permission cards, and executes the tools the model asks for. |
 
 When you type a message with an `@mention`, the extension prepends a system prompt describing the available tools. When DeepSeek replies with an MCP call block, the extension shows a card → you approve (or auto-run) → the bridge executes the tool → the result is fed back into the chat, and the model continues.
@@ -47,18 +47,18 @@ When you type a message with an `@mention`, the extension prepends a system prom
 
 Skills are reusable prompt bundles triggered with a leading `/name`. Type `/` in the chat box to see an autocomplete list.
 
-| Skill | What it does |
-|-------|--------------|
-| `/help` | List every available skill |
-| `/explain` | Explain code or a concept step by step |
-| `/review` | Senior code review (bugs, security, style) |
-| `/refactor` | Refactor for readability & maintainability |
-| `/tests` | Write unit tests |
-| `/debug` | Find the root cause of a bug + fix |
-| `/commit` | Write a Conventional Commits message |
-| `/summarize` | Summarize into bullet points |
-| `/translate-ar` | Translate to Arabic |
-| `/translate-en` | Translate to English |
+| Skill           | What it does                               |
+| --------------- | ------------------------------------------ |
+| `/help`         | List every available skill                 |
+| `/explain`      | Explain code or a concept step by step     |
+| `/review`       | Senior code review (bugs, security, style) |
+| `/refactor`     | Refactor for readability & maintainability |
+| `/tests`        | Write unit tests                           |
+| `/debug`        | Find the root cause of a bug + fix         |
+| `/commit`       | Write a Conventional Commits message       |
+| `/summarize`    | Summarize into bullet points               |
+| `/translate-ar` | Translate to Arabic                        |
+| `/translate-en` | Translate to English                       |
 
 **Usage:**
 
@@ -79,12 +79,12 @@ Open the extension popup → **Skills** tab → fill in a name, emoji, descripti
 
 ## ✅ Requirements
 
-| Dependency | Version | Notes |
-|------------|---------|-------|
-| **[Bun](https://bun.com)** | ≥ 1.1 (tested on 1.3.6) | Runtime for the bridge. Can also be installed via `npm i -g bun`. |
-| **Node.js** | ≥ 18 | Only needed if you prefer `npx` for the context7 MCP server. |
-| **Google Chrome** / Chromium / Brave / Edge | Any recent version | The extension is Manifest V3. |
-| **Git** | any | To clone the repo. |
+| Dependency                                  | Version                 | Notes                                                             |
+| ------------------------------------------- | ----------------------- | ----------------------------------------------------------------- |
+| **[Bun](https://bun.com)**                  | ≥ 1.1 (tested on 1.3.6) | Runtime for the bridge. Can also be installed via `npm i -g bun`. |
+| **Node.js**                                 | ≥ 18                    | Only needed if you prefer `npx` for the context7 MCP server.      |
+| **Google Chrome** / Chromium / Brave / Edge | Any recent version      | The extension is Manifest V3.                                     |
+| **Git**                                     | any                     | To clone the repo.                                                |
 
 > **Windows users:** the built-in `bash` MCP tool (`command-server.js`) runs commands through the system shell. It works out of the box with PowerShell/cmd; a POSIX shell (WSL or Git Bash) is recommended if you rely on Unix commands.
 
@@ -169,6 +169,38 @@ chmod +x scripts/install-linux.sh
 ./scripts/install-linux.sh
 ```
 
+#### Run as a Background Service (systemd)
+
+To keep the bridge running silently in the background on startup (no open terminal needed):
+
+```bash
+# 1. Create user systemd service
+mkdir -p ~/.config/systemd/user
+cat << 'EOF' > ~/.config/systemd/user/deepseek-mcp.service
+[Unit]
+Description=DeepSeek MCP Bridge Hub Daemon
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projects/adham/deepseek-mcp-ext/bridge
+ExecStart=%h/.bun/bin/bun run server.js
+Restart=always
+RestartSec=3
+Environment=PATH=%h/.bun/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target
+EOF
+
+# 2. Enable and start immediately
+systemctl --user daemon-reload
+systemctl --user enable --now deepseek-mcp.service
+
+# 3. Check status
+systemctl --user status deepseek-mcp.service
+```
+
 ### 🍎 macOS
 
 ```bash
@@ -211,7 +243,7 @@ cd ..
 bun run bridge/server.js
 ```
 
-Use the helper script (right-click → *Run with PowerShell*, or from a terminal):
+Use the helper script (right-click → _Run with PowerShell_, or from a terminal):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\install-windows.ps1
@@ -234,21 +266,21 @@ The bridge reads `bridge/mcp-config.json`:
       "command": "bunx",
       "args": [
         "@modelcontextprotocol/server-filesystem",
-        "/home/you/projects"          // ← add your allowed roots here
+        "/home/you/projects", // ← add your allowed roots here
       ],
-      "enabled": true
+      "enabled": true,
     },
     "bash": {
       "command": "bun",
       "args": ["./command-server.js"],
-      "enabled": true
+      "enabled": true,
     },
     "memory": {
       "command": "bunx",
       "args": ["@modelcontextprotocol/server-memory"],
-      "enabled": true
-    }
-  }
+      "enabled": true,
+    },
+  },
 }
 ```
 
@@ -258,10 +290,10 @@ The bridge reads `bridge/mcp-config.json`:
 
 ### Bridge HTTP API
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| `GET`  | `/mcp`  | Return current config, server status, and the full tool list. |
-| `POST` | `/mcp`  | Replace the config and hot-reload all servers. |
+| Method | Path    | Purpose                                                          |
+| ------ | ------- | ---------------------------------------------------------------- |
+| `GET`  | `/mcp`  | Return current config, server status, and the full tool list.    |
+| `POST` | `/mcp`  | Replace the config and hot-reload all servers.                   |
 | `POST` | `/call` | Execute a tool: `{ "name": "read_file", "arguments": { ... } }`. |
 
 The port is `43210` by default (change `PORT` in `bridge/server.js` if it conflicts).
@@ -301,14 +333,14 @@ deepseek-mcp-ext/
 
 ## 🩺 Troubleshooting
 
-| Symptom | Fix |
-|---------|-----|
-| Banner shows `0` tools | Make sure the bridge is running: `curl http://localhost:43210/mcp`. Check the terminal for `[MCP ERR]` lines. |
-| `Tool … not found` | The server that provides it is disabled or failed to start. Re-check `mcp-config.json`. |
-| Extension does nothing | Reload it in `chrome://extensions`, then refresh the DeepSeek tab. |
-| `EADDRINUSE :43210` | Another bridge instance is running — kill it, or change `PORT` in `server.js`. |
-| Filesystem server sees no files | Add the folder to the `args` array in `mcp-config.json` (each path = one allowed root). |
-| Commands fail on Windows | Use PowerShell-compatible commands, or run the bridge inside WSL/Git Bash for Unix tools. |
+| Symptom                         | Fix                                                                                                           |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Banner shows `0` tools          | Make sure the bridge is running: `curl http://localhost:43210/mcp`. Check the terminal for `[MCP ERR]` lines. |
+| `Tool … not found`              | The server that provides it is disabled or failed to start. Re-check `mcp-config.json`.                       |
+| Extension does nothing          | Reload it in `chrome://extensions`, then refresh the DeepSeek tab.                                            |
+| `EADDRINUSE :43210`             | Another bridge instance is running — kill it, or change `PORT` in `server.js`.                                |
+| Filesystem server sees no files | Add the folder to the `args` array in `mcp-config.json` (each path = one allowed root).                       |
+| Commands fail on Windows        | Use PowerShell-compatible commands, or run the bridge inside WSL/Git Bash for Unix tools.                     |
 
 ---
 

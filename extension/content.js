@@ -3,6 +3,28 @@ let activeTools = [];
 let serverStatus = {};
 let autoApprove = localStorage.getItem("deepseek_mcp_auto_approve") !== "false";
 let isSending = false;
+let runningTaskCount = 0;
+let userScrolledUp = false;
+let executedCalls = new Set();
+
+// Track user scroll manually so auto-scroll doesn't fight the user if they scroll up
+window.addEventListener(
+  "scroll",
+  () => {
+    const scrollPos = window.innerHeight + window.scrollY;
+    const scrollBottom = document.documentElement.scrollHeight - 60;
+    userScrolledUp = scrollPos < scrollBottom;
+  },
+  { passive: true },
+);
+
+function scrollToBottom() {
+  if (userScrolledUp) return;
+  window.scrollTo({
+    top: document.documentElement.scrollHeight,
+    behavior: "smooth",
+  });
+}
 
 const SAFE_TOOLS = new Set([
   "read_file",
@@ -106,7 +128,7 @@ function getSendButton() {
   return null;
 }
 
-// Direct, instant, and reliable sender
+// Direct, instant, and reliable sender with queue & rate-limit awareness
 async function sendText(text) {
   if (isSending) return;
   isSending = true;
@@ -159,6 +181,7 @@ async function sendText(text) {
         }),
       );
     }
+    scrollToBottom();
   } finally {
     isSending = false;
   }
@@ -246,7 +269,7 @@ async function refreshSkills() {
   try {
     if (window.DSSkills) loadedSkills = await window.DSSkills.loadSkills();
   } catch (e) {
-    console.warn('[MCP] skills load failed', e);
+    console.warn("[MCP] skills load failed", e);
   }
 }
 refreshSkills();
@@ -260,41 +283,104 @@ function removeSkillMenu() {
 
 function showSkillAutocomplete(inputEl, query) {
   removeSkillMenu();
-  removeAutocomplete();
-  if (!loadedSkills.length) return;
-  const q = (query || '').toLowerCase();
-  const opts = loadedSkills.filter(
-    (s) => !q || s.name.startsWith(q) || (s.description || '').toLowerCase().split(/\W+/).some((w) => w.startsWith(q)),
-  );
-  if (!opts.length) return;
+  if (!window.DSSkills) return;
 
-  const menu = document.createElement('div');
+  const matches = window.DSSkills.filterSkills(query, loadedSkills);
+  if (!matches.length) return;
+
+  const menu = document.createElement("div");
   skillMenu = menu;
-  menu.id = 'deepseek-mcp-skillmenu';
-  menu.style.cssText = 'position:fixed;background:#181825;border:1px solid #45475a;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.7);z-index:99999;padding:10px;width:460px;max-width:90vw;max-height:420px;overflow-y:auto;font-family:system-ui,sans-serif;color:#cdd6f4;';
+  menu.id = "deepseek-mcp-skill-menu";
 
-  opts.forEach((s) => {
-    const item = document.createElement('div');
-    item.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:8px;cursor:pointer;font-size:14px;min-height:44px;box-sizing:border-box;';
-    item.innerHTML =
-      '<span style="font-size:20px;">' + s.emoji + '</span>' +
-      '<span style="color:#cba6f7;font-weight:bold;">/' + s.name + '</span>' +
-      '<span style="color:#a6adc8;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (s.description || '') + '</span>';
-    item.onmouseenter = () => (item.style.background = '#313244');
-    item.onmouseleave = () => (item.style.background = 'transparent');
+  const rect = inputEl.getBoundingClientRect();
+  const menuWidth = 460;
+  const leftPos = Math.max(
+    12,
+    Math.min(rect.left, window.innerWidth - menuWidth - 20),
+  );
+  const bottomPos = window.innerHeight - rect.top + 10;
+
+  menu.style.cssText = `
+    position: fixed !important;
+    bottom: ${bottomPos}px !important;
+    left: ${leftPos}px !important;
+    width: ${menuWidth}px !important;
+    max-height: 380px !important;
+    overflow-y: auto !important;
+    background: #181825 !important;
+    border: 1px solid #45475a !important;
+    border-radius: 12px !important;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.7) !important;
+    z-index: 2147483647 !important;
+    padding: 8px !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+    color: #cdd6f4 !important;
+    box-sizing: border-box !important;
+  `;
+
+  const header = document.createElement("div");
+  header.style.cssText = `
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px 8px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #cba6f7;
+    border-bottom: 1px solid #313244;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  `;
+  header.innerHTML = `<span>⚡ Skills</span><span style="color:#a6adc8;font-size:10px;">${matches.length} available</span>`;
+  menu.appendChild(header);
+
+  matches.forEach((sk, idx) => {
+    const item = document.createElement("div");
+    item.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.12s;
+      ${idx === 0 ? "background: #313244;" : ""}
+    `;
+    item.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:16px;">${sk.emoji || "⚡"}</span>
+        <b style="color:#89b4fa;font-size:13px;">/${sk.name}</b>
+        ${sk.isCustom ? '<span style="background:#f9e2af;color:#11111b;padding:1px 5px;border-radius:6px;font-size:9px;font-weight:700;">CUSTOM</span>' : ""}
+      </div>
+      <div style="font-size:11px;color:#a6adc8;padding-left:24px;line-height:1.3;">${sk.description || ""}</div>
+    `;
+
+    item.onmouseenter = () => {
+      menu
+        .querySelectorAll("div[data-skill-item]")
+        .forEach((el) => (el.style.background = "transparent"));
+      item.style.background = "#313244";
+    };
+    item.onmouseleave = () => {
+      item.style.background = "transparent";
+    };
+    item.setAttribute("data-skill-item", "true");
+
     item.onmousedown = (e) => {
       e.preventDefault();
+      e.stopPropagation();
       const val = inputEl.value;
-      const newVal = val.replace(/\/[\w-]*$/, '/' + s.name + ' ');
+      const slashRegex = /\/[\w-]*$/;
+      const newVal = val.replace(slashRegex, `/${sk.name} `);
       setInputValue(inputEl, newVal);
       removeSkillMenu();
     };
+
     menu.appendChild(item);
   });
 
-  const rect = inputEl.getBoundingClientRect();
-  menu.style.left = rect.left + 'px';
-  menu.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
   document.body.appendChild(menu);
 }
 
@@ -435,22 +521,31 @@ function attachInputMentionInterceptor() {
           if (sk) {
             e.preventDefault();
             e.stopPropagation();
-            const expanded = window.DSSkills.expandSkill(sk.skill, sk.rest, loadedSkills);
-            if (sk.skill.prompt === "__HELP__") {
-              sendText(expanded);
+
+            const rest = window.DSSkills.extractSkillRest(val, sk.name);
+            const prompt = window.DSSkills.buildSkillPrompt(sk, rest);
+
+            const mentionMatch = prompt.match(/(@[\w-]+)/i);
+            if (mentionMatch) {
+              await fetchActiveTools();
+              const rawMention = mentionMatch[1];
+              const selectedTools = filterToolsByMention(
+                rawMention,
+                activeTools,
+              );
+              const cleanPrompt = prompt
+                .replace(new RegExp(rawMention, "gi"), "")
+                .trim();
+              const combined = `${buildSysPrompt(selectedTools)}\n${cleanPrompt}`;
+              sendText(combined);
             } else {
-              const mm = sk.rest.match(/(@[\w-]+)/i);
-              if (mm && activeTools.length) {
-                const sel = filterToolsByMention(mm[1], activeTools);
-                sendText(buildSysPrompt(sel) + "\n" + expanded);
-              } else {
-                sendText(expanded);
-              }
+              sendText(prompt);
             }
             return;
           }
         }
 
+        // ---- Standard @mention handling ----
         const mentionMatch = val.match(/(@[\w-]+)/i);
         if (mentionMatch) {
           e.preventDefault();
@@ -518,6 +613,21 @@ function updateServerBadges() {
   });
 }
 
+function updateTaskBadge() {
+  const taskIndicator = document.getElementById("mcp-task-indicator");
+  if (!taskIndicator) return;
+
+  if (runningTaskCount > 0) {
+    taskIndicator.style.display = "inline-flex";
+    taskIndicator.innerHTML = `
+      <span style="width:7px;height:7px;border-radius:50%;background:#89b4fa;box-shadow:0 0 6px #89b4fa;animation:mcp-pulse 1s infinite alternate;"></span>
+      <span>Running task (${runningTaskCount})...</span>
+    `;
+  } else {
+    taskIndicator.style.display = "none";
+  }
+}
+
 function injectChatBadge() {
   const input = getChatInput();
   if (!input) return;
@@ -556,6 +666,21 @@ function injectChatBadge() {
     pillsWrap.style.cssText =
       "display:flex;flex-wrap:wrap;gap:6px;align-items:center;";
 
+    const taskIndicator = document.createElement("div");
+    taskIndicator.id = "mcp-task-indicator";
+    taskIndicator.style.cssText = `
+      display: none;
+      align-items: center;
+      gap: 6px;
+      background: #1e1e2e;
+      border: 1px solid #89b4fa;
+      color: #89b4fa;
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 11px;
+    `;
+
     const autoToggle = document.createElement("label");
     autoToggle.style.cssText = `
       display: inline-flex;
@@ -584,11 +709,13 @@ function injectChatBadge() {
     };
 
     wrap.appendChild(pillsWrap);
+    wrap.appendChild(taskIndicator);
     wrap.appendChild(autoToggle);
     targetParent.parentElement.insertBefore(wrap, targetParent);
   }
 
   updateServerBadges();
+  updateTaskBadge();
 }
 
 const HUMAN_RESULT_TEMPLATES = [
@@ -601,10 +728,13 @@ const HUMAN_RESULT_TEMPLATES = [
 ];
 
 // Tool execution & card rendering
-async function executeTool(payload, cardStatusEl) {
+async function executeTool(payload, cardStatusEl, callKey) {
   if (cardStatusEl) {
     cardStatusEl.innerHTML = `<div style="color:#89b4fa;font-weight:bold;padding:4px;">⏳ Running <code>${payload.name}</code>...</div>`;
   }
+
+  runningTaskCount++;
+  updateTaskBadge();
 
   try {
     const res = await fetch("http://localhost:43210/call", {
@@ -616,6 +746,17 @@ async function executeTool(payload, cardStatusEl) {
     if (!res.ok || data.isError) {
       throw new Error(data.error || "Execution failed");
     }
+
+    if (callKey) {
+      executedCalls.add(callKey);
+      try {
+        sessionStorage.setItem(
+          "deepseek_mcp_executed",
+          JSON.stringify(Array.from(executedCalls)),
+        );
+      } catch (_) {}
+    }
+
     const out = JSON.stringify(data.content || data, null, 2).slice(0, 10000);
     if (cardStatusEl) {
       cardStatusEl.innerHTML = `<div style="color:#a6e3a1;font-weight:bold;padding:4px;">✓ Done: <code>${payload.name}</code></div>`;
@@ -633,10 +774,19 @@ async function executeTool(payload, cardStatusEl) {
       cardStatusEl.innerHTML = `<div style="color:#f38ba8;font-weight:bold;padding:4px;">❌ Error: ${err.message}</div>`;
     }
     await sendText(`Execution error on ${payload.name}: ${err.message}`);
+  } finally {
+    runningTaskCount = Math.max(0, runningTaskCount - 1);
+    updateTaskBadge();
+    scrollToBottom();
   }
 }
 
-function renderPermissionCard(targetEl, payload) {
+function renderPermissionCard(
+  targetEl,
+  payload,
+  callKey,
+  isAlreadyExecuted = false,
+) {
   const isSafe = SAFE_TOOLS.has(payload.name);
   const card = document.createElement("div");
   card.className = "deepseek-mcp-action-card";
@@ -653,6 +803,19 @@ function renderPermissionCard(targetEl, payload) {
     display: block !important;
     position: relative !important;
   `;
+
+  if (isAlreadyExecuted) {
+    card.innerHTML = `
+      <div style="font-weight:bold;color:#a6adc8;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+        <span>✓ Completed Historical Call:</span>
+        <code style="background:#11111b;padding:3px 8px;border-radius:4px;color:#a6e3a1;font-size:12px;">${payload.name}</code>
+      </div>
+      <div style="font-size:11px;color:#a6adc8;">Arguments:</div>
+      <pre style="background:#11111b;color:#a6adc8;padding:6px;border-radius:4px;font-size:11px;overflow:auto;max-height:80px;">${JSON.stringify(payload.arguments || {}, null, 2)}</pre>
+    `;
+    targetEl.insertAdjacentElement("afterend", card);
+    return;
+  }
 
   card.innerHTML = `
     <div style="font-weight:bold;color:${isSafe ? "#89b4fa" : "#f38ba8"};margin-bottom:8px;display:flex;align-items:center;gap:8px;">
@@ -675,10 +838,11 @@ function renderPermissionCard(targetEl, payload) {
     try {
       payload.arguments = JSON.parse(card.querySelector(".ed").value);
     } catch (_) {}
-    executeTool(payload, controls);
+    executeTool(payload, controls, callKey);
   };
 
   card.querySelector(".no").onclick = () => {
+    executedCalls.add(callKey);
     controls.innerHTML = `<div style="color:#a6adc8;font-style:italic;padding:4px;">✕ Rejected: ${payload.name}</div>`;
     sendText(`I skipped "${payload.name}". Please continue.`);
   };
@@ -686,7 +850,7 @@ function renderPermissionCard(targetEl, payload) {
   if (autoApprove) {
     controls.innerHTML = `<div style="color:#a6e3a1;font-size:12px;">⚡ Auto-executing <code>${payload.name}</code>...</div>`;
     setTimeout(() => {
-      executeTool(payload, controls);
+      executeTool(payload, controls, callKey);
     }, 400);
   }
 }
@@ -707,6 +871,14 @@ function extractMcpCall(text) {
   return null;
 }
 
+// Restore previously executed calls from sessionStorage
+try {
+  const saved = sessionStorage.getItem("deepseek_mcp_executed");
+  if (saved) {
+    executedCalls = new Set(JSON.parse(saved));
+  }
+} catch (_) {}
+
 function scanMessages() {
   const codeBlocks = document.querySelectorAll("div.md-code-block");
   codeBlocks.forEach((el) => {
@@ -723,7 +895,18 @@ function scanMessages() {
     const payload = extractMcpCall(text);
     if (payload && payload.name) {
       el.setAttribute("data-mcp-attached", "true");
-      renderPermissionCard(el, payload);
+
+      // Unique call hash based on message context + tool name + args
+      const callKey = `${payload.name}:${JSON.stringify(payload.arguments || {})}:${text.slice(0, 100)}`;
+
+      // Check if this block is already followed by a model response or was executed before
+      const parentMsg = el.closest(
+        "div.ds-message, div._4f9bf79, div.ds-markdown",
+      );
+      const hasFollowUp = parentMsg && parentMsg.nextElementSibling !== null;
+      const isHistorical = executedCalls.has(callKey) || hasFollowUp;
+
+      renderPermissionCard(el, payload, callKey, isHistorical);
     }
   });
 }
