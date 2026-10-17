@@ -519,6 +519,65 @@ function updateTaskBadge() {
   }
 }
 
+function showAddProjectModal(onConfirm) {
+  const existing = document.getElementById("ds-add-project-modal");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "ds-add-project-modal";
+  overlay.className = "ds-modal-overlay";
+
+  overlay.innerHTML = `
+    <div class="ds-modal-card">
+      <div class="ds-modal-title">
+        <span class="ds-ic" data-ic="folder"></span>
+        <span>Add Local Project Workspace</span>
+      </div>
+      <div class="ds-modal-desc">
+        Enter the absolute folder path of your project (e.g. <code>/home/adham/my-app</code>). It will be indexed instantly by <code>fd</code> for fast <code>@file</code> search.
+      </div>
+      <input type="text" class="ds-modal-input" placeholder="/home/adham/projects/..." value="/home/adham/projects/" spellcheck="false" />
+      <div class="ds-modal-actions">
+        <button class="ds-btn ds-btn-no cancel-btn" type="button">Cancel</button>
+        <button class="ds-btn ds-btn-ok confirm-btn" type="button">Add Project</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const input = overlay.querySelector(".ds-modal-input");
+  const cancelBtn = overlay.querySelector(".cancel-btn");
+  const confirmBtn = overlay.querySelector(".confirm-btn");
+
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+
+  const close = () => overlay.remove();
+
+  cancelBtn.onclick = close;
+  overlay.onclick = (e) => {
+    if (e.target === overlay) close();
+  };
+
+  const submit = () => {
+    const val = input.value.trim();
+    if (!val) return;
+    close();
+    onConfirm(val);
+  };
+
+  confirmBtn.onclick = submit;
+  input.onkeydown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submit();
+    } else if (e.key === "Escape") {
+      close();
+    }
+  };
+}
+
 function populateProjectsDropdown(force = false) {
   const projSelect = document.getElementById("mcp-project-select");
   if (!projSelect) return;
@@ -598,11 +657,8 @@ function injectChatBadge() {
     const addBtn = wrap.querySelector("#mcp-add-project-btn");
     if (addBtn) {
       addBtn.onclick = () => {
-        const customPath = prompt(
-          "Enter local project directory absolute path (e.g. /home/adham/my-project):",
-        );
-        if (customPath && customPath.trim()) {
-          const cleanPath = customPath.trim();
+        showAddProjectModal((cleanPath) => {
+          if (!cleanPath) return;
           const name = cleanPath.split("/").filter(Boolean).pop() || cleanPath;
           let customs = [];
           try {
@@ -623,7 +679,7 @@ function injectChatBadge() {
             selectedProject,
           );
           populateProjectsDropdown(true);
-        }
+        });
       };
     }
 
