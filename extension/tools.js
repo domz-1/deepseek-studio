@@ -87,17 +87,42 @@ Guidelines:
 
   function extractMcpCall(text) {
     if (!text) return null;
+
+    // 1. Try parsing JSON format
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
-    if (start === -1 || end === -1 || end <= start) return null;
+    if (start !== -1 && end !== -1 && end > start) {
+      const candidate = text.slice(start, end + 1);
+      try {
+        const p = JSON.parse(candidate);
+        if (p.name && (p.mcp_call !== undefined || p.arguments !== undefined)) {
+          return { name: p.name, arguments: p.arguments || {} };
+        }
+      } catch (_) {}
+    }
 
-    const candidate = text.slice(start, end + 1);
-    try {
-      const p = JSON.parse(candidate);
-      if (p.name && (p.mcp_call !== undefined || p.arguments !== undefined)) {
-        return { name: p.name, arguments: p.arguments || {} };
+    // 2. Try parsing DeepSeek DSML XML format:
+    // < | DSML | calls>< | DSML | invoke name="list_directory">< | DSML | parameter name="path" string="true">...</ | DSML | parameter>...</ | DSML | invoke></ | DSML | calls>
+    if (text.includes("DSML") && text.includes("invoke")) {
+      const invokeMatch = text.match(/invoke\s+name=["']([^"']+)["']/i);
+      if (invokeMatch) {
+        const name = invokeMatch[1];
+        const args = {};
+        const paramRegex =
+          /parameter\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)<\/\s*\|\s*DSML\s*\|\s*parameter>/gi;
+        let m;
+        while ((m = paramRegex.exec(text)) !== null) {
+          const pName = m[1];
+          let pVal = m[2].trim();
+          try {
+            pVal = JSON.parse(pVal);
+          } catch (_) {}
+          args[pName] = pVal;
+        }
+        return { name, arguments: args };
       }
-    } catch (_) {}
+    }
+
     return null;
   }
 

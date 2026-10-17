@@ -1221,17 +1221,10 @@ function renderGrillQuestionCard(
 }
 
 function scanMessages() {
-  const codeBlocks = Array.from(document.querySelectorAll("div.md-code-block"));
-  if (!codeBlocks.length) return;
-
-  // Find all messages in the thread
-  const messages = Array.from(
-    document.querySelectorAll(
-      "div.ds-message, div._4f9bf79, div.chat-message, div[data-message-id]",
-    ),
+  const codeBlocks = Array.from(
+    document.querySelectorAll("div.md-code-block, pre, div.ds-markdown"),
   );
-  const lastMessage =
-    messages.length > 0 ? messages[messages.length - 1] : null;
+  if (!codeBlocks.length) return;
 
   codeBlocks.forEach((el) => {
     if (el.hasAttribute("data-mcp-attached")) return;
@@ -1265,8 +1258,8 @@ function scanMessages() {
       }
     }
 
-    // 2. Check for standard MCP tool call JSON
-    if (!text.includes("name")) return;
+    // 2. Check for standard MCP tool call (JSON or DeepSeek DSML)
+    if (!text.includes("name") && !text.includes("invoke")) return;
 
     const payload = window.DSTools.extractMcpCall(text);
     if (payload && payload.name) {
