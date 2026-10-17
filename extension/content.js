@@ -1080,9 +1080,16 @@ function renderGrillQuestionCard(
       const isMultiSelect = Boolean(q.multi_select);
       const optionsHtml = (q.options || [])
         .map((opt, i) => {
-          const optId = opt.id || String.fromCharCode(65 + i);
-          const label = opt.label || opt.text || "";
-          const details = opt.details || "";
+          const optId =
+            typeof opt === "object" && opt?.id
+              ? opt.id
+              : String.fromCharCode(65 + i);
+          const label =
+            typeof opt === "string"
+              ? opt
+              : opt.label || opt.text || opt.title || "";
+          const details =
+            typeof opt === "object" ? opt.details || opt.desc || "" : "";
           return `
             <label class="ds-grill-opt grill-opt-card" data-q-idx="${qIdx}" data-opt-id="${optId}">
               <input type="${isMultiSelect ? "checkbox" : "radio"}" name="grill_q_${qIdx}" value="${optId}" />

@@ -136,13 +136,31 @@ Guidelines:
     try {
       const p = JSON.parse(candidate);
 
+      const normalizeOptions = (opts) => {
+        if (!Array.isArray(opts)) return [];
+        return opts.map((opt, i) => {
+          const defaultId = String.fromCharCode(65 + i);
+          if (typeof opt === "string") {
+            return { id: defaultId, label: opt, details: "" };
+          }
+          if (typeof opt === "object" && opt !== null) {
+            return {
+              id: opt.id || defaultId,
+              label: opt.label || opt.text || opt.title || opt.name || "",
+              details: opt.details || opt.desc || opt.description || "",
+            };
+          }
+          return { id: defaultId, label: String(opt), details: "" };
+        });
+      };
+
       // Support multi-question array: { "questions": [...] }
       if (Array.isArray(p.questions) && p.questions.length > 0) {
         return {
           is_multi_question: true,
           questions: p.questions.map((q) => ({
             question: q.question || q.grill_question || "Design Decision",
-            options: Array.isArray(q.options) ? q.options : [],
+            options: normalizeOptions(q.options),
             multi_select: Boolean(q.multi_select || q.is_multi_select),
             allow_custom: q.allow_custom !== false,
           })),
@@ -158,7 +176,7 @@ Guidelines:
         return {
           is_multi_question: false,
           question: p.grill_question || p.question,
-          options: p.options,
+          options: normalizeOptions(p.options),
           multi_select: Boolean(p.multi_select || p.is_multi_select),
           allow_custom: p.allow_custom !== false,
         };
