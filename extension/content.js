@@ -618,11 +618,37 @@ function populateProjectsDropdown(force = false) {
   });
 }
 
-// Sidebar Project Filter
 function injectSidebarProjectFilter() {
-  const sidebar =
-    document.querySelector("div.ds-sidebar, nav[class*='sidebar'], aside") ||
-    document.querySelector("div[class*='chat-history']");
+  // DeepSeek left sidebar container:
+  // Usually contains the "New chat" button and chat history list
+  const newChatBtn = Array.from(
+    document.querySelectorAll("button, div[role='button']"),
+  ).find((el) => (el.textContent || "").toLowerCase().includes("new chat"));
+
+  let sidebar = null;
+  let insertBeforeNode = null;
+
+  if (newChatBtn) {
+    // Find the list/scroll container right below or inside the parent
+    const parentContainer =
+      newChatBtn.closest(
+        "div[class*='sidebar'], aside, nav, div[class*='left']",
+      ) || newChatBtn.parentElement?.parentElement;
+    if (parentContainer) {
+      sidebar = parentContainer;
+      // We want to place the Workspaces filter right below the New chat button container!
+      insertBeforeNode =
+        newChatBtn.parentElement?.nextElementSibling ||
+        newChatBtn.nextElementSibling;
+    }
+  }
+
+  if (!sidebar) {
+    sidebar =
+      document.querySelector("div.ds-sidebar, nav[class*='sidebar'], aside") ||
+      document.querySelector("div[class*='chat-history']");
+  }
+
   if (!sidebar) return;
 
   let filterWrap = document.getElementById("ds-sidebar-project-filter");
@@ -650,7 +676,11 @@ function injectSidebarProjectFilter() {
     filterWrap.appendChild(head);
     filterWrap.appendChild(chips);
 
-    sidebar.insertBefore(filterWrap, sidebar.firstChild);
+    if (insertBeforeNode && insertBeforeNode.parentElement === sidebar) {
+      sidebar.insertBefore(filterWrap, insertBeforeNode);
+    } else {
+      sidebar.insertBefore(filterWrap, sidebar.firstChild);
+    }
   }
 
   const chipsContainer = document.getElementById("ds-sidebar-chips");

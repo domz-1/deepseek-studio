@@ -286,11 +286,15 @@
   max-width: 170px;
   padding: 0 4px;
   height: 100%;
+  appearance: auto;
+  -webkit-appearance: menulist;
+  position: relative;
+  z-index: 10;
 }
 .ds-project-select option {
-  background: var(--ds-bg-elev);
-  color: var(--ds-fg);
-  padding: 4px;
+  background: #181825 !important;
+  color: #cdd6f4 !important;
+  padding: 6px 10px;
 }
 .ds-project-btn {
   display: inline-flex;
