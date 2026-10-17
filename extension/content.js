@@ -1020,14 +1020,7 @@ function scanMessages() {
         const isElementExecuted =
           el.getAttribute("data-mcp-executed") === "true";
 
-        const messageContainer = el.closest(
-          "div.ds-message, div._4f9bf79, div.chat-message, div[data-message-id]",
-        );
-
-        // A grill card is historical only if it was already submitted or is in a superseded older message turn
-        const isHistorical =
-          isElementExecuted ||
-          (lastMessage && messageContainer && messageContainer !== lastMessage);
+        const isHistorical = isElementExecuted;
 
         renderGrillQuestionCard(el, grillData, callKey, isHistorical);
         return;
@@ -1042,15 +1035,9 @@ function scanMessages() {
       el.setAttribute("data-mcp-attached", "true");
 
       const isElementExecuted = el.getAttribute("data-mcp-executed") === "true";
-      const messageContainer = el.closest(
-        "div.ds-message, div._4f9bf79, div.chat-message, div[data-message-id]",
-      );
 
-      // It is only historical if it already executed, OR if a newer message turn has already arrived.
-      // If it is in the latest assistant response, it is ACTIVE and MUST RUN!
-      const isHistorical =
-        isElementExecuted ||
-        (lastMessage && messageContainer && messageContainer !== lastMessage);
+      // If an element has never executed, it is NEVER historical! It must be actionable.
+      const isHistorical = isElementExecuted;
 
       if (!el.dataset.mcpId) {
         el.dataset.mcpId = `mcp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
