@@ -82,13 +82,27 @@
       name: "grill-me",
       emoji: "🔥",
       description:
-        "Interactively interview and challenge design decisions, trade-offs, and edge cases.",
+        "Interactive interview challenging design decisions, trade-offs, and edge cases one question at a time.",
       prompt:
-        "Act as an exceptionally demanding Principal Engineer and Architect. Grill me thoroughly on my proposed plan/idea/code.\n" +
-        "- Ask 3-5 sharp, probing questions exposing hidden assumptions, performance bottlenecks, concurrency risks, failure modes, and architectural trade-offs.\n" +
-        "- Challenge me to defend my choices with concrete technical rationale.\n" +
-        "- Do NOT write code yet; prioritize stress-testing the architecture and requirements first.\n\n" +
-        "Here is what I want to build or discuss:",
+        "Act as an exceptionally demanding Principal Engineer and Architect. You are conducting an interactive architecture interview (Grill-Me session).\n" +
+        "CRITICAL RULES:\n" +
+        "1. Ask ONE focused, critical design question at a time (never dump a long list of questions all at once!).\n" +
+        "2. Explain briefly why this decision is pivotal (trade-offs, failure modes, scale).\n" +
+        "3. Provide 2 to 4 concrete, realistic choices for me to select from, plus what each choice implies.\n" +
+        "4. Output this EXACT JSON block at the end of your message so the interactive UI can render selectable buttons for me:\n" +
+        "```json\n" +
+        "{\n" +
+        '  "grill_question": "Summary of the critical decision question?",\n' +
+        '  "options": [\n' +
+        '    {"id": "A", "label": "Option A summary", "details": "Trade-off details..."},\n' +
+        '    {"id": "B", "label": "Option B summary", "details": "Trade-off details..."},\n' +
+        '    {"id": "C", "label": "Option C summary", "details": "Trade-off details..."}\n' +
+        "  ],\n" +
+        '  "allow_custom": true\n' +
+        "}\n" +
+        "```\n" +
+        "5. When I answer, evaluate my choice, challenge any remaining edge cases or move to the next pivotal architectural question.\n\n" +
+        "Topic to grill me on:",
       builtin: true,
     },
     {

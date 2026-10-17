@@ -91,10 +91,35 @@ Guidelines:
     return null;
   }
 
+  function extractGrillQuestion(text) {
+    if (!text) return null;
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start === -1 || end === -1 || end <= start) return null;
+
+    const candidate = text.slice(start, end + 1);
+    try {
+      const p = JSON.parse(candidate);
+      if (
+        p.grill_question &&
+        Array.isArray(p.options) &&
+        p.options.length > 0
+      ) {
+        return {
+          question: p.grill_question,
+          options: p.options,
+          allow_custom: p.allow_custom !== false,
+        };
+      }
+    } catch (_) {}
+    return null;
+  }
+
   root.DSTools = {
     SAFE_TOOLS,
     buildSysPrompt,
     filterToolsByMention,
     extractMcpCall,
+    extractGrillQuestion,
   };
 })(typeof window !== "undefined" ? window : globalThis);

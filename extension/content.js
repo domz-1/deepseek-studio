@@ -757,6 +757,129 @@ function renderPermissionCard(
   }
 }
 
+function renderGrillQuestionCard(
+  targetEl,
+  grillData,
+  callKey,
+  isHistorical = false,
+) {
+  const card = document.createElement("div");
+  card.className = "deepseek-mcp-action-card deepseek-grill-card";
+  card.style.cssText = `
+    margin: 14px 0 18px 0 !important;
+    background: linear-gradient(145deg, #181825, #1e1e2e) !important;
+    border: 2px solid #fab387 !important;
+    border-radius: 12px !important;
+    padding: 16px !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+    font-size: 13px !important;
+    color: #cdd6f4 !important;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.6) !important;
+    display: block !important;
+    position: relative !important;
+  `;
+
+  if (isHistorical) {
+    card.innerHTML = `
+      <div style="font-weight:bold;color:#a6adc8;display:flex;align-items:center;gap:8px;">
+        <span>🔥 Answered Grill-Me Decision:</span>
+        <span style="color:#fab387;font-size:12px;">${grillData.question || ""}</span>
+      </div>
+    `;
+    targetEl.insertAdjacentElement("afterend", card);
+    return;
+  }
+
+  const optionsHtml = grillData.options
+    .map((opt, i) => {
+      const optId = opt.id || String.fromCharCode(65 + i);
+      return `
+        <div class="grill-opt-card" data-opt-id="${optId}" style="background:#11111b;border:1px solid #45475a;border-radius:8px;padding:10px 12px;cursor:pointer;transition:all 0.15s ease;display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <b style="color:#fab387;font-size:13px;">[${optId}] ${opt.label || opt.text || ""}</b>
+            <span style="background:#313244;color:#cdd6f4;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">Choose</span>
+          </div>
+          ${opt.details ? `<div style="color:#a6adc8;font-size:11px;line-height:1.35;">${opt.details}</div>` : ""}
+        </div>
+      `;
+    })
+    .join("");
+
+  card.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;border-bottom:1px solid #313244;padding-bottom:8px;">
+      <div style="font-weight:bold;color:#fab387;font-size:14px;display:flex;align-items:center;gap:6px;">
+        <span>🔥 Architecture Decision Point</span>
+      </div>
+      <span style="background:#fab387;color:#11111b;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">1-by-1 Interview</span>
+    </div>
+    <div style="font-size:14px;font-weight:600;color:#cdd6f4;margin-bottom:12px;line-height:1.4;">
+      ${grillData.question}
+    </div>
+    <div class="grill-options-grid" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+      ${optionsHtml}
+    </div>
+    <div class="grill-custom-wrap" style="display:flex;gap:8px;align-items:center;border-top:1px solid #313244;padding-top:10px;">
+      <input type="text" class="grill-custom-input" placeholder="Or write custom rationale / trade-off choice..." style="flex:1;background:#11111b;border:1px solid #45475a;color:#cdd6f4;padding:8px 12px;border-radius:6px;font-size:12px;outline:none;" />
+      <button class="grill-custom-submit" style="background:#89b4fa;color:#11111b;border:none;padding:8px 16px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;">Send Custom</button>
+    </div>
+  `;
+
+  targetEl.insertAdjacentElement("afterend", card);
+
+  // Bind option clicks
+  card.querySelectorAll(".grill-opt-card").forEach((optEl) => {
+    optEl.onmouseenter = () => {
+      optEl.style.borderColor = "#fab387";
+      optEl.style.transform = "translateY(-1px)";
+    };
+    optEl.onmouseleave = () => {
+      optEl.style.borderColor = "#45475a";
+      optEl.style.transform = "none";
+    };
+    optEl.onclick = () => {
+      executedCalls.add(callKey);
+      const optId = optEl.getAttribute("data-opt-id");
+      const chosen =
+        grillData.options.find((o) => (o.id || "") === optId) || {};
+      const answerText = `I choose Option [${optId}]: "${chosen.label || chosen.text || optId}".\nRationale & Trade-offs: ${chosen.details || "Proceeding with this architectural approach."}\n\nWhat is the next question?`;
+
+      card.innerHTML = `
+        <div style="color:#a6e3a1;font-weight:bold;padding:6px;display:flex;align-items:center;gap:6px;">
+          <span>✓ Selected Option [${optId}]:</span>
+          <span style="color:#cdd6f4;">${chosen.label || optId}</span>
+        </div>
+      `;
+      sendText(answerText, true);
+    };
+  });
+
+  // Custom response handling
+  const customInput = card.querySelector(".grill-custom-input");
+  const customBtn = card.querySelector(".grill-custom-submit");
+
+  const sendCustom = () => {
+    const val = customInput.value.trim();
+    if (!val) return;
+    executedCalls.add(callKey);
+    const answerText = `Custom architecture decision for question "${grillData.question}":\n${val}\n\nWhat is the next question?`;
+    card.innerHTML = `
+      <div style="color:#89b4fa;font-weight:bold;padding:6px;">
+        ✓ Submitted Custom Decision: <span style="color:#cdd6f4;">${val}</span>
+      </div>
+    `;
+    sendText(answerText, true);
+  };
+
+  customBtn.onclick = sendCustom;
+  customInput.onkeydown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      sendCustom();
+    }
+  };
+}
+
 function scanMessages() {
   const codeBlocks = document.querySelectorAll("div.md-code-block");
   codeBlocks.forEach((el) => {
@@ -768,6 +891,28 @@ function scanMessages() {
     }
 
     const text = el.textContent || "";
+
+    // 1. Check for interactive Grill-Me Question JSON
+    if (
+      text.includes("grill_question") &&
+      window.DSTools.extractGrillQuestion
+    ) {
+      const grillData = window.DSTools.extractGrillQuestion(text);
+      if (grillData && grillData.question) {
+        el.setAttribute("data-mcp-attached", "true");
+        const callKey = `grill:${grillData.question.slice(0, 80)}`;
+        const parentMsg = el.closest(
+          "div.ds-message, div._4f9bf79, div.ds-markdown",
+        );
+        const hasFollowUp = parentMsg && parentMsg.nextElementSibling !== null;
+        const isHistorical = executedCalls.has(callKey) || hasFollowUp;
+
+        renderGrillQuestionCard(el, grillData, callKey, isHistorical);
+        return;
+      }
+    }
+
+    // 2. Check for standard MCP tool call JSON
     if (!text.includes("name")) return;
 
     const payload = window.DSTools.extractMcpCall(text);
