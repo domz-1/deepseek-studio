@@ -41,20 +41,34 @@ try {
   }
 } catch (_) {}
 
+function isContextValid() {
+  return typeof chrome !== "undefined" && Boolean(chrome.runtime?.id);
+}
+
 async function fetchActiveTools() {
+  if (!isContextValid()) return [];
   try {
     // Always route through the background worker so the bridge token is
     // attached and the page never performs an unauthenticated fetch.
-    const bgRes = await new Promise((r) =>
-      chrome.runtime.sendMessage({ type: "GET_MCP" }, r),
-    );
+    const bgRes = await new Promise((r) => {
+      chrome.runtime.sendMessage({ type: "GET_MCP" }, (res) => {
+        if (chrome.runtime.lastError) {
+          r(null);
+        } else {
+          r(res);
+        }
+      });
+    });
     if (bgRes?.ok && bgRes.data?.tools) {
       activeTools = bgRes.data.tools;
       serverStatus = bgRes.data.status || {};
       return activeTools;
     }
   } catch (e) {
-    console.warn("[MCP] fetchActiveTools failed", e);
+    // Silence error if extension context is invalidated by reload
+    if (!e?.message?.includes("Extension context invalidated")) {
+      console.warn("[MCP] fetchActiveTools failed", e);
+    }
   }
   return [];
 }
@@ -586,10 +600,6 @@ function getCustomProjects() {
   } catch (_) {
     return [];
   }
-}
-
-function isContextValid() {
-  return typeof chrome !== "undefined" && Boolean(chrome.runtime?.id);
 }
 
 function fetchAllProjects(cb) {
