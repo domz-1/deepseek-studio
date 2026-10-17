@@ -56,22 +56,22 @@ async function load() {
     $("tot").textContent = cachedTools.length + " tools ready";
     $("json-ed").value = JSON.stringify(currentCfg, null, 2);
     const entries = Object.entries(currentCfg.mcpServers || {});
-    if (!entries.length) { $("srv-list").innerHTML = '<div style="color:var(--ds-fg-muted);padding:8px;">No servers defined in JSON.</div>'; return; }
+    if (!entries.length) { $("srv-list").innerHTML = '<div class="ds-msg ds-msg-muted">No servers defined in JSON.</div>'; return; }
     $("srv-list").innerHTML = entries.map(([name, srv]) => {
       const st = status[name] || {};
       const checked = srv.enabled !== false ? "checked" : "";
-      return '<div class="srv-card"><div><span class="dot ' + (st.online ? "on" : "") + '"></span><b>' + name + '</b><div style="font-size:10px;color:var(--ds-fg-muted);margin-left:14px;">' + srv.command + ' ' + (srv.args || []).join(" ") + ' (' + (st.count || 0) + ' tools)</div></div><input type="checkbox" data-srv="' + name + '" ' + checked + ' style="cursor:pointer;width:16px;height:16px;" /></div>';
+      return '<div class="srv-card"><div><span class="dot ' + (st.online ? "on" : "") + '"></span><b>' + name + '</b><div class="ds-srv-meta">' + srv.command + ' ' + (srv.args || []).join(" ") + ' (' + (st.count || 0) + ' tools)</div></div><input type="checkbox" class="ds-srv-check" data-srv="' + name + '" ' + checked + ' /></div>';
     }).join("");
     document.querySelectorAll("input[data-srv]").forEach((cb) => {
       cb.onchange = async (e) => {
         const name = e.target.dataset.srv;
         currentCfg.mcpServers[name].enabled = e.target.checked;
-        $("srv-list").innerHTML = '<div style="color:var(--ds-accent);padding:8px;">Reloading...</div>';
-        try { await apiSaveMCP(currentCfg); await load(); } catch (err) { $("srv-list").innerHTML = '<div style="color:var(--ds-danger);padding:8px;">Error: ' + err.message + '</div>'; }
+        $("srv-list").innerHTML = '<div class="ds-msg ds-msg-accent">Reloading...</div>';
+        try { await apiSaveMCP(currentCfg); await load(); } catch (err) { $("srv-list").innerHTML = '<div class="ds-msg ds-msg-danger">Error: ' + err.message + '</div>'; }
       };
     });
   } catch (err) {
-    $("srv-list").innerHTML = '<div style="color:var(--ds-danger);padding:8px;"><b>Bridge offline or unreachable:</b><br>' + err.message + '<br><br>Run in terminal:<br><code>cd bridge &amp;&amp; bun run server.js</code></div>';
+    $("srv-list").innerHTML = '<div class="ds-msg ds-msg-danger"><b>Bridge offline or unreachable:</b><br>' + err.message + '<br><br>Run in terminal:<br><code>cd bridge &amp;&amp; bun run server.js</code></div>';
   }
 }
 
@@ -93,7 +93,7 @@ async function renderSkills() {
   if (!all.length) { list.innerHTML = '<div class="muted">No skills yet.</div>'; return; }
   list.innerHTML = all.map((s) => {
     const isCustom = customSkills.some((c) => window.DSSkills.slugify(c.name) === s.name);
-    return '<div class="skill-card"><div class="nm">' + (window.DSIcon ? window.DSIcon.forSkill(s) : (s.emoji||'')) + ' /' + s.name + (isCustom ? ' <span style="color:var(--ds-success);font-size:9px;">custom</span>' : ' <span style="color:var(--ds-fg-muted);font-size:9px;">built-in</span>') + '</div><div class="ds">' + (s.description || "") + '</div><div class="pr">' + (s.prompt === "__HELP__" ? "(lists all skills)" : (s.prompt || "")) + '</div>' + (isCustom ? '<div class="row" style="margin-top:6px;"><button class="mini" data-edit="' + s.name + '">Edit</button><button class="dang" data-del="' + s.name + '">Delete</button></div>' : '') + '</div>';
+    return '<div class="skill-card"><div class="nm">' + (window.DSIcon ? window.DSIcon.forSkill(s) : (s.emoji||'')) + ' /' + s.name + (isCustom ? ' <span class="ds-flag-custom">custom</span>' : ' <span class="ds-flag-builtin">built-in</span>') + '</div><div class="ds">' + (s.description || "") + '</div><div class="pr">' + (s.prompt === "__HELP__" ? "(lists all skills)" : (s.prompt || "")) + '</div>' + (isCustom ? '<div class="row ds-row-tight"><button class="mini" data-edit="' + s.name + '">Edit</button><button class="dang" data-del="' + s.name + '">Delete</button></div>' : '') + '</div>';
   }).join("");
   list.querySelectorAll("[data-del]").forEach((b) => {
     b.onclick = async () => {

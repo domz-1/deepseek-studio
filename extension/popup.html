@@ -33,12 +33,12 @@
 <body>
   <div class="hdr">
     <span><span class="ds-ic" data-ic="zap"></span> DeepSeek MCP Studio</span>
-    <span id="tot" style="color:var(--ds-success);font-size:11px;">0 tools</span>
+    <span id="tot" class="ds-tot">0 tools</span>
   </div>
 
-  <div style="display:flex;gap:6px;margin-bottom:10px;">
-    <input type="text" id="token-in" placeholder="Bridge token (from bridge/.bridge-token)" style="margin-bottom:0;" />
-    <button class="sec" id="save-token" style="flex:0 0 auto;padding:6px 10px;">Set</button>
+  <div class="ds-token-row">
+    <input type="text" id="token-in" placeholder="Bridge token (from bridge/.bridge-token)" />
+    <button class="sec ds-token-btn" id="save-token">Set</button>
   </div>
 
   <div class="tabs">
@@ -67,7 +67,7 @@
     <div class="row">
       <button class="sec" id="sk-add">Add / Update Skill</button>
     </div>
-    <div id="sk-list" style="margin-top:10px;"></div>
+    <div id="sk-list" class="ds-sk-list"></div>
   </div>
 
   <div class="row">

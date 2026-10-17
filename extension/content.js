@@ -448,28 +448,15 @@ function updateServerBadges() {
   const container = document.getElementById("deepseek-mcp-badge");
   if (!container) return;
 
-  const serverNames = Object.keys(serverStatus).filter(
-    (s) => serverStatus[s]?.online,
-  );
   const serversWrap = container.querySelector("#mcp-server-pills");
   if (!serversWrap) return;
 
-  serversWrap.innerHTML = `
-    <span class="mcp-pill" data-srv="all" style="background:var(--ds-bg-hover);color:var(--ds-accent);border:1px solid var(--ds-border);padding:4px 10px;border-radius:12px;cursor:pointer;font-weight:bold;display:inline-flex;align-items:center;gap:4px;">
-      <span class="ds-ic" data-ic="sparkles"></span> @all (${activeTools.length})
-    </span>
-    ${serverNames
-      .map((name) => {
-        const s = serverStatus[name] || {};
-        return `<span class="mcp-pill" data-srv="${name}" style="background:var(--ds-bg-base);border:1px solid var(--ds-bg-hover);color:var(--ds-fg);padding:4px 10px;border-radius:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-weight:500;">
-        <span style="width:7px;height:7px;border-radius:50%;background:var(--ds-success);box-shadow:0 0 5px var(--ds-success);"></span>
-        <b>@${name}</b> <span style="color:var(--ds-fg-muted);font-size:10px;">(${s.count || 0})</span>
-      </span>`;
-      })
-      .join("")}
-  `;
+  serversWrap.innerHTML = window.DSComponents.serverPills(
+    activeTools,
+    serverStatus,
+  );
 
-  serversWrap.querySelectorAll(".mcp-pill").forEach((btn) => {
+  serversWrap.querySelectorAll(".ds-pill").forEach((btn) => {
     btn.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -502,12 +489,8 @@ function updateTaskBadge() {
   if (!taskIndicator) return;
 
   if (runningTaskCount > 0) {
-    taskIndicator.style.display = "inline-flex";
-    taskIndicator.innerHTML = `
-      <span style="width:7px;height:7px;border-radius:50%;background:var(--ds-accent);box-shadow:0 0 6px var(--ds-accent);animation:mcp-pulse 1s infinite alternate;"></span>
-      <span>Running task (${runningTaskCount})...</span>
-      <button id="mcp-kill-all-btn" style="background:var(--ds-danger);color:var(--ds-bg-inset);border:none;border-radius:8px;padding:2px 8px;font-size:10px;font-weight:bold;cursor:pointer;margin-left:4px;"><span class="ds-ic" data-ic="close"></span> Kill</button>
-    `;
+    taskIndicator.classList.add("is-on");
+    taskIndicator.innerHTML = window.DSComponents.taskChip(runningTaskCount);
     const btn = taskIndicator.querySelector("#mcp-kill-all-btn");
     if (btn) {
       btn.onclick = (e) => {
@@ -517,7 +500,7 @@ function updateTaskBadge() {
       };
     }
   } else {
-    taskIndicator.style.display = "none";
+    taskIndicator.classList.remove("is-on");
   }
 }
 
@@ -538,68 +521,16 @@ function injectChatBadge() {
   if (!wrap) {
     wrap = document.createElement("div");
     wrap.id = "deepseek-mcp-badge";
-    wrap.style.cssText = `
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-      font-size: 11px;
-      font-family: system-ui, sans-serif;
-      color: var(--ds-fg-muted);
-      margin-bottom: 8px;
-      user-select: none;
-      width: 100%;
-      max-width: 800px;
-      margin-left: auto;
-      margin-right: auto;
-    `;
+    wrap.className = "ds-badge-bar";
+    wrap.innerHTML = window.DSComponents.badgeBar({ autoApprove });
 
-    const pillsWrap = document.createElement("div");
-    pillsWrap.id = "mcp-server-pills";
-    pillsWrap.style.cssText =
-      "display:flex;flex-wrap:wrap;gap:6px;align-items:center;";
-
-    const taskIndicator = document.createElement("div");
-    taskIndicator.id = "mcp-task-indicator";
-    taskIndicator.style.cssText = `
-      display: none;
-      align-items: center;
-      gap: 6px;
-      background: var(--ds-bg-elev);
-      border: 1px solid var(--ds-accent);
-      color: var(--ds-accent);
-      padding: 3px 9px;
-      border-radius: 12px;
-      font-weight: 600;
-      font-size: 11px;
-    `;
-
-    const autoToggle = document.createElement("label");
-    autoToggle.style.cssText = `
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      cursor: pointer;
-      color: var(--ds-accent);
-      font-size: 11px;
-      background: var(--ds-bg-inset);
-      border: 1px solid var(--ds-bg-hover);
-      padding: 4px 10px;
-      border-radius: 12px;
-      margin-left: auto;
-    `;
-    autoToggle.innerHTML = `
-      <input type="checkbox" id="mcp-auto-approve" ${autoApprove ? "checked" : ""} style="cursor:pointer;" />
-      <span><span class="ds-ic" data-ic="zap"></span> Auto-run</span>
-    `;
-    autoToggle.querySelector("input").onchange = (e) => {
-      autoApprove = e.target.checked;
-      localStorage.setItem("deepseek_mcp_auto_approve", autoApprove);
-    };
-
-    wrap.appendChild(pillsWrap);
-    wrap.appendChild(taskIndicator);
-    wrap.appendChild(autoToggle);
+    const autoInput = wrap.querySelector("#mcp-auto-approve");
+    if (autoInput) {
+      autoInput.onchange = (e) => {
+        autoApprove = e.target.checked;
+        localStorage.setItem("deepseek_mcp_auto_approve", autoApprove);
+      };
+    }
 
     targetParent.parentElement.insertBefore(wrap, targetParent);
   }
@@ -629,12 +560,9 @@ async function executeTool(payload, cardStatusEl, callKey, targetEl) {
   payload.callId = callId;
 
   if (cardStatusEl) {
-    cardStatusEl.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
-        <div style="color:var(--ds-accent);font-weight:bold;padding:4px;"><span class="ds-ic" data-ic="clock"></span> Running <code>${payload.name}</code>...</div>
-        <button class="mcp-card-kill-btn" style="background:var(--ds-danger);color:var(--ds-bg-inset);border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:bold;cursor:pointer;"><span class="ds-ic" data-ic="close"></span> Kill Task</button>
-      </div>
-    `;
+    cardStatusEl.innerHTML = window.DSComponents.status.runningWithKill(
+      payload.name,
+    );
     const killBtn = cardStatusEl.querySelector(".mcp-card-kill-btn");
     if (killBtn) {
       killBtn.onclick = (e) => {
@@ -675,7 +603,7 @@ async function executeTool(payload, cardStatusEl, callKey, targetEl) {
 
     const out = JSON.stringify(data.content || data, null, 2).slice(0, 10000);
     if (cardStatusEl) {
-      cardStatusEl.innerHTML = `<div style="color:var(--ds-success);font-weight:bold;padding:4px;"><span class="ds-ic" data-ic="check"></span> Done: <code>${payload.name}</code></div>`;
+      cardStatusEl.innerHTML = window.DSComponents.status.done(payload.name);
     }
 
     const template =
@@ -687,7 +615,7 @@ async function executeTool(payload, cardStatusEl, callKey, targetEl) {
     await sendText(message);
   } catch (err) {
     if (cardStatusEl) {
-      cardStatusEl.innerHTML = `<div style="color:var(--ds-danger);font-weight:bold;padding:4px;"><span class="ds-ic" data-ic="alert"></span> Error: ${err.message}</div>`;
+      cardStatusEl.innerHTML = window.DSComponents.status.error(err.message);
     }
     await sendText(`Execution notice on ${payload.name}: ${err.message}`);
   } finally {
@@ -710,33 +638,17 @@ function renderPermissionCard(
 
   const isSafe = window.DSTools.SAFE_TOOLS.has(payload.name);
   const card = document.createElement("div");
-  card.className = "deepseek-mcp-action-card";
-  card.style.cssText = `
-    margin: 12px 0 16px 0 !important;
-    background: var(--ds-bg-elev) !important;
-    border: 2px solid ${isSafe ? "var(--ds-accent)" : "var(--ds-danger)"} !important;
-    border-radius: 10px !important;
-    padding: 14px !important;
-    font-family: system-ui, -apple-system, sans-serif !important;
-    font-size: 13px !important;
-    color: var(--ds-fg) !important;
-    box-shadow: 0 4px 18px var(--ds-shadow-md) !important;
-    display: block !important;
-    position: relative !important;
-  `;
+  card.className =
+    "deepseek-mcp-action-card ds-card" +
+    (isSafe ? "" : " is-danger") +
+    (isAlreadyExecuted ? " is-historical" : "");
+  card.innerHTML = window.DSComponents.permissionCard({
+    payload,
+    isSafe,
+    isHistorical: isAlreadyExecuted,
+  });
 
   if (isAlreadyExecuted) {
-    card.innerHTML = `
-      <div style="font-weight:bold;color:var(--ds-fg-muted);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span><span class="ds-ic" data-ic="check"></span> Completed Historical Call:</span>
-          <code style="background:var(--ds-bg-inset);padding:3px 8px;border-radius:4px;color:var(--ds-success);font-size:12px;">${payload.name}</code>
-        </div>
-        <button class="view-raw-btn" style="background:var(--ds-bg-hover);color:var(--ds-fg-muted);border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">Toggle JSON</button>
-      </div>
-      <div style="font-size:11px;color:var(--ds-fg-muted);">Arguments:</div>
-      <pre style="background:var(--ds-bg-inset);color:var(--ds-fg-muted);padding:6px;border-radius:4px;font-size:11px;overflow:auto;max-height:80px;">${JSON.stringify(payload.arguments || {}, null, 2)}</pre>
-    `;
     const btn = card.querySelector(".view-raw-btn");
     if (btn && targetEl) {
       btn.onclick = () => {
@@ -747,22 +659,6 @@ function renderPermissionCard(
     targetEl.insertAdjacentElement("afterend", card);
     return;
   }
-
-  card.innerHTML = `
-    <div style="font-weight:bold;color:${isSafe ? "var(--ds-accent)" : "var(--ds-danger)"};margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:15px;"><span class="ds-ic" data-ic=${isSafe ? "search" : "zap"}></span> ${isSafe ? "MCP Read / Safe" : "MCP Action / Bash"}</span>
-        <code style="background:var(--ds-bg-inset);padding:3px 8px;border-radius:4px;color:var(--ds-success);font-size:12px;">${payload.name}</code>
-      </div>
-      <button class="view-raw-btn" style="background:var(--ds-bg-hover);color:var(--ds-fg-muted);border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">Toggle JSON</button>
-    </div>
-    <div style="font-size:11px;color:var(--ds-fg-muted);margin-bottom:4px;">Arguments:</div>
-    <textarea class="ed" style="width:100%;box-sizing:border-box;height:75px;background:var(--ds-bg-inset);color:var(--ds-success);border:1px solid var(--ds-border);border-radius:6px;padding:8px;font-family:monospace;font-size:12px;margin-bottom:10px;">${JSON.stringify(payload.arguments || {}, null, 2)}</textarea>
-    <div class="card-controls" style="display:flex;gap:10px;">
-      <button class="ok" style="background:var(--ds-success);color:var(--ds-bg-inset);border:none;padding:8px 18px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;"><span class="ds-ic" data-ic="check"></span> Run Now</button>
-      <button class="no" style="background:var(--ds-danger);color:var(--ds-bg-inset);border:none;padding:8px 18px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;"><span class="ds-ic" data-ic="close"></span> Reject</button>
-    </div>
-  `;
 
   const btn = card.querySelector(".view-raw-btn");
   if (btn && targetEl) {
@@ -786,12 +682,12 @@ function renderPermissionCard(
   card.querySelector(".no").onclick = () => {
     targetEl.setAttribute("data-mcp-executed", "true");
     executedCalls.add(callKey);
-    controls.innerHTML = `<div style="color:var(--ds-fg-muted);font-style:italic;padding:4px;"><span class="ds-ic" data-ic="close"></span> Rejected: ${payload.name}</div>`;
+    controls.innerHTML = window.DSComponents.status.rejected(payload.name);
     sendText(`I skipped "${payload.name}". Please continue.`);
   };
 
   if (autoApprove) {
-    controls.innerHTML = `<div style="color:var(--ds-success);font-size:12px;"><span class="ds-ic" data-ic="zap"></span> Auto-executing <code>${payload.name}</code>...</div>`;
+    controls.innerHTML = window.DSComponents.status.autoRunning(payload.name);
     setTimeout(() => {
       executeTool(payload, controls, callKey, targetEl);
     }, 400);
@@ -810,31 +706,18 @@ function renderGrillQuestionCard(
   }
 
   const card = document.createElement("div");
-  card.className = "deepseek-mcp-action-card deepseek-grill-card";
-  card.style.cssText = `
-    margin: 14px 0 18px 0 !important;
-    background: linear-gradient(145deg, var(--ds-bg-base), var(--ds-bg-elev)) !important;
-    border: 2px solid var(--ds-warn) !important;
-    border-radius: 12px !important;
-    padding: 16px !important;
-    font-family: system-ui, -apple-system, sans-serif !important;
-    font-size: 13px !important;
-    color: var(--ds-fg) !important;
-    box-shadow: 0 6px 20px var(--ds-shadow-lg) !important;
-    display: block !important;
-    position: relative !important;
-  `;
+  card.className = "deepseek-mcp-action-card deepseek-grill-card ds-card ds-grill";
 
   const qList = grillData.is_multi_question ? grillData.questions : [grillData];
 
   if (isHistorical) {
     card.innerHTML = `
-      <div style="font-weight:bold;color:var(--ds-fg-muted);display:flex;align-items:center;justify-content:space-between;">
-        <div style="display:flex;align-items:center;gap:8px;">
+      <div class="ds-grill-hist">
+        <div class="ds-title">
           <span><span class="ds-ic" data-ic="flame"></span> Answered Grill-Me Decision</span>
-          <span style="color:var(--ds-warn);font-size:12px;">(${qList.length} question${qList.length > 1 ? "s" : ""})</span>
+          <span class="ds-grill-count">(${qList.length} question${qList.length > 1 ? "s" : ""})</span>
         </div>
-        <button class="view-raw-btn" style="background:var(--ds-bg-hover);color:var(--ds-fg-muted);border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">Toggle JSON</button>
+        <button class="ds-btn ds-btn-raw view-raw-btn" type="button">Toggle JSON</button>
       </div>
     `;
     const btn = card.querySelector(".view-raw-btn");
@@ -858,11 +741,11 @@ function renderGrillQuestionCard(
           const label = opt.label || opt.text || "";
           const details = opt.details || "";
           return `
-            <label class="grill-opt-card" data-q-idx="${qIdx}" data-opt-id="${optId}" style="background:var(--ds-bg-inset);border:1px solid var(--ds-border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all 0.15s ease;display:flex;align-items:flex-start;gap:10px;">
-              <input type="${isMultiSelect ? "checkbox" : "radio"}" name="grill_q_${qIdx}" value="${optId}" style="margin-top:3px;cursor:pointer;accent-color:var(--ds-warn);" />
-              <div style="flex:1;display:flex;flex-direction:column;gap:3px;">
-                <b style="color:var(--ds-warn);font-size:13px;">[${optId}] ${label}</b>
-                ${details ? `<span style="color:var(--ds-fg-muted);font-size:11px;line-height:1.35;">${details}</span>` : ""}
+            <label class="ds-grill-opt grill-opt-card" data-q-idx="${qIdx}" data-opt-id="${optId}">
+              <input type="${isMultiSelect ? "checkbox" : "radio"}" name="grill_q_${qIdx}" value="${optId}" />
+              <div class="ds-grill-opt-body">
+                <b class="ds-grill-opt-label">[${optId}] ${label}</b>
+                ${details ? `<span class="ds-grill-opt-desc">${details}</span>` : ""}
               </div>
             </label>
           `;
@@ -870,12 +753,12 @@ function renderGrillQuestionCard(
         .join("");
 
       return `
-        <div class="grill-single-q-block" data-q-idx="${qIdx}" style="margin-bottom:14px;border-bottom:${qIdx < qList.length - 1 ? "1px solid var(--ds-bg-hover)" : "none"};padding-bottom:${qIdx < qList.length - 1 ? "12px" : "0"};">
-          <div style="font-size:14px;font-weight:600;color:var(--ds-fg);margin-bottom:10px;line-height:1.4;">
+        <div class="ds-grill-q grill-single-q-block" data-q-idx="${qIdx}">
+          <div class="ds-grill-q-title">
             ${qList.length > 1 ? `<b>#${qIdx + 1}:</b> ` : ""}${q.question}
-            ${isMultiSelect ? '<span style="color:var(--ds-accent);font-size:11px;font-weight:normal;margin-left:6px;">(Select multiple that apply)</span>' : ""}
+            ${isMultiSelect ? '<span class="ds-grill-multi">(Select multiple that apply)</span>' : ""}
           </div>
-          <div class="grill-options-grid" style="display:flex;flex-direction:column;gap:8px;">
+          <div class="ds-grill-options grill-options-grid">
             ${optionsHtml}
           </div>
         </div>
@@ -884,24 +767,22 @@ function renderGrillQuestionCard(
     .join("");
 
   card.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;border-bottom:1px solid var(--ds-bg-hover);padding-bottom:8px;">
-      <div style="font-weight:bold;color:var(--ds-warn);font-size:14px;display:flex;align-items:center;gap:6px;">
+    <div class="ds-grill-head">
+      <div class="ds-grill-title">
         <span><span class="ds-ic" data-ic="flame"></span> Architecture Decision Point</span>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <span style="background:var(--ds-warn);color:var(--ds-bg-inset);padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">Interactive Interview</span>
-        <button class="toggle-raw-json-btn" style="background:var(--ds-bg-hover);color:var(--ds-fg-muted);border:none;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;">JSON</button>
+      <div class="ds-title">
+        <span class="ds-grill-badge">Interactive Interview</span>
+        <button class="ds-btn ds-btn-raw toggle-raw-json-btn" type="button">JSON</button>
       </div>
     </div>
     <div class="grill-questions-container">
       ${questionsHtml}
     </div>
-    <div class="grill-custom-wrap" style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--ds-bg-hover);padding-top:10px;margin-top:10px;">
-      <div style="display:flex;gap:8px;align-items:center;">
-        <input type="text" class="grill-custom-input" placeholder="Add custom notes or alternative rationale (optional)..." style="flex:1;background:var(--ds-bg-inset);border:1px solid var(--ds-border);color:var(--ds-fg);padding:8px 12px;border-radius:6px;font-size:12px;outline:none;" />
-      </div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;">
-        <button class="grill-submit-btn" style="background:var(--ds-warn);color:var(--ds-bg-inset);border:none;padding:8px 20px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+    <div class="ds-grill-custom grill-custom-wrap">
+      <input type="text" class="ds-grill-custom-input grill-custom-input" placeholder="Add custom notes or alternative rationale (optional)..." />
+      <div class="ds-grill-submit-row">
+        <button class="ds-grill-submit grill-submit-btn" type="button">
           <span>Submit Decision <span class="ds-ic" data-ic="arrowRight"></span></span>
         </button>
       </div>
@@ -919,30 +800,18 @@ function renderGrillQuestionCard(
     };
   }
 
-  // Hover highlighting
+  // Selection state via .is-selected class (styling lives in theme.css)
   card.querySelectorAll(".grill-opt-card").forEach((optEl) => {
-    optEl.onmouseenter = () => {
-      optEl.style.borderColor = "var(--ds-warn)";
-    };
-    optEl.onmouseleave = () => {
-      const radio = optEl.querySelector("input");
-      if (!radio.checked) optEl.style.borderColor = "var(--ds-border)";
-    };
     optEl.onclick = () => {
       const input = optEl.querySelector("input");
       if (input.type === "radio") {
         const qIdx = optEl.getAttribute("data-q-idx");
         card
           .querySelectorAll(`.grill-opt-card[data-q-idx="${qIdx}"]`)
-          .forEach((sibling) => {
-            sibling.style.borderColor = "var(--ds-border)";
-            sibling.style.background = "var(--ds-bg-inset)";
-          });
-        optEl.style.borderColor = "var(--ds-warn)";
-        optEl.style.background = "var(--ds-bg-elev)";
+          .forEach((sibling) => sibling.classList.remove("is-selected"));
+        optEl.classList.add("is-selected");
       } else {
-        optEl.style.borderColor = input.checked ? "var(--ds-warn)" : "var(--ds-border)";
-        optEl.style.background = input.checked ? "var(--ds-bg-elev)" : "var(--ds-bg-inset)";
+        optEl.classList.toggle("is-selected", input.checked);
       }
     };
   });
@@ -999,7 +868,7 @@ function renderGrillQuestionCard(
     const fullAnswer = `My Architecture Decision:\n${answers.join("\n\n")}\n\nWhat is the next step or question?`;
 
     card.innerHTML = `
-      <div style="color:var(--ds-success);font-weight:bold;padding:6px;display:flex;align-items:center;gap:6px;">
+      <div class="ds-grill-answered">
         <span><span class="ds-ic" data-ic="check"></span> Architecture Decision Submitted!</span>
       </div>
     `;
