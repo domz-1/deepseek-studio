@@ -50,6 +50,9 @@
         <select class="ds-project-select" id="mcp-project-select" title="Active Project for @ mentions and MCP tools">
           <option value="">📁 Select Project...</option>
         </select>
+        <button class="ds-project-btn" id="mcp-add-project-btn" type="button" title="Add custom project path">
+          ${ic("plus")} Add
+        </button>
         <label class="ds-auto">
           <input type="checkbox" id="mcp-auto-approve" ${autoApprove ? "checked" : ""} />
           <span>${ic("zap")} Auto-run</span>

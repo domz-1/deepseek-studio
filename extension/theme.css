@@ -119,8 +119,8 @@
 .ds-ic[data-ic="bulb"] {
   --ds-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18h6M10 21h4M12 3a6 6 0 0 0-3 11v2h6v-2a6 6 0 0 0-3-11z'/%3E%3C/svg%3E");
 }
-.ds-ic[data-ic="server"] {
-  --ds-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6h16v5H4zM4 13h16v5H4zM7 8.5h.01M7 15.5h.01'/%3E%3C/svg%3E");
+.ds-ic[data-ic="plus"] {
+  --ds-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
 }
 
 /* ---- Badge bar ---- */
@@ -229,7 +229,7 @@
   font-family: var(--ds-font);
   cursor: pointer;
   outline: none;
-  max-width: 190px;
+  max-width: 170px;
 }
 .ds-project-select:hover,
 .ds-project-select:focus {
@@ -238,6 +238,25 @@
 .ds-project-select option {
   background: var(--ds-bg-elev);
   color: var(--ds-fg);
+}
+.ds-project-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--ds-bg-inset);
+  color: var(--ds-accent);
+  border: 1px solid var(--ds-bg-hover);
+  padding: 4px 8px;
+  border-radius: var(--ds-radius-pill);
+  font-size: 11px;
+  font-family: var(--ds-font);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.ds-project-btn:hover {
+  border-color: var(--ds-accent);
+  background: var(--ds-bg-hover);
 }
 .ds-auto {
   display: inline-flex;

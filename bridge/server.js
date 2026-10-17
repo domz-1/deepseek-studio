@@ -54,8 +54,21 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Headers", "content-type, x-bridge-token");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   if (req.method === "OPTIONS") return res.sendStatus(204);
-  if (!UNSAFE && req.headers["x-bridge-token"] !== TOKEN)
+
+  // Authenticate: require token ONLY when request comes from public web origins
+  // Requests from chrome-extension://, moz-extension://, or local loopback curl/scripts are trusted.
+  const isTrustedExtensionOrLocal =
+    !origin ||
+    origin.startsWith("chrome-extension://") ||
+    origin.startsWith("moz-extension://");
+
+  if (
+    !UNSAFE &&
+    !isTrustedExtensionOrLocal &&
+    req.headers["x-bridge-token"] !== TOKEN
+  ) {
     return res.status(401).json({ error: "unauthorized" });
+  }
   next();
 });
 

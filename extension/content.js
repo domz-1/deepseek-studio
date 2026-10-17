@@ -100,6 +100,7 @@ refreshSkills();
 
 // Eagerly fetch active MCP tools on script boot so badges display tools immediately!
 fetchActiveTools().then(() => {
+  injectChatBadge();
   updateServerBadges();
 });
 
@@ -529,6 +530,46 @@ function updateTaskBadge() {
   }
 }
 
+function populateProjectsDropdown(force = false) {
+  const projSelect = document.getElementById("mcp-project-select");
+  if (!projSelect) return;
+  if (!force && projSelect.options.length > 1) return;
+
+  let customs = [];
+  try {
+    customs = JSON.parse(
+      localStorage.getItem("deepseek_mcp_custom_projects") || "[]",
+    );
+  } catch (_) {}
+
+  chrome.runtime.sendMessage({ type: "GET_PROJECTS" }, (res) => {
+    let list = [];
+    if (res?.ok && Array.isArray(res.data?.projects)) {
+      list = res.data.projects;
+      projectList = list;
+    }
+    // Merge custom added projects
+    const all = [...customs, ...list];
+    const seen = new Set();
+    const unique = [];
+    for (const item of all) {
+      if (!seen.has(item.path)) {
+        seen.add(item.path);
+        unique.push(item);
+      }
+    }
+
+    if (unique.length > 0) {
+      projSelect.innerHTML = unique
+        .map(
+          (p) =>
+            `<option value="${p.path}" ${p.path === selectedProject ? "selected" : ""}>📁 ${p.name}</option>`,
+        )
+        .join("");
+    }
+  });
+}
+
 function injectChatBadge() {
   const input = getChatInput();
   if (!input) return;
@@ -565,24 +606,42 @@ function injectChatBadge() {
       };
     }
 
+    const addBtn = wrap.querySelector("#mcp-add-project-btn");
+    if (addBtn) {
+      addBtn.onclick = () => {
+        const customPath = prompt(
+          "Enter local project directory absolute path (e.g. /home/adham/my-project):",
+        );
+        if (customPath && customPath.trim()) {
+          const cleanPath = customPath.trim();
+          const name = cleanPath.split("/").filter(Boolean).pop() || cleanPath;
+          let customs = [];
+          try {
+            customs = JSON.parse(
+              localStorage.getItem("deepseek_mcp_custom_projects") || "[]",
+            );
+          } catch (_) {}
+          if (!customs.find((c) => c.path === cleanPath)) {
+            customs.unshift({ name: `⭐ ${name}`, path: cleanPath });
+            localStorage.setItem(
+              "deepseek_mcp_custom_projects",
+              JSON.stringify(customs),
+            );
+          }
+          selectedProject = cleanPath;
+          localStorage.setItem(
+            "deepseek_mcp_selected_project",
+            selectedProject,
+          );
+          populateProjectsDropdown(true);
+        }
+      };
+    }
+
     targetParent.parentElement.insertBefore(wrap, targetParent);
   }
 
-  // Populate projects dropdown if needed
-  const projSelect = document.getElementById("mcp-project-select");
-  if (projSelect && projSelect.options.length <= 1) {
-    chrome.runtime.sendMessage({ type: "GET_PROJECTS" }, (res) => {
-      if (res?.ok && Array.isArray(res.data?.projects)) {
-        projectList = res.data.projects;
-        projSelect.innerHTML = projectList
-          .map(
-            (p) =>
-              `<option value="${p.path}" ${p.path === selectedProject ? "selected" : ""}>📁 ${p.name}</option>`,
-          )
-          .join("");
-      }
-    });
-  }
+  populateProjectsDropdown();
 
   updateServerBadges();
   updateTaskBadge();
