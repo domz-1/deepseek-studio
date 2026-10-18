@@ -37,10 +37,11 @@ Or single tool:
 { "name": "tool_name", "arguments": { ... } }
 \`\`\`
 3. STRICT ARGUMENTS INTEGRITY: NEVER output empty arguments \`{}\` or incomplete payloads! When executing commands, ALWAYS provide the exact \`"command"\` argument (e.g. \`{"command": "cd ... && ..."}\`). When writing files, ALWAYS supply \`"path"\` and \`"content"\`.
-4. SMART SCOPE: Keep changes clean and focused on the required modules without unnecessary file bloat. Clean up any temporary files or test scratch files before finishing.
-5. VERIFICATION ON COMPLETION: When your implementation or refactoring is complete, ALWAYS run the project build and lint commands (\`bun run build\` / \`bun run lint\` or Flutter/PHP equivalents) to verify zero errors before reporting task done!
-6. NEVER ask questions until you have thoroughly inspected the codebase using filesystem tools first.
-7. Always respond in English or Arabic only. Never use Chinese.
+4. NO FAKE/MOCK TAGS: NEVER simulate or write fake tags like \`<system_warning>\` or fake tool results yourself. Always let the extension execute real tools and supply the real outputs.
+5. SMART SCOPE: Keep changes clean and focused on the required modules without unnecessary file bloat. Clean up any temporary files or test scratch files before finishing.
+6. VERIFICATION ON COMPLETION: When your implementation or refactoring is complete, ALWAYS run the project build and lint commands (\`bun run build\` / \`bun run lint\` or Flutter/PHP equivalents) to verify zero errors before reporting task done!
+7. NEVER ask questions until you have thoroughly inspected the codebase using filesystem tools first.
+8. Always respond in English or Arabic only. Never use Chinese.
 `,
     (list, projectPath) => `Workstation MCP tools active:
 ${list}
@@ -92,7 +93,28 @@ Guidelines:
     if (!text) return [];
     const calls = [];
 
-    // 1. Try parsing JSON array: [ { "name": "...", "arguments": { ... } }, ... ]
+    // 1. Try finding all JSON blocks (both arrays and objects):
+    const jsonBlockRegex = /```(?:json)?\s*([\s\S]*?)```/gi;
+    let blockMatch;
+    while ((blockMatch = jsonBlockRegex.exec(text)) !== null) {
+      const code = blockMatch[1].trim();
+      if (!code) continue;
+      try {
+        const parsed = JSON.parse(code);
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            if (item && item.name && typeof item.name === "string") {
+              calls.push({ name: item.name, arguments: item.arguments || {} });
+            }
+          }
+        } else if (parsed && parsed.name && typeof parsed.name === "string") {
+          calls.push({ name: parsed.name, arguments: parsed.arguments || {} });
+        }
+      } catch (_) {}
+    }
+    if (calls.length) return calls;
+
+    // 1b. Fallback: Try parsing raw JSON array in text
     const arrStart = text.indexOf("[");
     const arrEnd = text.lastIndexOf("]");
     if (arrStart !== -1 && arrEnd !== -1 && arrEnd > arrStart) {

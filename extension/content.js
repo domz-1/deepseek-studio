@@ -1734,6 +1734,7 @@ function checkInactivityAndResend() {
     lastText.includes("Execution notice") ||
     lastText.includes("Execution failed") ||
     lastText.includes("Check network and retry") ||
+    lastText.includes("system_warning") ||
     (lastSentMessage &&
       (lastSentMessage.includes("```json") ||
         lastSentMessage.includes("Output of [") ||
