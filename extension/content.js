@@ -936,11 +936,23 @@ function renderQueueList(container) {
   queuedMessages.forEach((msg, idx) => {
     const item = document.createElement("div");
     item.className = "ds-queue-item";
+    item.title = "Click to send now, or wait for auto-send on completion";
     item.innerHTML = `
       <span class="ds-queue-item-idx">${idx + 1}</span>
       <span class="ds-queue-item-text" title="${msg.replace(/"/g, "&quot;")}">${msg}</span>
       <span class="ds-queue-item-del" title="Remove"><span class="ds-ic" data-ic="close"></span></span>
     `;
+
+    // Clicking the item text sends it immediately!
+    item.querySelector(".ds-queue-item-text").onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      queuedMessages.splice(idx, 1);
+      saveQueuedMessages();
+      renderQueueList(container);
+      sendText(msg, true);
+    };
+
     item.querySelector(".ds-queue-item-del").onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -994,7 +1006,6 @@ function injectMessageQueueBar(targetParent) {
       }
 
       if (!val) {
-        // If neither had text, focus the queue input so user can type immediately
         input.focus();
         return;
       }
@@ -1049,28 +1060,21 @@ async function checkAndProcessQueue() {
   );
   if (pendingGrill && !pendingGrill.querySelector(".ds-grill-answered")) return;
 
-  // 5. Check if chat contains unfinished tool calls or error retries
-  const chatBlocks = Array.from(
-    document.querySelectorAll(
-      "div.ds-markdown, div.md-code-block, pre, div[class*='message']",
-    ),
-  );
-  const lastBlock = chatBlocks.length
-    ? chatBlocks[chatBlocks.length - 1]
-    : null;
-  const lastText = lastBlock ? lastBlock.textContent || "" : "";
-
-  // If the last block is waiting for tool execution, wait
-  if (
-    lastText.includes("```json") &&
-    (lastText.includes('"name"') || lastText.includes('"command"')) &&
-    !lastBlock.hasAttribute("data-mcp-executed")
-  ) {
-    return;
+  // 5. Check if the send button is ready to click (up arrow icon visible and not disabled)
+  const sendBtn = getSendButton();
+  if (sendBtn) {
+    const disabledAttr = sendBtn.getAttribute("disabled");
+    const ariaDisabled = sendBtn.getAttribute("aria-disabled");
+    const isBtnDisabled =
+      disabledAttr !== null ||
+      ariaDisabled === "true" ||
+      sendBtn.classList.contains("disabled") ||
+      sendBtn.classList.contains("ds-button--disabled");
+    if (isBtnDisabled) return;
   }
 
-  // Double check stability: ensure at least 2.5 seconds have passed since last activity
-  if (Date.now() - lastActivityTime < 2500) return;
+  // Double check stability: ensure at least 1.5 seconds have passed since last activity
+  if (Date.now() - lastActivityTime < 1500) return;
 
   // All tasks, sub-commands, and generation are totally done!
   isDispatchingQueue = true;
