@@ -479,7 +479,29 @@ function attachInputMentionInterceptor() {
             .replace(new RegExp(activeMention, "gi"), "")
             .trim();
           const combined = `${window.DSTools.buildSysPrompt(selectedTools, selectedProject)}\n${userText}`;
+
+          if (isDeepSeekGenerating() || runningTaskCount > 0) {
+            queuedMessages.push(combined);
+            saveQueuedMessages();
+            setInputValue(input, "");
+            const qWrap = document.getElementById("deepseek-mcp-queue-bar");
+            if (qWrap) renderQueueList(qWrap);
+            return;
+          }
+
           sendText(combined, true);
+          return;
+        }
+
+        // Case 3: Regular text without mentions/skills. If tasks or streaming are busy, auto-enqueue it!
+        if (isDeepSeekGenerating() || runningTaskCount > 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          queuedMessages.push(rawVal);
+          saveQueuedMessages();
+          setInputValue(input, "");
+          const qWrap = document.getElementById("deepseek-mcp-queue-bar");
+          if (qWrap) renderQueueList(qWrap);
         }
       }
     },
@@ -962,15 +984,33 @@ function injectMessageQueueBar(targetParent) {
     const addBtn = qWrap.querySelector(".ds-queue-btn");
 
     const enqueue = () => {
-      const val = input.value.trim();
-      if (!val) return;
+      let val = input.value.trim();
+      const chatInput = getChatInput();
+
+      // If user typed in the main chat textarea, take that!
+      if (!val && chatInput && chatInput.value.trim()) {
+        val = chatInput.value.trim();
+        setInputValue(chatInput, "");
+      }
+
+      if (!val) {
+        // If neither had text, focus the queue input so user can type immediately
+        input.focus();
+        return;
+      }
+
       queuedMessages.push(val);
       saveQueuedMessages();
       input.value = "";
       renderQueueList(qWrap);
     };
 
-    addBtn.onclick = enqueue;
+    addBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      enqueue();
+    };
+
     input.onkeydown = (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
