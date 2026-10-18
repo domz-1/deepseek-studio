@@ -32,39 +32,51 @@ When you type a message with an `@mention`, the extension prepends a system prom
 
 ## ✨ Features
 
-- 🔌 **Any MCP server** — filesystem, bash/shell, memory, context7 and anything else that speaks MCP over stdio.
+- 🔌 **Any MCP server** — filesystem, bash/shell, memory, context7, PostgreSQL/Neon, and anything else speaking MCP over stdio.
+- 🚀 **Parallel Tool Calling** — executes multiple MCP calls concurrently with `Promise.all` for lightning-fast batch processing.
 - 🏷️ **`@mention` routing** — type `@filesystem`, `@bash`, or `@` for all tools; a live autocomplete dropdown appears.
-- 🟢 **Live server pills** — a floating banner above the chat box shows each server's online status and tool count.
+- 🟢 **Live server pills & Watchdog** — floating server pills with health indicators + an automated recovery watchdog that catches timeouts and auto-clicks retry/continue.
+- 🎯 **Interactive Decision Cards** — renders single & multi-choice option cards directly in chat for architectural reviews (e.g., `/grill-me`).
 - 🔒 **Permission cards** — dangerous tools (write / execute) require a click; read-only tools are marked safe.
 - ⚡ **Auto-run** — toggle one switch to skip the approval card for trusted sessions.
-- ⚡ **Slash skills** — type `/review`, `/explain`, `/tests`, `/commit` … to run reusable prompt bundles; add your own in the popup.
+- ⚡ **Trending Slash Skills** — type `/grill-me`, `/delegate`, `/audit-structure`, `/perf-opt`, `/security-scan` … to run reusable, high-impact prompt bundles.
 - 🧠 **Hot reload config** — edit `mcp-config.json` and the bridge re-syncs instantly.
 - 🖥️ **Cross-platform** — runs on Windows, macOS, and Linux.
 
 ---
 
-## ⚡ Skills (slash commands)
+## ⚡ Built-in Skills (slash commands)
 
 Skills are reusable prompt bundles triggered with a leading `/name`. Type `/` in the chat box to see an autocomplete list.
 
-| Skill           | What it does                               |
-| --------------- | ------------------------------------------ |
-| `/help`         | List every available skill                 |
-| `/explain`      | Explain code or a concept step by step     |
-| `/review`       | Senior code review (bugs, security, style) |
-| `/refactor`     | Refactor for readability & maintainability |
-| `/tests`        | Write unit tests                           |
-| `/debug`        | Find the root cause of a bug + fix         |
-| `/commit`       | Write a Conventional Commits message       |
-| `/summarize`    | Summarize into bullet points               |
-| `/translate-ar` | Translate to Arabic                        |
-| `/translate-en` | Translate to English                       |
+| Skill              | Description / Purpose                                                                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `/grill-me`        | **Architectural Interview** — Demanding Principal Engineer review with interactive selectable decision UI  |
+| `/delegate`        | **Multi-Agent Task Delegation** — Splits objectives into specialized personas & executes batch tool calls  |
+| `/audit-structure` | **Enterprise Architecture Audit** — Enforces numeric per-module enums, clean 3-tier layering, tests & i18n |
+| `/module-cover`    | **360° Module Completion** — Exhaustive audit across schemas, APIs, composables, UI states, and specs      |
+| `/perf-opt`        | **Performance Profiling** — Identifies O(n²) loops, N+1 queries, memory leaks, and bundle bottlenecks      |
+| `/security-scan`   | **AppSec & Vulnerability Audit** — Scans for OWASP Top 10, injection, IDOR, and token leaks                |
+| `/plan`            | **Implementation Plan** — Senior Tech Lead architectural plan before code generation                       |
+| `/build`           | **Autonomous Build Mode** — Direct file manipulation, execution, and verification                          |
+| `/review`          | Senior code review (bugs, security, style)                                                                 |
+| `/refactor`        | Refactor for readability & maintainability                                                                 |
+| `/tests`           | Write comprehensive unit tests                                                                             |
+| `/debug`           | Root-cause analysis + patch generation                                                                     |
+| `/commit`          | Conventional Commits message generator                                                                     |
+| `/explain`         | Step-by-step code or architectural explanation                                                             |
+| `/summarize`       | Summarize discussion or code into high-signal bullet points                                                |
+| `/translate-ar`    | Natural Arabic translation                                                                                 |
+| `/translate-en`    | Natural English translation                                                                                |
+| `/help`            | List every available skill & MCP guide                                                                     |
 
 **Usage:**
 
 ```
-/review <paste code here>
-@bash /explain what does this command do
+/grill-me State management architecture for Nuxt 3 and Flutter
+@all /delegate build a fullstack authentication module with JWT and tests
+/audit-structure modules/invoices
+@bash /perf-opt analyze slow database queries and API endpoints
 ```
 
 - A skill alone (e.g. `/help`) expands and sends immediately.

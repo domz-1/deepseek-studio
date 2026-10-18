@@ -250,6 +250,50 @@
         "Module, feature, or domain to cover completely:",
       builtin: true,
     },
+    {
+      id: "delegate",
+      name: "delegate",
+      description:
+        "Autonomous Multi-Agent Task Delegation: breaks complex objectives into subtasks, assigns specialized personas, and executes parallel tool batches.",
+      prompt:
+        "Act as an Autonomous Multi-Agent Coordinator and Orchestrator. Break down this objective into specialized concurrent subtasks and coordinate execution:\n\n" +
+        "ORCHESTRATION RULES:\n" +
+        "1. **Deconstruct Objective**: Break the user's objective into distinct, decoupled roles (e.g., Code Researcher, Backend Architect, Frontend Engineer, QA & Test Lead).\n" +
+        "2. **Parallel Tool Batching**: Where subtasks are independent, issue multiple tool calls concurrently in a single response to maximize throughput.\n" +
+        "3. **Synthesize & Verify**: Once subtasks complete, verify changes with build & lint commands (`@bash`), and deliver a unified status report with clear next steps.\n\n" +
+        "Objective to delegate:",
+      builtin: true,
+    },
+    {
+      id: "perf-opt",
+      name: "perf-opt",
+      description:
+        "Deep Performance Profiling & Optimization: detects runtime bottlenecks, N+1 queries, memory leaks, bundle sizes, and excessive re-renders.",
+      prompt:
+        "Act as a Principal Performance Engineer. Analyze the target codebase/module for critical performance bottlenecks and provide concrete optimizations:\n\n" +
+        "ANALYSIS CHECKLIST:\n" +
+        "1. **Runtime & Algorithmic Complexity**: Identify O(n^2) loops, unnecessary array allocations, and synchronous blocking operations.\n" +
+        "2. **Database & API Latency**: Pinpoint N+1 queries, missing composite indexes, unindexed foreign keys, and payload over-fetching.\n" +
+        "3. **Frontend & Mobile Rendering**: Flag excessive re-renders, unmemoized expensive computations, unoptimized images, and heavy bundle chunks.\n" +
+        "4. **Concrete Action Plan**: Provide direct code refactors (`[MODIFY]`) with before/after complexity benchmarks.\n\n" +
+        "Scope to optimize:",
+      builtin: true,
+    },
+    {
+      id: "security-scan",
+      name: "security-scan",
+      description:
+        "Automated Security & Vulnerability Audit: scans for OWASP Top 10, SQLi, XSS, SSRF, secret leaks, and unauthenticated endpoints.",
+      prompt:
+        "Act as a Principal Application Security Auditor (AppSec & DevSecOps). Conduct an exhaustive security audit across the codebase:\n\n" +
+        "SECURITY AUDIT DOMAINS:\n" +
+        "1. **Injection & Input Validation**: SQL injection, command injection, XSS vectors, path traversal, and missing schema validations (Zod/Joi).\n" +
+        "2. **Auth & Access Control**: Broken object-level authorization (BOLA/IDOR), missing role guards, CSRF/CORS misconfigurations, and token handling.\n" +
+        "3. **Secret & Sensitive Data Leaks**: Hardcoded API keys, JWT secrets, plaintext passwords, unmasked PII in logs or responses.\n" +
+        "4. **Remediation Code**: Provide immediate, drop-in secure patches for every identified vulnerability with severity rating (CRITICAL, HIGH, MEDIUM).\n\n" +
+        "Codebase or endpoints to audit:",
+      builtin: true,
+    },
   ];
 
   function slugify(s) {
@@ -389,6 +433,9 @@
     "translate-en": "globe",
     "audit-structure": "tool",
     "module-cover": "sparkles",
+    delegate: "rocket",
+    "perf-opt": "zap",
+    "security-scan": "alert",
   };
 
   // Legacy custom skills saved an emoji, not an icon name. Map the common
