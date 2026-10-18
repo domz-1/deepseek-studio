@@ -1166,6 +1166,17 @@
   transform: scale(0.97);
 }
 
+.ds-queue-btn-send {
+  background: var(--ds-blue-soft);
+  color: var(--ds-accent);
+  border: 1px solid var(--ds-accent);
+}
+
+.ds-queue-btn-send:hover {
+  background: var(--ds-accent);
+  color: #fff;
+}
+
 .ds-queue-list {
   display: flex;
   flex-wrap: wrap;

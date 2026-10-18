@@ -478,31 +478,13 @@ function attachInputMentionInterceptor() {
           const userText = rawVal
             .replace(new RegExp(activeMention, "gi"), "")
             .trim();
-          const combined = `${window.DSTools.buildSysPrompt(selectedTools, selectedProject)}\n${userText}`;
-
-          if (isDeepSeekGenerating() || runningTaskCount > 0) {
-            queuedMessages.push(combined);
-            saveQueuedMessages();
-            setInputValue(input, "");
-            const qWrap = document.getElementById("deepseek-mcp-queue-bar");
-            if (qWrap) renderQueueList(qWrap);
-            return;
-          }
-
           sendText(combined, true);
           return;
         }
 
-        // Case 3: Regular text without mentions/skills. If tasks or streaming are busy, auto-enqueue it!
-        if (isDeepSeekGenerating() || runningTaskCount > 0) {
-          e.preventDefault();
-          e.stopPropagation();
-          queuedMessages.push(rawVal);
-          saveQueuedMessages();
-          setInputValue(input, "");
-          const qWrap = document.getElementById("deepseek-mcp-queue-bar");
-          if (qWrap) renderQueueList(qWrap);
-        }
+        // Case 3: Regular text without mentions/skills.
+        // Send immediately to chat when Enter is pressed!
+        // (Queueing is exclusively handled when the user clicks + Queue)
       }
     },
     true,
@@ -984,7 +966,11 @@ function injectMessageQueueBar(targetParent) {
           <span>Queue Next</span>
         </span>
         <input type="text" class="ds-queue-input" placeholder="Queue a message to send after current task & all sub-commands finish..." spellcheck="false" />
-        <button type="button" class="ds-queue-btn">
+        <button type="button" class="ds-queue-btn ds-queue-btn-send" title="Send this message right now immediately">
+          <span class="ds-ic" data-ic="arrowRight"></span>
+          <span>Send Now</span>
+        </button>
+        <button type="button" class="ds-queue-btn" title="Queue to send when tasks finish">
           <span class="ds-ic" data-ic="plus"></span>
           <span>Queue</span>
         </button>
@@ -993,34 +979,56 @@ function injectMessageQueueBar(targetParent) {
     `;
 
     const input = qWrap.querySelector(".ds-queue-input");
-    const addBtn = qWrap.querySelector(".ds-queue-btn");
+    const sendNowBtn = qWrap.querySelector(".ds-queue-btn-send");
+    const addBtn = qWrap.querySelector(".ds-queue-btn:not(.ds-queue-btn-send)");
 
-    const enqueue = () => {
+    const getTargetText = () => {
       let val = input.value.trim();
       const chatInput = getChatInput();
-
-      // If user typed in the main chat textarea, take that!
       if (!val && chatInput && chatInput.value.trim()) {
         val = chatInput.value.trim();
         setInputValue(chatInput, "");
       }
+      return val;
+    };
 
+    const enqueue = () => {
+      const val = getTargetText();
       if (!val) {
         input.focus();
         return;
       }
-
       queuedMessages.push(val);
       saveQueuedMessages();
       input.value = "";
       renderQueueList(qWrap);
     };
 
-    addBtn.onclick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      enqueue();
+    const sendNow = () => {
+      const val = getTargetText();
+      if (!val) {
+        input.focus();
+        return;
+      }
+      input.value = "";
+      sendText(val, true);
     };
+
+    if (sendNowBtn) {
+      sendNowBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        sendNow();
+      };
+    }
+
+    if (addBtn) {
+      addBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        enqueue();
+      };
+    }
 
     input.onkeydown = (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
