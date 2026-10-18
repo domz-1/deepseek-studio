@@ -62,6 +62,11 @@ Skills are reusable prompt bundles triggered with a leading `/name`. Type `/` in
 | `/api-design`      | **RESTful & OpenAPI 3.1** — Generates complete OpenAPI specs, Zod schemas & TypeScript client SDKs         |
 | `/git-pr`          | **Release & PR Specialist** — Inspects git diffs, drafts release PR descriptions & conventional commits    |
 | `/accessibility`   | **WCAG 2.1 AA Audit** — Audits keyboard nav, focus traps, ARIA roles & color contrast ratios               |
+| `/retro-debug`     | **Production Post-Mortem** — Analyzes crash stacktraces, root cause, and regression tests                  |
+| `/cache-tune`      | **Caching Architecture** — Designs Redis TTL policies, stale-while-revalidate, and stampede prevention     |
+| `/seo-audit`       | **Technical SEO & Vitals** — Audits Core Web Vitals, SSR/SSG, JSON-LD schemas, and OpenGraph tags          |
+| `/i18n-sync`       | **Enterprise Localization** — Synchronizes AR/EN translation dictionaries and flags untranslated text      |
+| `/seed-gen`        | **Realistic Test Data** — Generates deterministic test fixtures, factories, and database seeders           |
 | `/plan`            | **Implementation Plan** — Senior Tech Lead architectural plan before code generation                       |
 | `/build`           | **Autonomous Build Mode** — Direct file manipulation, execution, and verification                          |
 | `/review`          | Senior code review (bugs, security, style)                                                                 |

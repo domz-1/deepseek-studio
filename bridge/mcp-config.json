@@ -51,6 +51,23 @@
       "command": "npx",
       "args": ["-y", "@upstash/context7-mcp"],
       "enabled": false
+    },
+    "figma": {
+      "command": "bunx",
+      "args": ["figma-mcp"],
+      "env": {
+        "FIGMA_ACCESS_TOKEN": "YOUR_FIGMA_ACCESS_TOKEN_HERE"
+      },
+      "enabled": false
+    },
+    "cloudflare": {
+      "command": "bunx",
+      "args": ["@cloudflare/mcp-server-cloudflare"],
+      "env": {
+        "CLOUDFLARE_API_TOKEN": "YOUR_CLOUDFLARE_API_TOKEN_HERE",
+        "CLOUDFLARE_ACCOUNT_ID": "YOUR_CLOUDFLARE_ACCOUNT_ID_HERE"
+      },
+      "enabled": false
     }
   }
 }

@@ -370,6 +370,81 @@
         "Component or page to audit for accessibility:",
       builtin: true,
     },
+    {
+      id: "retro-debug",
+      name: "retro-debug",
+      description:
+        "Production Incident Post-Mortem: analyzes crash stacktraces, identifies root cause, creates regression tests, and drafts fixes.",
+      prompt:
+        "Act as a Principal Site Reliability Engineer (SRE). Conduct a rigorous post-mortem analysis on this production incident/stacktrace:\n\n" +
+        "POST-MORTEM WORKFLOW:\n" +
+        "1. **Trace Analysis**: Trace unhandled exceptions, null pointer references, asynchronous race conditions, or unhandled promise rejections.\n" +
+        "2. **Root Cause Identification**: State precisely WHY the failure occurred at the system level.\n" +
+        "3. **Regression Test**: Write an automated test case (`.spec.ts` or test suite) that reliably reproduces the bug.\n" +
+        "4. **Defensive Fix**: Deliver clean, defensive code (`[MODIFY]`) that prevents recurrence, along with monitoring alert recommendations.\n\n" +
+        "Stacktrace or incident report to analyze:",
+      builtin: true,
+    },
+    {
+      id: "cache-tune",
+      name: "cache-tune",
+      description:
+        "High-Performance Caching Architect: designs Redis caching strategies, TTL policies, stale-while-revalidate, and stampede prevention.",
+      prompt:
+        "Act as a Principal Distributed Systems & Caching Architect. Design or optimize caching mechanisms across Redis, Memcached, or CDN:\n\n" +
+        "CACHING AUDIT & DESIGN:\n" +
+        "1. **Key Naming & Hierarchy**: Hierarchical, namespaced key conventions (`app:module:entity:id`).\n" +
+        "2. **TTL & Eviction Policies**: Optimal TTL calculation, cache invalidation hooks upon database mutations, and memory eviction policies (allkeys-lru).\n" +
+        "3. **Thundering Herd & Stampede Protection**: Implement distributed locks (Redlock) or stale-while-revalidate / probabilistic early expiration.\n" +
+        "4. **Code Implementation**: Ready-to-use TypeScript/Node or PHP wrapper service (`[NEW]`) with compression and fallback to database.\n\n" +
+        "Feature or queries to cache:",
+      builtin: true,
+    },
+    {
+      id: "seo-audit",
+      name: "seo-audit",
+      description:
+        "Technical SEO & Web Vitals Architect: audits SSR/SSG rendering, Core Web Vitals (LCP, CLS, INP), OpenGraph, JSON-LD schemas, and robots.",
+      prompt:
+        "Act as a Technical SEO Director & Web Performance Architect. Conduct a comprehensive technical SEO and metadata audit:\n\n" +
+        "AUDIT CHECKLIST:\n" +
+        "1. **Metadata & Social Sharing**: Complete title templates, meta descriptions, canonical URLs, and OpenGraph/Twitter Card tags.\n" +
+        "2. **Structured Data (JSON-LD)**: Rich snippet schema markup (Article, Product, Organization, BreadcrumbList, FAQPage).\n" +
+        "3. **Rendering & Crawlability**: Server-side rendering (SSR/SSG), sitemap.xml, robots.txt directives, and hreflang tags for multi-language sites.\n" +
+        "4. **Core Web Vitals**: Pinpoint LCP (Largest Contentful Paint), CLS (Cumulative Layout Shift), and INP (Interaction to Next Paint) fixes.\n\n" +
+        "Page or site to audit for technical SEO:",
+      builtin: true,
+    },
+    {
+      id: "i18n-sync",
+      name: "i18n-sync",
+      description:
+        "Enterprise Internationalization (i18n) Auditor: syncs missing translation keys across languages (Arabic/English), detects untranslated hardcoded text.",
+      prompt:
+        "Act as an Enterprise Localization (i18n) Lead. Audit and synchronize translation dictionaries across all supported languages (Arabic & English):\n\n" +
+        "I18N TASKS:\n" +
+        "1. **Hardcoded String Detection**: Scan Vue/React/Flutter components for raw un-localized text and wrap with `t('key')` / `tr('key')`.\n" +
+        "2. **Key Synchronization**: Compare `en.json` and `ar.json` (or language files); identify missing keys in either language.\n" +
+        "3. **High-Quality Translation**: Provide natural, context-aware translations for missing entries (preserving placeholders like `{count}`).\n" +
+        "4. **Output Diffs**: Provide drop-in updated locale JSON files (`[MODIFY]`).\n\n" +
+        "Module or language files to sync:",
+      builtin: true,
+    },
+    {
+      id: "seed-gen",
+      name: "seed-gen",
+      description:
+        "Realistic Test Data & Database Seeder: generates deterministic factories, edge-case mock datasets, and database seed scripts.",
+      prompt:
+        "Act as a Principal Test Automation Engineer. Generate deterministic, production-grade test data fixtures and database seed scripts:\n\n" +
+        "SEEDING CRITERIA:\n" +
+        "1. **Relational Integrity**: Strictly adhere to foreign key constraints, numeric enum IDs, and required database defaults.\n" +
+        "2. **Edge-Case Diversity**: Include boundary test cases (very long UTF-8 strings, zero/negative balances, special characters, max-length emails).\n" +
+        "3. **Factory & Faker Pattern**: Reusable factory classes/functions with override capabilities.\n" +
+        "4. **Seed Execution Script**: Complete, runnable seed script (Prisma, Knex, TypeORM, Drizzle, or Laravel Seeder).\n\n" +
+        "Entity or schema to generate seeds for:",
+      builtin: true,
+    },
   ];
 
   function slugify(s) {
@@ -517,6 +592,11 @@
     "api-design": "brain",
     "git-pr": "pen",
     accessibility: "sparkles",
+    "retro-debug": "bug",
+    "cache-tune": "zap",
+    "seo-audit": "search",
+    "i18n-sync": "globe",
+    "seed-gen": "build",
   };
 
   // Legacy custom skills saved an emoji, not an icon name. Map the common
