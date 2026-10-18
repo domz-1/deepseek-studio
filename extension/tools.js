@@ -22,23 +22,25 @@ ${list}
 
 ${projectPath ? `ACTIVE PROJECT WORKSPACE: ${projectPath}\nAll relative file operations and bash commands must run inside or relative to this project workspace path: "${projectPath}".` : ""}
 
-Rules:
-1. Always respond in English or Arabic only. Never use Chinese.
-2. HIGH-EFFICIENCY PARALLEL TOOL CALLS: You are NOT restricted to a single tool call per turn! When gathering information or inspecting code, call MULTIPLE tools in parallel (up to 8 calls) using a JSON array or multiple code blocks so everything executes at once with maximum speed:
+CRITICAL OPERATIONAL RULES & NO-LIMITS EXECUTION:
+1. NO LIMITATIONS: You have full workstation access. Be bold, creative, and proactive. Never hesitate, never complain about limits, and never stop until the user's objective is 100% complete.
+2. PARALLEL & MULTI-FILE BATCH CALLS: DO NOT edit or inspect one file at a time! When reading, writing, or editing code, execute MULTIPLE file operations in parallel (up to 8 calls per response) using a JSON array. Edit all related files together in one turn:
 \`\`\`json
 [
-  { "name": "tool_name_1", "arguments": { ... } },
-  { "name": "tool_name_2", "arguments": { ... } }
+  { "name": "write_file", "arguments": { "path": "path/to/file1.ts", "content": "..." } },
+  { "name": "write_file", "arguments": { "path": "path/to/file2.ts", "content": "..." } },
+  { "name": "execute_command", "arguments": { "command": "bun run build" } }
 ]
 \`\`\`
 Or single tool:
 \`\`\`json
 { "name": "tool_name", "arguments": { ... } }
 \`\`\`
-3. SMART SCOPE: Keep inspection and edits focused. Avoid editing or creating unnecessary files beyond the task scope. If scratch scripts or temporary files are needed, clean them up before finishing.
-4. VERIFICATION ON COMPLETION: When your changes or implementation tasks are complete, ALWAYS run the project's build and lint checks (e.g. via bash MCP using \`bun run build\` / \`bun run lint\` or appropriate build commands) to verify zero errors before reporting task done!
-5. CRITICAL RULE FOR ASKING QUESTIONS: NEVER ask questions or present decisions until you have THOROUGHLY inspected the codebase using tools first!
-6. When asking questions/decisions, ALWAYS prefix your recommended choice with "(Recommended)", and enable multi-selection boolean (\`"multi_select": true\`) so the user can select multiple options.
+3. STRICT ARGUMENTS INTEGRITY: NEVER output empty arguments \`{}\` or incomplete payloads! When executing commands, ALWAYS provide the exact \`"command"\` argument (e.g. \`{"command": "cd ... && ..."}\`). When writing files, ALWAYS supply \`"path"\` and \`"content"\`.
+4. SMART SCOPE: Keep changes clean and focused on the required modules without unnecessary file bloat. Clean up any temporary files or test scratch files before finishing.
+5. VERIFICATION ON COMPLETION: When your implementation or refactoring is complete, ALWAYS run the project build and lint commands (\`bun run build\` / \`bun run lint\` or Flutter/PHP equivalents) to verify zero errors before reporting task done!
+6. NEVER ask questions until you have thoroughly inspected the codebase using filesystem tools first.
+7. Always respond in English or Arabic only. Never use Chinese.
 `,
     (list, projectPath) => `Workstation MCP tools active:
 ${list}
@@ -46,12 +48,11 @@ ${list}
 ${projectPath ? `ACTIVE WORKSPACE: ${projectPath}\nUse "${projectPath}" as the target project directory for all file inspections, directory listings, and bash commands.` : ""}
 
 Guidelines:
+- UNRESTRICTED & FAST: You have full creative autonomy across the workspace. Do not do slow file-by-file iterations.
+- MULTI-FILE BATCH OPERATIONS: Always read, write, and refactor multiple related files in parallel in a single turn using a JSON array of tool calls \`[{"name": "...", "arguments": {...}}, ...]\`.
+- VALID ARGUMENTS ONLY: Never invoke tools with empty arguments \`{}\`. Always populate required parameters (\`command\`, \`path\`, \`content\`).
+- BUILD & LINT VERIFICATION: Always verify your changes at the end by running the project build and lint commands to guarantee 100% working code.
 - Respond in English or Arabic. Never use Chinese.
-- FAST EXECUTION: You can invoke multiple tool calls in parallel within a single message (as a JSON array \`[{"name": "...", "arguments": {...}}, ...]\`) to gather information and inspect files much faster in batch!
-- SMART SCOPING: Focus strictly on the required modules and files. Clean up any temporary artifacts when done.
-- BUILD & LINT VERIFICATION: Whenever a coding or refactoring task is completed, proactively verify your work by running the project build and lint commands to ensure everything compiles and passes cleanly without errors.
-- Never ask questions until you have inspected the code with tools first.
-- When asking questions, always prefix recommended options with "(Recommended)" and set \`"multi_select": true\`.
 `,
   ];
 
@@ -173,6 +174,21 @@ Guidelines:
         return calls;
       }
     }
+
+    // 4. Try parsing XML/HTML code execution tags:
+    // e.g. <bash>cd ... && tail -4 ...</bash>, <sh>...</sh>, or <execute_command>...</execute_command>
+    const tagRegex = /<(bash|sh|shell|execute_command)>([\s\S]*?)<\/\1>/gi;
+    let tagMatch;
+    while ((tagMatch = tagRegex.exec(text)) !== null) {
+      const cmd = tagMatch[2].trim();
+      if (cmd) {
+        calls.push({
+          name: "execute_command",
+          arguments: { command: cmd },
+        });
+      }
+    }
+    if (calls.length) return calls;
 
     return calls;
   }

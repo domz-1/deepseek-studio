@@ -1015,9 +1015,30 @@ async function executeTool(payload, cardStatusEl, callKey, targetEl) {
   payload.callId = callId;
 
   // Automatically contextualize tool execution to the active workspace
+  payload.arguments = payload.arguments || {};
+
+  // Auto-recovery: If command is missing or empty, search surrounding element for <bash>...</bash> or command text
+  if (
+    (payload.name === "execute_command" || payload.name === "bash") &&
+    !payload.arguments.command &&
+    targetEl
+  ) {
+    const parentMessage =
+      targetEl.closest(
+        "div.ds-markdown, div.md-code-block, pre, div[class*='message']",
+      ) || targetEl.parentElement;
+    const fullText =
+      (parentMessage ? parentMessage.textContent : targetEl.textContent) || "";
+    const bashTagMatch = fullText.match(
+      /<(?:bash|sh|shell)>([\s\S]*?)<\/(?:bash|sh|shell)>/i,
+    );
+    if (bashTagMatch && bashTagMatch[1].trim()) {
+      payload.arguments.command = bashTagMatch[1].trim();
+    }
+  }
+
   if (selectedProject) {
     payload.project = selectedProject;
-    payload.arguments = payload.arguments || {};
     // If bash/execute_command without cwd, set to selectedProject
     if (
       (payload.name === "execute_command" || payload.name === "bash") &&
