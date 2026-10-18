@@ -1129,9 +1129,37 @@ function renderPermissionCard(
   callKey,
   isAlreadyExecuted = false,
 ) {
-  // Hide the raw JSON code block so the user only sees the custom UI card
+  // Hide or clean the raw code block / DSML markup so user only sees clean UI card
   if (targetEl) {
-    targetEl.style.display = "none";
+    if (
+      targetEl.tagName === "PRE" ||
+      targetEl.classList.contains("md-code-block")
+    ) {
+      targetEl.style.display = "none";
+    } else {
+      // It is a div.ds-markdown container where DSML was printed as raw text
+      // Hide or strip the DSML tags from the DOM content
+      try {
+        const rawHtml = targetEl.innerHTML;
+        const cleanedHtml = rawHtml
+          .replace(
+            /(&lt;|<)[\|\uff5c\s]*DSML[\s\S]*?(\/)[\|\uff5c\s]*DSML[\|\uff5c\s]*calls(&gt;|>)/gi,
+            "",
+          )
+          .replace(
+            /(&lt;|<)[\|\uff5c\s]*DSML[\s\S]*?(\/)[\|\uff5c\s]*DSML[\|\uff5c\s]*invoke(&gt;|>)/gi,
+            "",
+          )
+          .replace(/(&lt;|<)[\|\uff5c\s]*DSML[\|\uff5c\s]*calls(&gt;|>)/gi, "")
+          .replace(
+            /(&lt;|<)\/[\|\uff5c\s]*DSML[\|\uff5c\s]*calls(&gt;|>)/gi,
+            "",
+          );
+        if (cleanedHtml.trim() !== rawHtml.trim()) {
+          targetEl.innerHTML = cleanedHtml;
+        }
+      } catch (_) {}
+    }
   }
 
   const isBatch = Array.isArray(payload);

@@ -36,12 +36,15 @@ Or single tool:
 \`\`\`json
 { "name": "tool_name", "arguments": { ... } }
 \`\`\`
-3. STRICT ARGUMENTS INTEGRITY: NEVER output empty arguments \`{}\` or incomplete payloads! When executing commands, ALWAYS provide the exact \`"command"\` argument (e.g. \`{"command": "cd ... && ..."}\`). When writing files, ALWAYS supply \`"path"\` and \`"content"\`.
-4. NO FAKE/MOCK TAGS: NEVER simulate or write fake tags like \`<system_warning>\` or fake tool results yourself. Always let the extension execute real tools and supply the real outputs.
-5. SMART SCOPE: Keep changes clean and focused on the required modules without unnecessary file bloat. Clean up any temporary files or test scratch files before finishing.
-6. VERIFICATION ON COMPLETION: When your implementation or refactoring is complete, ALWAYS run the project build and lint commands (\`bun run build\` / \`bun run lint\` or Flutter/PHP equivalents) to verify zero errors before reporting task done!
-7. NEVER ask questions until you have thoroughly inspected the codebase using filesystem tools first.
-8. Always respond in English or Arabic only. Never use Chinese.
+3. STRICT JSON MCP FORMAT — NEVER OUTPUT RAW DSML TAGS:
+ALWAYS output tool calls as a pure fenced JSON code block (\`\`\`json ... \`\`\`).
+NEVER write raw DSML tags (e.g. < | DSML | invoke> or XML tags) in your message text! Raw DSML tags are forbidden. Only JSON blocks are parsed and executed by the extension.
+4. STRICT ARGUMENTS INTEGRITY: NEVER output empty arguments \`{}\` or incomplete payloads! When executing commands, ALWAYS provide the exact \`"command"\` argument (e.g. \`{"command": "cd ... && ..."}\`). When writing files, ALWAYS supply \`"path"\` and \`"content"\`.
+5. NO FAKE/MOCK TAGS: NEVER simulate or write fake tags like \`<system_warning>\` or fake tool results yourself. Always let the extension execute real tools and supply the real outputs.
+6. SMART SCOPE: Keep changes clean and focused on the required modules without unnecessary file bloat. Clean up any temporary files or test scratch files before finishing.
+7. VERIFICATION ON COMPLETION: When your implementation or refactoring is complete, ALWAYS run the project build and lint commands (\`bun run build\` / \`bun run lint\` or Flutter/PHP equivalents) to verify zero errors before reporting task done!
+8. NEVER ask questions until you have thoroughly inspected the codebase using filesystem tools first.
+9. Always respond in English or Arabic only. Never use Chinese.
 `,
     (list, projectPath) => `Workstation MCP tools active:
 ${list}
@@ -51,6 +54,7 @@ ${projectPath ? `ACTIVE WORKSPACE: ${projectPath}\nUse "${projectPath}" as the t
 Guidelines:
 - UNRESTRICTED & FAST: You have full creative autonomy across the workspace. Do not do slow file-by-file iterations.
 - MULTI-FILE BATCH OPERATIONS: Always read, write, and refactor multiple related files in parallel in a single turn using a JSON array of tool calls \`[{"name": "...", "arguments": {...}}, ...]\`.
+- PURE JSON ONLY: Output all tool calls in fenced \`\`\`json blocks only. NEVER use raw DSML or XML tags in chat!
 - VALID ARGUMENTS ONLY: Never invoke tools with empty arguments \`{}\`. Always populate required parameters (\`command\`, \`path\`, \`content\`).
 - BUILD & LINT VERIFICATION: Always verify your changes at the end by running the project build and lint commands to guarantee 100% working code.
 - Respond in English or Arabic. Never use Chinese.
@@ -152,46 +156,66 @@ Guidelines:
       } catch (_) {}
     }
 
-    // 3. Try parsing DeepSeek DSML XML format (supporting multiple < | DSML | invoke> tags):
-    if (text.includes("DSML") && text.includes("invoke")) {
+    // 3. Try parsing DeepSeek DSML XML format (supporting both standard | and fullwidth ｜ pipes):
+    if (
+      (text.includes("DSML") || text.includes("\uff5c\uff5cDSML")) &&
+      text.includes("invoke")
+    ) {
+      const normText = text.replace(/[\uff5c|]+/g, "|");
       const invokeRegex =
         /invoke\s+name=["']([^"']+)["']([\s\S]*?)<\/\s*\|\s*DSML\s*\|\s*invoke>/gi;
       let invokeMatch;
-      while ((invokeMatch = invokeRegex.exec(text)) !== null) {
-        const name = invokeMatch[1];
+      while ((invokeMatch = invokeRegex.exec(normText)) !== null) {
+        let name = invokeMatch[1].trim();
         const body = invokeMatch[2] || "";
         const args = {};
         const paramRegex =
           /parameter\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)<\/\s*\|\s*DSML\s*\|\s*parameter>/gi;
         let pm;
         while ((pm = paramRegex.exec(body)) !== null) {
-          const pName = pm[1];
+          const pName = pm[1].trim();
           let pVal = pm[2].trim();
           try {
             pVal = JSON.parse(pVal);
           } catch (_) {}
           args[pName] = pVal;
         }
+
+        // Translate model confusion when it passes server name as invoke name:
+        if ((name === "filesystem" || name === "fs") && args.command) {
+          name = args.command;
+          delete args.command;
+        }
+        if (name === "bash" && !args.command && args.cmd) {
+          args.command = args.cmd;
+        }
+
         calls.push({ name, arguments: args });
       }
       if (calls.length) return calls;
 
       // Fallback single invoke without closing tag
-      const singleMatch = text.match(/invoke\s+name=["']([^"']+)["']/i);
+      const singleMatch = normText.match(/invoke\s+name=["']([^"']+)["']/i);
       if (singleMatch) {
-        const name = singleMatch[1];
+        let name = singleMatch[1].trim();
         const args = {};
         const paramRegex =
           /parameter\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)<\/\s*\|\s*DSML\s*\|\s*parameter>/gi;
         let m;
-        while ((m = paramRegex.exec(text)) !== null) {
-          const pName = m[1];
+        while ((m = paramRegex.exec(normText)) !== null) {
+          const pName = m[1].trim();
           let pVal = m[2].trim();
           try {
             pVal = JSON.parse(pVal);
           } catch (_) {}
           args[pName] = pVal;
         }
+
+        if ((name === "filesystem" || name === "fs") && args.command) {
+          name = args.command;
+          delete args.command;
+        }
+
         calls.push({ name, arguments: args });
         return calls;
       }
