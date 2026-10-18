@@ -1841,7 +1841,33 @@ function checkAndHandleRetryButton() {
     return;
   }
 
-  // 2. Search all buttons or role=button or clickable elements
+  // 2. Direct match for DeepSeek's "Continue" button:
+  // e.g. <div role="button" class="ds-button ds-button--outlinedNeutral ds-button--outlined ds-button--capsule ..."><span class="ds-button__content">Continue</span></div>
+  const directContinueBtn = Array.from(
+    document.querySelectorAll(
+      '.ds-button--capsule, .ds-button, div[role="button"], button',
+    ),
+  ).find((el) => {
+    const text = (el.textContent || "").trim().toLowerCase();
+    const aria = (el.getAttribute("aria-label") || "").toLowerCase();
+    return (
+      (text === "continue" ||
+        aria === "continue" ||
+        (text.includes("continue") && !text.includes("discontinue"))) &&
+      el.offsetParent !== null
+    );
+  });
+
+  if (
+    directContinueBtn &&
+    directContinueBtn !== lastRetriedEl &&
+    directContinueBtn.offsetParent !== null
+  ) {
+    triggerClick(directContinueBtn, "Continue");
+    return;
+  }
+
+  // 3. Search all buttons or role=button or clickable elements
   const buttons = Array.from(
     document.querySelectorAll(
       'button, div[role="button"], span[role="button"], div[class*="retry" i], button[class*="retry" i], .ds-button',
