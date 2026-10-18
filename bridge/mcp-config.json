@@ -2,8 +2,8 @@
   "indexRoots": ["/home/adham/projects"],
   "mcpServers": {
     "filesystem": {
-      "command": "bunx",
-      "args": ["@modelcontextprotocol/server-filesystem", "/home/adham"],
+      "command": "bun",
+      "args": ["run", "mcp-server-filesystem", "/home/adham"],
       "enabled": true
     },
     "bash": {
@@ -12,8 +12,8 @@
       "enabled": true
     },
     "memory": {
-      "command": "bunx",
-      "args": ["@modelcontextprotocol/server-memory"],
+      "command": "bun",
+      "args": ["run", "mcp-server-memory"],
       "enabled": true
     },
     "puppeteer": {
