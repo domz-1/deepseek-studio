@@ -1388,8 +1388,30 @@ let lastRetriedEl = null;
 function checkAndHandleRetryButton() {
   if (!autoApprove) return;
 
+  function triggerClick(el, name) {
+    if (!el || el.offsetParent === null) return;
+    lastRetriedEl = el;
+    console.log(`[DeepSeek Studio] Immediately clicking ${name} button now.`);
+    try {
+      el.dispatchEvent(
+        new MouseEvent("pointerdown", { bubbles: true, cancelable: true }),
+      );
+      el.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+      el.dispatchEvent(
+        new MouseEvent("pointerup", { bubbles: true, cancelable: true }),
+      );
+      el.dispatchEvent(
+        new MouseEvent("mouseup", { bubbles: true, cancelable: true }),
+      );
+      el.click();
+    } catch (err) {
+      console.warn(`[DeepSeek Studio] Error clicking ${name}:`, err);
+    }
+  }
+
   // 1. Direct match for DeepSeek's circular retry/refresh button:
-  // Usually .ds-button--warning or button containing SVG refresh arrow
   const directRetryBtn =
     document.querySelector(
       '.ds-button--warning, [class*="ds-button--warning"], [class*="retry-button"]',
@@ -1400,28 +1422,7 @@ function checkAndHandleRetryButton() {
     directRetryBtn !== lastRetriedEl &&
     directRetryBtn.offsetParent !== null
   ) {
-    if (retryTimeout) return;
-    console.log(
-      "[DeepSeek Studio] Detected circular Warning/Retry button. Triggering click in 1s...",
-    );
-    retryTimeout = setTimeout(() => {
-      retryTimeout = null;
-      lastRetriedEl = directRetryBtn;
-      console.log("[DeepSeek Studio] Clicking Warning/Retry button now.");
-      directRetryBtn.dispatchEvent(
-        new MouseEvent("pointerdown", { bubbles: true, cancelable: true }),
-      );
-      directRetryBtn.dispatchEvent(
-        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
-      );
-      directRetryBtn.dispatchEvent(
-        new MouseEvent("pointerup", { bubbles: true, cancelable: true }),
-      );
-      directRetryBtn.dispatchEvent(
-        new MouseEvent("mouseup", { bubbles: true, cancelable: true }),
-      );
-      directRetryBtn.click();
-    }, 1000);
+    triggerClick(directRetryBtn, "Warning/Retry");
     return;
   }
 
@@ -1461,34 +1462,11 @@ function checkAndHandleRetryButton() {
       btn !== lastRetriedEl &&
       btn.offsetParent !== null
     ) {
-      if (retryTimeout) return;
-
       const actionName =
         text.includes("continue") || aria.includes("continue")
           ? "Continue"
           : "Retry";
-      console.log(
-        `[DeepSeek Studio] Detected ${actionName} button. Waiting 1 second before clicking...`,
-      );
-      retryTimeout = setTimeout(() => {
-        retryTimeout = null;
-        lastRetriedEl = btn;
-        console.log(`[DeepSeek Studio] Clicking ${actionName} button now.`);
-
-        btn.dispatchEvent(
-          new MouseEvent("pointerdown", { bubbles: true, cancelable: true }),
-        );
-        btn.dispatchEvent(
-          new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
-        );
-        btn.dispatchEvent(
-          new MouseEvent("pointerup", { bubbles: true, cancelable: true }),
-        );
-        btn.dispatchEvent(
-          new MouseEvent("mouseup", { bubbles: true, cancelable: true }),
-        );
-        btn.click();
-      }, 1000);
+      triggerClick(btn, actionName);
       return;
     }
   }
@@ -1620,6 +1598,14 @@ function checkInactivityAndResend() {
 }
 
 setInterval(checkInactivityAndResend, 1000);
+
+// Dedicated 1-minute periodic retry/continue checker (in addition to live DOM mutation checks)
+setInterval(() => {
+  if (lastRetriedEl && !document.body.contains(lastRetriedEl)) {
+    lastRetriedEl = null;
+  }
+  checkAndHandleRetryButton();
+}, 60000);
 
 // Observer
 new MutationObserver(() => {
