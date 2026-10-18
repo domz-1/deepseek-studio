@@ -1370,7 +1370,9 @@ function renderPermissionCard(
           .replace(
             /(&lt;|<)\/[\|\uff5c\s]*DSML[\|\uff5c\s]*calls(&gt;|>)/gi,
             "",
-          );
+          )
+          .replace(/(&lt;|<)tool_call(?:s)?(&gt;|>)/gi, "")
+          .replace(/(&lt;|<)\/tool_call(?:s)?(&gt;|>)/gi, "");
         if (cleanedHtml.trim() !== rawHtml.trim()) {
           targetEl.innerHTML = cleanedHtml;
         }
@@ -1767,8 +1769,13 @@ function scanMessages() {
       }
     }
 
-    // 2. Check for standard MCP tool calls (JSON or DeepSeek DSML, single or batch array)
-    if (!text.includes("name") && !text.includes("invoke")) return;
+    // 2. Check for standard MCP tool calls (JSON, DeepSeek DSML, or <tool_call> tags)
+    if (
+      !text.includes("name") &&
+      !text.includes("invoke") &&
+      !text.includes("tool_call")
+    )
+      return;
 
     const allCalls = window.DSTools.extractAllMcpCalls
       ? window.DSTools.extractAllMcpCalls(text)

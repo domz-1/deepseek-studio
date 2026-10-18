@@ -221,7 +221,28 @@ Guidelines:
       }
     }
 
-    // 4. Try parsing XML/HTML code execution tags:
+    // 4. Try parsing <tool_call> or <tool_calls> wrappers:
+    // e.g. <tool_call>{"name": "write_file", "arguments": {...}}</tool_call>
+    const toolCallRegex = /<tool_call(?:s)?>([\s\S]*?)<\/tool_call(?:s)?>/gi;
+    let tcMatch;
+    while ((tcMatch = toolCallRegex.exec(text)) !== null) {
+      const body = tcMatch[1].trim();
+      try {
+        const parsed = JSON.parse(body);
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            if (item && item.name) {
+              calls.push({ name: item.name, arguments: item.arguments || {} });
+            }
+          }
+        } else if (parsed && parsed.name) {
+          calls.push({ name: parsed.name, arguments: parsed.arguments || {} });
+        }
+      } catch (_) {}
+    }
+    if (calls.length) return calls;
+
+    // 5. Try parsing XML/HTML code execution tags:
     // e.g. <bash>cd ... && tail -4 ...</bash>, <sh>...</sh>, or <execute_command>...</execute_command>
     const tagRegex = /<(bash|sh|shell|execute_command)>([\s\S]*?)<\/\1>/gi;
     let tagMatch;
