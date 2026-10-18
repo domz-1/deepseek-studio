@@ -70,10 +70,21 @@
   }
 
   // ---- Permission card ---------------------------------------------------
-  function permissionCard({ payload, isSafe, isHistorical }) {
-    const code = `<code class="ds-card-code">${escape(payload.name)}</code>`;
+  function permissionCard({
+    payload,
+    isSafe,
+    isHistorical,
+    isBatch,
+    batchCount,
+  }) {
+    const isMulti = isBatch || (Array.isArray(payload) && payload.length > 1);
+    const code = isMulti
+      ? `<code class="ds-card-code">Batch (${batchCount || payload.length} tools)</code>`
+      : `<code class="ds-card-code">${escape(payload.name)}</code>`;
     const raw = `<button class="ds-btn ds-btn-raw view-raw-btn" type="button">Toggle JSON</button>`;
-    const args = escape(JSON.stringify(payload.arguments || {}, null, 2));
+    const args = escape(
+      JSON.stringify(isMulti ? payload : payload.arguments || {}, null, 2),
+    );
 
     if (isHistorical) {
       return `
@@ -81,23 +92,25 @@
           <div class="ds-title">${ic("check")} <span>Completed Historical Call:</span> ${code}</div>
           ${raw}
         </div>
-        <div class="ds-card-label">Arguments:</div>
+        <div class="ds-card-label">${isMulti ? "Batch Tool Calls:" : "Arguments:"}</div>
         <pre class="ds-card-pre">${args}</pre>`;
     }
 
-    const title = isSafe
-      ? `${ic("search")} MCP Read / Safe`
-      : `${ic("zap")} MCP Action / Bash`;
+    const title = isMulti
+      ? `${ic("sparkles")} MCP Batch Execution`
+      : isSafe
+        ? `${ic("search")} MCP Read / Safe`
+        : `${ic("zap")} MCP Action / Bash`;
 
     return `
       <div class="ds-card-head">
         <div class="ds-title">${title} ${code}</div>
         ${raw}
       </div>
-      <div class="ds-card-label">Arguments:</div>
+      <div class="ds-card-label">${isMulti ? "Batch Tool Calls:" : "Arguments:"}</div>
       <textarea class="ds-card-ed ed" spellcheck="false">${args}</textarea>
       <div class="ds-card-controls card-controls">
-        <button class="ds-btn ds-btn-ok ok" type="button">${ic("check")} Run Now</button>
+        <button class="ds-btn ds-btn-ok ok" type="button">${ic("check")} ${isMulti ? "Run Batch Now" : "Run Now"}</button>
         <button class="ds-btn ds-btn-no no" type="button">${ic("close")} Reject</button>
       </div>`;
   }

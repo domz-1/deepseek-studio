@@ -24,17 +24,21 @@ ${projectPath ? `ACTIVE PROJECT WORKSPACE: ${projectPath}\nAll relative file ope
 
 Rules:
 1. Always respond in English or Arabic only. Never use Chinese.
-2. When you need to inspect files, execute commands, or perform actions, call ONE tool at a time using this exact JSON code block:
+2. HIGH-EFFICIENCY PARALLEL TOOL CALLS: You are NOT restricted to a single tool call per turn! When gathering information or inspecting code, call MULTIPLE tools in parallel (up to 8 calls) using a JSON array or multiple code blocks so everything executes at once with maximum speed:
 \`\`\`json
-{
-  "mcp_call": true,
-  "name": "tool_name",
-  "arguments": {}
-}
+[
+  { "name": "tool_name_1", "arguments": { ... } },
+  { "name": "tool_name_2", "arguments": { ... } }
+]
 \`\`\`
-3. Do not stop until the user's objective is fully accomplished. Output only one tool call per turn, wait for the tool output, and then proceed with the next step autonomously.
-4. CRITICAL RULE FOR ASKING QUESTIONS: NEVER ask questions or present decisions until you have THOROUGHLY inspected and read the project codebase using the filesystem/tools MCP first!
-5. When asking questions/decisions, ALWAYS prefix your recommended choice with "(Recommended)", and enable multi-selection boolean (\`"multi_select": true\`) so the user can select multiple options.
+Or single tool:
+\`\`\`json
+{ "name": "tool_name", "arguments": { ... } }
+\`\`\`
+3. SMART SCOPE: Keep inspection and edits focused. Avoid editing or creating unnecessary files beyond the task scope. If scratch scripts or temporary files are needed, clean them up before finishing.
+4. VERIFICATION ON COMPLETION: When your changes or implementation tasks are complete, ALWAYS run the project's build and lint checks (e.g. via bash MCP using \`bun run build\` / \`bun run lint\` or appropriate build commands) to verify zero errors before reporting task done!
+5. CRITICAL RULE FOR ASKING QUESTIONS: NEVER ask questions or present decisions until you have THOROUGHLY inspected the codebase using tools first!
+6. When asking questions/decisions, ALWAYS prefix your recommended choice with "(Recommended)", and enable multi-selection boolean (\`"multi_select": true\`) so the user can select multiple options.
 `,
     (list, projectPath) => `Workstation MCP tools active:
 ${list}
@@ -43,13 +47,11 @@ ${projectPath ? `ACTIVE WORKSPACE: ${projectPath}\nUse "${projectPath}" as the t
 
 Guidelines:
 - Respond in English or Arabic. Never use Chinese.
-- Call tools autonomously to complete the task. Call one tool at a time using:
-\`\`\`json
-{"name": "tool_name", "arguments": {}}
-\`\`\`
-- After receiving tool results, analyze them and continue with the next tool call until the goal is fully achieved.
-- CRITICAL: Never ask questions until you have read and analyzed the project code using filesystem tools first.
-- When asking questions, always prefix the recommended option with "(Recommended)" and enable multi-selection (\`"multi_select": true\`).
+- FAST EXECUTION: You can invoke multiple tool calls in parallel within a single message (as a JSON array \`[{"name": "...", "arguments": {...}}, ...]\`) to gather information and inspect files much faster in batch!
+- SMART SCOPING: Focus strictly on the required modules and files. Clean up any temporary artifacts when done.
+- BUILD & LINT VERIFICATION: Whenever a coding or refactoring task is completed, proactively verify your work by running the project build and lint commands to ensure everything compiles and passes cleanly without errors.
+- Never ask questions until you have inspected the code with tools first.
+- When asking questions, always prefix recommended options with "(Recommended)" and set \`"multi_select": true\`.
 `,
   ];
 
@@ -85,28 +87,76 @@ Guidelines:
     return filtered.length ? filtered : tools;
   }
 
-  function extractMcpCall(text) {
-    if (!text) return null;
+  function extractAllMcpCalls(text) {
+    if (!text) return [];
+    const calls = [];
 
-    // 1. Try parsing JSON format
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
-    if (start !== -1 && end !== -1 && end > start) {
-      const candidate = text.slice(start, end + 1);
+    // 1. Try parsing JSON array: [ { "name": "...", "arguments": { ... } }, ... ]
+    const arrStart = text.indexOf("[");
+    const arrEnd = text.lastIndexOf("]");
+    if (arrStart !== -1 && arrEnd !== -1 && arrEnd > arrStart) {
+      const candidate = text.slice(arrStart, arrEnd + 1);
       try {
-        const p = JSON.parse(candidate);
-        if (p.name && (p.mcp_call !== undefined || p.arguments !== undefined)) {
-          return { name: p.name, arguments: p.arguments || {} };
+        const parsedArr = JSON.parse(candidate);
+        if (Array.isArray(parsedArr)) {
+          for (const item of parsedArr) {
+            if (
+              item &&
+              item.name &&
+              (item.mcp_call !== undefined ||
+                item.arguments !== undefined ||
+                typeof item.name === "string")
+            ) {
+              calls.push({ name: item.name, arguments: item.arguments || {} });
+            }
+          }
+          if (calls.length) return calls;
         }
       } catch (_) {}
     }
 
-    // 2. Try parsing DeepSeek DSML XML format:
-    // < | DSML | calls>< | DSML | invoke name="list_directory">< | DSML | parameter name="path" string="true">...</ | DSML | parameter>...</ | DSML | invoke></ | DSML | calls>
+    // 2. Try parsing single JSON object
+    const objStart = text.indexOf("{");
+    const objEnd = text.lastIndexOf("}");
+    if (objStart !== -1 && objEnd !== -1 && objEnd > objStart) {
+      const candidate = text.slice(objStart, objEnd + 1);
+      try {
+        const p = JSON.parse(candidate);
+        if (p.name && (p.mcp_call !== undefined || p.arguments !== undefined)) {
+          calls.push({ name: p.name, arguments: p.arguments || {} });
+          return calls;
+        }
+      } catch (_) {}
+    }
+
+    // 3. Try parsing DeepSeek DSML XML format (supporting multiple < | DSML | invoke> tags):
     if (text.includes("DSML") && text.includes("invoke")) {
-      const invokeMatch = text.match(/invoke\s+name=["']([^"']+)["']/i);
-      if (invokeMatch) {
+      const invokeRegex =
+        /invoke\s+name=["']([^"']+)["']([\s\S]*?)<\/\s*\|\s*DSML\s*\|\s*invoke>/gi;
+      let invokeMatch;
+      while ((invokeMatch = invokeRegex.exec(text)) !== null) {
         const name = invokeMatch[1];
+        const body = invokeMatch[2] || "";
+        const args = {};
+        const paramRegex =
+          /parameter\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)<\/\s*\|\s*DSML\s*\|\s*parameter>/gi;
+        let pm;
+        while ((pm = paramRegex.exec(body)) !== null) {
+          const pName = pm[1];
+          let pVal = pm[2].trim();
+          try {
+            pVal = JSON.parse(pVal);
+          } catch (_) {}
+          args[pName] = pVal;
+        }
+        calls.push({ name, arguments: args });
+      }
+      if (calls.length) return calls;
+
+      // Fallback single invoke without closing tag
+      const singleMatch = text.match(/invoke\s+name=["']([^"']+)["']/i);
+      if (singleMatch) {
+        const name = singleMatch[1];
         const args = {};
         const paramRegex =
           /parameter\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)<\/\s*\|\s*DSML\s*\|\s*parameter>/gi;
@@ -119,11 +169,17 @@ Guidelines:
           } catch (_) {}
           args[pName] = pVal;
         }
-        return { name, arguments: args };
+        calls.push({ name, arguments: args });
+        return calls;
       }
     }
 
-    return null;
+    return calls;
+  }
+
+  function extractMcpCall(text) {
+    const list = extractAllMcpCalls(text);
+    return list.length ? list[0] : null;
   }
 
   function extractGrillQuestion(text) {
@@ -190,6 +246,7 @@ Guidelines:
     buildSysPrompt,
     filterToolsByMention,
     extractMcpCall,
+    extractAllMcpCalls,
     extractGrillQuestion,
   };
 })(typeof window !== "undefined" ? window : globalThis);

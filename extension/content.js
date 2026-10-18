@@ -887,6 +887,128 @@ const HUMAN_RESULT_TEMPLATES = [
     `Tool ${name} completed:\n\`\`\`json\n${out}\n\`\`\`\nCheck the output and proceed with the next tool call.`,
 ];
 
+// Batch Tool execution & card rendering
+async function executeBatchTools(payloads, cardStatusEl, callKey, targetEl) {
+  if (!Array.isArray(payloads) || payloads.length === 0) return;
+  if (payloads.length === 1) {
+    return executeTool(payloads[0], cardStatusEl, callKey, targetEl);
+  }
+
+  const batchId = `batch_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  if (cardStatusEl) {
+    cardStatusEl.innerHTML = `<div class="ds-card-head ds-mb0">
+      <div class="ds-note ds-note-accent ds-pad0"><span class="ds-ic" data-ic="clock"></span> Running batch of ${payloads.length} tools in parallel...</div>
+      <button class="ds-btn ds-btn-no ds-btn-sm mcp-card-kill-btn" type="button"><span class="ds-ic" data-ic="close"></span> Kill Batch</button>
+    </div>`;
+    const killBtn = cardStatusEl.querySelector(".mcp-card-kill-btn");
+    if (killBtn) {
+      killBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        killActiveTask(batchId);
+      };
+    }
+  }
+
+  runningTaskCount += payloads.length;
+  updateTaskBadge();
+
+  try {
+    const results = await Promise.all(
+      payloads.map(async (payload, idx) => {
+        const callId = `${batchId}_${idx}`;
+        payload.callId = callId;
+
+        if (selectedProject) {
+          payload.project = selectedProject;
+          payload.arguments = payload.arguments || {};
+          if (
+            (payload.name === "execute_command" || payload.name === "bash") &&
+            !payload.arguments.cwd
+          ) {
+            payload.arguments.cwd = selectedProject;
+          }
+          if (
+            payload.arguments.path &&
+            typeof payload.arguments.path === "string" &&
+            !payload.arguments.path.startsWith("/")
+          ) {
+            payload.arguments.path =
+              `${selectedProject}/${payload.arguments.path}`.replace(
+                /\/+/g,
+                "/",
+              );
+          }
+        }
+
+        try {
+          const bgRes = await new Promise((r) =>
+            chrome.runtime.sendMessage({ type: "CALL", payload }, r),
+          );
+          if (!bgRes?.ok) throw new Error(bgRes?.error || "Bridge unreachable");
+          const data = bgRes.data;
+          if (data?.isError) {
+            if (data.isCancelled) throw new Error("Task was cancelled by user");
+            throw new Error(data.error || "Execution failed");
+          }
+          return {
+            name: payload.name,
+            output: JSON.stringify(data.content || data, null, 2).slice(
+              0,
+              5000,
+            ),
+            success: true,
+          };
+        } catch (err) {
+          return {
+            name: payload.name,
+            output: `Error: ${err.message}`,
+            success: false,
+          };
+        }
+      }),
+    );
+
+    if (targetEl) {
+      targetEl.setAttribute("data-mcp-executed", "true");
+    }
+    if (callKey) {
+      executedCalls.add(callKey);
+      try {
+        sessionStorage.setItem(
+          "deepseek_mcp_executed",
+          JSON.stringify(Array.from(executedCalls)),
+        );
+      } catch (_) {}
+    }
+
+    if (cardStatusEl) {
+      cardStatusEl.innerHTML = `<div class="ds-note ds-note-success"><span class="ds-ic" data-ic="check"></span> Completed batch of ${payloads.length} tools.</div>`;
+    }
+
+    const batchMessage =
+      `Batch Results for ${payloads.length} parallel calls:\n` +
+      results
+        .map(
+          (r, i) =>
+            `### Tool ${i + 1}: ${r.name}\n\`\`\`json\n${r.output}\n\`\`\``,
+        )
+        .join("\n\n") +
+      `\n\nAnalyze these batch results and continue executing the next step autonomously until complete.`;
+
+    await sendText(batchMessage);
+  } catch (err) {
+    if (cardStatusEl) {
+      cardStatusEl.innerHTML = window.DSComponents.status.error(err.message);
+    }
+    await sendText(`Execution notice on batch: ${err.message}`);
+  } finally {
+    runningTaskCount = Math.max(0, runningTaskCount - payloads.length);
+    updateTaskBadge();
+    scrollToBottom();
+  }
+}
+
 // Tool execution & card rendering
 async function executeTool(payload, cardStatusEl, callKey, targetEl) {
   const callId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -991,7 +1113,11 @@ function renderPermissionCard(
     targetEl.style.display = "none";
   }
 
-  const isSafe = window.DSTools.SAFE_TOOLS.has(payload.name);
+  const isBatch = Array.isArray(payload);
+  const isSafe = isBatch
+    ? payload.every((p) => window.DSTools.SAFE_TOOLS.has(p.name))
+    : window.DSTools.SAFE_TOOLS.has(payload.name);
+
   const card = document.createElement("div");
   card.className =
     "deepseek-mcp-action-card ds-card" +
@@ -1001,6 +1127,8 @@ function renderPermissionCard(
     payload,
     isSafe,
     isHistorical: isAlreadyExecuted,
+    isBatch,
+    batchCount: isBatch ? payload.length : 1,
   });
 
   if (isAlreadyExecuted) {
@@ -1029,22 +1157,37 @@ function renderPermissionCard(
 
   card.querySelector(".ok").onclick = async () => {
     try {
-      payload.arguments = JSON.parse(card.querySelector(".ed").value);
+      const edited = JSON.parse(card.querySelector(".ed").value);
+      if (isBatch && Array.isArray(edited)) {
+        payload = edited;
+      } else if (!isBatch && edited) {
+        payload.arguments = edited;
+      }
     } catch (_) {}
-    executeTool(payload, controls, callKey, targetEl);
+    if (isBatch) {
+      executeBatchTools(payload, controls, callKey, targetEl);
+    } else {
+      executeTool(payload, controls, callKey, targetEl);
+    }
   };
 
   card.querySelector(".no").onclick = () => {
     targetEl.setAttribute("data-mcp-executed", "true");
     executedCalls.add(callKey);
-    controls.innerHTML = window.DSComponents.status.rejected(payload.name);
-    sendText(`I skipped "${payload.name}". Please continue.`);
+    const title = isBatch ? `batch of ${payload.length} tools` : payload.name;
+    controls.innerHTML = window.DSComponents.status.rejected(title);
+    sendText(`I skipped "${title}". Please continue.`);
   };
 
   if (autoApprove) {
-    controls.innerHTML = window.DSComponents.status.autoRunning(payload.name);
+    const title = isBatch ? `batch of ${payload.length} tools` : payload.name;
+    controls.innerHTML = window.DSComponents.status.autoRunning(title);
     setTimeout(() => {
-      executeTool(payload, controls, callKey, targetEl);
+      if (isBatch) {
+        executeBatchTools(payload, controls, callKey, targetEl);
+      } else {
+        executeTool(payload, controls, callKey, targetEl);
+      }
     }, 400);
   }
 }
@@ -1359,24 +1502,31 @@ function scanMessages() {
       }
     }
 
-    // 2. Check for standard MCP tool call (JSON or DeepSeek DSML)
+    // 2. Check for standard MCP tool calls (JSON or DeepSeek DSML, single or batch array)
     if (!text.includes("name") && !text.includes("invoke")) return;
 
-    const payload = window.DSTools.extractMcpCall(text);
-    if (payload && payload.name) {
+    const allCalls = window.DSTools.extractAllMcpCalls
+      ? window.DSTools.extractAllMcpCalls(text)
+      : [window.DSTools.extractMcpCall(text)].filter(Boolean);
+
+    if (allCalls && allCalls.length > 0) {
       el.setAttribute("data-mcp-attached", "true");
 
       const isElementExecuted = el.getAttribute("data-mcp-executed") === "true";
-
-      // If an element has never executed, it is NEVER historical! It must be actionable.
       const isHistorical = isElementExecuted;
 
       if (!el.dataset.mcpId) {
         el.dataset.mcpId = `mcp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       }
-      const callKey = `${el.dataset.mcpId}:${payload.name}`;
 
-      renderPermissionCard(el, payload, callKey, isHistorical);
+      if (allCalls.length === 1) {
+        const payload = allCalls[0];
+        const callKey = `${el.dataset.mcpId}:${payload.name}`;
+        renderPermissionCard(el, payload, callKey, isHistorical);
+      } else {
+        const callKey = `${el.dataset.mcpId}:batch_${allCalls.length}`;
+        renderPermissionCard(el, allCalls, callKey, isHistorical);
+      }
     }
   });
 }
