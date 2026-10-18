@@ -16,6 +16,37 @@
       "args": ["@modelcontextprotocol/server-memory"],
       "enabled": true
     },
+    "puppeteer": {
+      "command": "bunx",
+      "args": ["@modelcontextprotocol/server-puppeteer"],
+      "enabled": false
+    },
+    "postgres": {
+      "command": "bunx",
+      "args": [
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://user:password@localhost:5432/dbname"
+      ],
+      "enabled": false
+    },
+    "github": {
+      "command": "bunx",
+      "args": ["@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR_GITHUB_TOKEN_HERE"
+      },
+      "enabled": false
+    },
+    "fetch": {
+      "command": "bunx",
+      "args": ["@modelcontextprotocol/server-fetch"],
+      "enabled": false
+    },
+    "docker": {
+      "command": "bunx",
+      "args": ["mcp-server-docker"],
+      "enabled": false
+    },
     "context7": {
       "command": "npx",
       "args": ["-y", "@upstash/context7-mcp"],

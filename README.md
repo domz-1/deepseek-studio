@@ -57,6 +57,11 @@ Skills are reusable prompt bundles triggered with a leading `/name`. Type `/` in
 | `/module-cover`    | **360° Module Completion** — Exhaustive audit across schemas, APIs, composables, UI states, and specs      |
 | `/perf-opt`        | **Performance Profiling** — Identifies O(n²) loops, N+1 queries, memory leaks, and bundle bottlenecks      |
 | `/security-scan`   | **AppSec & Vulnerability Audit** — Scans for OWASP Top 10, injection, IDOR, and token leaks                |
+| `/e2e-test`        | **E2E & Browser Testing** — Generates resilient Playwright/Puppeteer user flows & validations              |
+| `/db-migrate`      | **Database Reliability** — Designs 3NF schemas, zero-downtime migrations & numeric enum mappings           |
+| `/api-design`      | **RESTful & OpenAPI 3.1** — Generates complete OpenAPI specs, Zod schemas & TypeScript client SDKs         |
+| `/git-pr`          | **Release & PR Specialist** — Inspects git diffs, drafts release PR descriptions & conventional commits    |
+| `/accessibility`   | **WCAG 2.1 AA Audit** — Audits keyboard nav, focus traps, ARIA roles & color contrast ratios               |
 | `/plan`            | **Implementation Plan** — Senior Tech Lead architectural plan before code generation                       |
 | `/build`           | **Autonomous Build Mode** — Direct file manipulation, execution, and verification                          |
 | `/review`          | Senior code review (bugs, security, style)                                                                 |

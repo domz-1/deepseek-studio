@@ -294,6 +294,82 @@
         "Codebase or endpoints to audit:",
       builtin: true,
     },
+    {
+      id: "e2e-test",
+      name: "e2e-test",
+      description:
+        "End-to-End & Browser Testing: writes and runs Playwright/Puppeteer flows, tests user journeys, and validates accessibility.",
+      prompt:
+        "Act as a Principal QA & Test Automation Lead. Architect and generate end-to-end (E2E) automated test suites (using Playwright or Puppeteer):\n\n" +
+        "TESTING REQUIREMENTS:\n" +
+        "1. Complete User Flows: happy path, validation failures, edge cases, session timeouts, and network failure retries.\n" +
+        "2. Selectors & Resilience: prioritize user-facing accessibility locators (`getByRole`, `getByLabel`, `getByText`) over brittle CSS classes.\n" +
+        "3. Assertions & Visual Checks: verify element visibility, dynamic URL changes, network response status codes, and console error logs.\n" +
+        "4. Executable Scripts: provide ready-to-run test files (`.spec.ts`) and the exact `@bash` run command.\n\n" +
+        "User flow or component to test:",
+      builtin: true,
+    },
+    {
+      id: "db-migrate",
+      name: "db-migrate",
+      description:
+        "Database Architecture & Migration Engineer: designs normalized schemas, zero-downtime migrations, indexes, and numeric enum mappings.",
+      prompt:
+        "Act as a Principal Database Reliability Engineer (DBRE). Analyze, design, or audit database schemas and migrations:\n\n" +
+        "DATABASE STANDARDS:\n" +
+        "1. Schema Design: 3NF normalization, strict foreign key constraints, composite indexes for search queries, and soft-delete/audit columns.\n" +
+        "2. Enum Columns: map strictly to numeric integers matching application enum definitions.\n" +
+        "3. Zero-Downtime Migrations: safe schema alteration scripts (PostgreSQL / MySQL) that avoid table locks during deployment.\n" +
+        "4. Complete Migration Files: generate ready-to-apply migration files (Prisma, TypeORM, Knex, Drizzle, or Laravel) with up/down methods.\n\n" +
+        "Schema changes or table to design:",
+      builtin: true,
+    },
+    {
+      id: "api-design",
+      name: "api-design",
+      description:
+        "RESTful & OpenAPI 3.1 Architect: generates complete OpenAPI specs, request/response DTOs with Zod schemas, and TypeScript client SDKs.",
+      prompt:
+        "Act as a Principal API Architect. Design a production-grade, RESTful API contract for the requested domain:\n\n" +
+        "API DESIGN SPECIFICATIONS:\n" +
+        "1. RESTful Conventions: consistent HTTP methods, resource naming, standard error shapes (RFC 7807 Problem Details), and cursor/offset pagination.\n" +
+        "2. OpenAPI 3.1 Specification: complete YAML or JSON OpenAPI spec with request bodies, response models, query parameters, and auth security schemes.\n" +
+        "3. Schema Validation & Types: provide matching Zod/Joi validation schemas and TypeScript DTO interfaces for backend & frontend sync.\n" +
+        "4. Client SDK Snippets: provide ergonomic client fetching helper functions.\n\n" +
+        "Domain or feature to design API for:",
+      builtin: true,
+    },
+    {
+      id: "git-pr",
+      name: "git-pr",
+      description:
+        "Git Release & Pull Request Specialist: inspects git diffs, drafts high-signal PR descriptions, and validates conventional commits.",
+      prompt:
+        "Act as a Senior Release Engineer. Review git diffs and craft a complete, production-ready Pull Request description:\n\n" +
+        "PR STRUCTURE:\n" +
+        "1. **Title**: Conventional commit format (`feat:`, `fix:`, `refactor:`, `perf:`).\n" +
+        "2. **Summary**: High-level motivation and business context behind the changes.\n" +
+        "3. **Key Technical Changes**: Bullet points broken down by component/layer.\n" +
+        "4. **Verification & Testing**: Exact automated test results and manual reproduction steps.\n" +
+        "5. **Rollback Plan & Breaking Changes**: Document any backward incompatibilities or DB migration precautions.\n\n" +
+        "Diff or branch changes to summarize:",
+      builtin: true,
+    },
+    {
+      id: "accessibility",
+      name: "accessibility",
+      description:
+        "WCAG 2.1 AA Accessibility Specialist: audits markup for screen readers, keyboard navigation, color contrast, and WAI-ARIA standards.",
+      prompt:
+        "Act as a certified Web Accessibility Specialist (CPACC / WAS). Conduct an exhaustive WCAG 2.1 Level AA compliance audit:\n\n" +
+        "ACCESSIBILITY AUDIT MANDATES:\n" +
+        "1. Keyboard Navigation: full focus trap management for modals, visible focus rings (`:focus-visible`), skip-to-content links, and logical tab orders.\n" +
+        "2. WAI-ARIA & Semantics: proper `aria-expanded`, `aria-controls`, `aria-label`, `role` attributes, and semantic HTML5 replacement for generic `<div>`/`<span>` buttons.\n" +
+        "3. Color Contrast: verify minimum 4.5:1 ratio for normal text and 3:1 for large text / UI elements.\n" +
+        "4. Concrete Accessible Patches: provide drop-in accessible component updates (`[MODIFY]`).\n\n" +
+        "Component or page to audit for accessibility:",
+      builtin: true,
+    },
   ];
 
   function slugify(s) {
@@ -436,6 +512,11 @@
     delegate: "rocket",
     "perf-opt": "zap",
     "security-scan": "alert",
+    "e2e-test": "flask",
+    "db-migrate": "tool",
+    "api-design": "brain",
+    "git-pr": "pen",
+    accessibility: "sparkles",
   };
 
   // Legacy custom skills saved an emoji, not an icon name. Map the common
