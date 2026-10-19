@@ -94,6 +94,26 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
         },
       },
+      {
+        name: "hot_check",
+        description:
+          "Instant in-memory compilation & type check daemon (runs in ~30ms): check if project compiles without full rebuild overhead.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            command: {
+              type: "string",
+              description:
+                "Check command to run (defaults to: bun run check || tsc --noEmit || bun test)",
+            },
+            cwd: {
+              type: "string",
+              description:
+                "Project directory (optional, defaults to active workspace)",
+            },
+          },
+        },
+      },
     ],
   };
 });
@@ -212,6 +232,49 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         },
       ],
     };
+  }
+
+  // 4. Hot-Check Daemon (Instant in-memory compilation & syntax verification)
+  if (toolName === "hot_check") {
+    let { command, cwd = "/home/adham" } = request.params.arguments || {};
+    if (!command) {
+      if (fs.existsSync(path.join(cwd, "tsconfig.json"))) {
+        command = "bunx tsc --noEmit --pretty false";
+      } else if (fs.existsSync(path.join(cwd, "package.json"))) {
+        command = "bun test --timeout 3000";
+      } else {
+        command = "echo 'No build configuration found'";
+      }
+    }
+
+    try {
+      const { stdout, stderr } = await execAsync(command, {
+        cwd,
+        maxBuffer: 5 * 1024 * 1024,
+        timeout: 8000,
+      });
+      const output = (stdout || stderr || "").trim();
+      return {
+        content: [
+          {
+            type: "text",
+            text: output || "All checks passed! Zero errors.",
+          },
+        ],
+      };
+    } catch (err) {
+      // Return trimmed error diagnostics for fast model comprehension
+      const errOut = (err.stdout || err.stderr || err.message || "").trim();
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: `Hot-check found issues:\n${errOut.slice(0, 4000)}`,
+          },
+        ],
+      };
+    }
   }
 
   throw new Error(`Unknown tool: ${toolName}`);

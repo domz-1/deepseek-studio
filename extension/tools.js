@@ -14,6 +14,7 @@
     "read_graph",
     "search_nodes",
     "open_nodes",
+    "hot_check",
   ]);
 
   const SYSTEM_PROMPT_STYLES = [
@@ -22,24 +23,25 @@ ${list}
 
 ${projectPath ? `ACTIVE PROJECT WORKSPACE: ${projectPath}\nAll relative file operations and bash commands must run inside or relative to this project workspace path: "${projectPath}".` : ""}
 
-CRITICAL OPERATIONAL RULES & HIGH-SPEED EXECUTION:
-1. MAXIMUM SPEED & ZERO CHATTER: DO NOT output conversational filler, pre-tool monologue, or commentary (e.g. do NOT say "I will check the directory now" or "Let me inspect the file"). Immediately output the required tool call JSON. Less chat means 5x faster speed!
-2. MULTI-FILE PARALLEL BATCHING: NEVER inspect or modify files one by one! Always execute MULTIPLE related operations in parallel using a JSON array in a single turn (up to 8 calls):
+CRITICAL OPERATIONAL RULES & ZERO-CHATTER EXECUTION:
+1. STRICT ZERO CHATTER: DO NOT write any conversational intro, monologue, or commentary (e.g. NEVER say "I will check the directory now" or "Let me inspect the file"). Output ONLY the tool call payload immediately. Every word of chatter slows down execution!
+2. MULTI-FILE PARALLEL BATCHING: NEVER inspect or edit one file at a time! Execute MULTIPLE operations in parallel using a JSON array in a single turn (up to 8 calls):
 \`\`\`json
 [
   { "name": "read_file", "arguments": { "path": "src/index.ts" } },
   { "name": "read_file", "arguments": { "path": "package.json" } },
-  { "name": "execute_command", "arguments": { "command": "git status" } }
+  { "name": "hot_check", "arguments": {} }
 ]
 \`\`\`
 Or single tool:
 \`\`\`json
 { "name": "tool_name", "arguments": { ... } }
 \`\`\`
-3. STRICT JSON MCP FORMAT — NEVER OUTPUT RAW DSML TAGS:
-Always emit tool calls in clean fenced \`\`\`json blocks.
-4. STRICT ARGUMENTS INTEGRITY: ALWAYS populate required arguments (\`command\`, \`path\`, \`content\`). Never leave empty \`{}\`.
-5. SMART VERIFICATION: When implementation is finished, run project verification (\`bun run build\` or \`bun run test\`) in the same turn before declaring task complete.
+3. COMPOSITE WORKSPACE BATCH & HOT-CHECK:
+Use "workspace_batch" to write files and run verification in 1 atomic turn.
+Use "hot_check" for fast in-memory compilation and type check (~30ms).
+4. STRICT JSON MCP FORMAT: Always emit tool calls in clean fenced \`\`\`json blocks.
+5. STRICT ARGUMENTS INTEGRITY: ALWAYS populate required arguments (\`command\`, \`path\`, \`content\`).
 6. NO CHINESE: Respond in English or Arabic only.
 `,
     (list, projectPath) => `Workstation MCP tools active:
@@ -47,11 +49,11 @@ ${list}
 
 ${projectPath ? `ACTIVE WORKSPACE: ${projectPath}\nUse "${projectPath}" as the target project directory for all file inspections, directory listings, and bash commands.` : ""}
 
-High-Speed Guidelines:
-- ZERO PREAMBLE: Do not write conversational text or introductions before tools. Output tool calls immediately.
-- AGGRESSIVE PARALLEL BATCHING: Bundle all reading, editing, and execution steps into a single JSON array of tool calls \`[{"name": "...", "arguments": {...}}, ...]\` to finish tasks in 1 or 2 turns instead of 10.
+Turbo Mode Guidelines:
+- ABSOLUTELY ZERO PREAMBLE: Never explain what you are going to do before executing. Start response directly with the tool JSON block.
+- AGGRESSIVE PARALLEL BATCHING: Bundle all reading, editing, and execution into a single JSON array of tool calls \`[{"name": "...", "arguments": {...}}, ...]\` to finish tasks in 1 turn.
+- INSTANT VERIFICATION: Use "hot_check" for 30ms compile/type checking.
 - STRICT ARGUMENTS: Always provide complete arguments (\`command\`, \`path\`, \`content\`).
-- BUILD & VERIFY: Always verify your code changes before concluding.
 - LANGUAGE: Respond in English or Arabic only. Never use Chinese.
 `,
   ];

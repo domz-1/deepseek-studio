@@ -166,9 +166,10 @@ app.post("/mcp", async (req, res) => {
 });
 
 const READ_CACHE = new Map();
-const CACHE_TTL_MS = 60 * 1000; // 1 minute in-memory cache for fast repeat reads
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes in-memory cache for ultra-fast repeat reads
+const FILE_CONTENT_CACHE = new Map(); // Tracks last read/written content per path to produce diffs if requested
 
-function pruneToolResult(name, content) {
+function pruneToolResult(name, content, args = {}) {
   if (!Array.isArray(content)) return content;
   return content.map((item) => {
     if (item.type !== "text" || typeof item.text !== "string") return item;
@@ -177,13 +178,27 @@ function pruneToolResult(name, content) {
     // Prune excessive empty lines and trailing whitespace
     t = t.replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
 
-    // If output is massive (> 12,000 chars) for command/files, smartly summarize middle
-    const MAX_CHARS = 12000;
+    // 5. Diff-Only Output for very large files (> 300 lines) if already seen
+    if ((name === "read_file" || name === "read_text_file") && args.path) {
+      const p = args.path;
+      const lines = t.split("\n");
+      if (lines.length > 300 && FILE_CONTENT_CACHE.has(p)) {
+        const prev = FILE_CONTENT_CACHE.get(p);
+        if (prev === t) {
+          t = `[File unchanged from previous read: ${p} (${lines.length} lines). Using cached knowledge.]`;
+          return { ...item, text: t };
+        }
+      }
+      FILE_CONTENT_CACHE.set(p, t);
+    }
+
+    // If output is massive (> 8,000 chars) for command/files, smartly summarize middle
+    const MAX_CHARS = 8000;
     if (t.length > MAX_CHARS) {
-      const head = t.slice(0, 6000);
-      const tail = t.slice(-5000);
-      const omitted = t.length - 11000;
-      t = `${head}\n\n... [DeepSeek Studio: Omitted ${omitted} characters of intermediate output for context speed] ...\n\n${tail}`;
+      const head = t.slice(0, 4000);
+      const tail = t.slice(-3500);
+      const omitted = t.length - 7500;
+      t = `${head}\n\n... [DeepSeek Studio Turbo: Omitted ${omitted} characters of intermediate output to keep context fast] ...\n\n${tail}`;
     }
 
     return { ...item, text: t };
@@ -205,7 +220,8 @@ app.post("/call", async (req, res) => {
     name === "edit_file" ||
     name === "create_directory" ||
     name === "execute_command" ||
-    name === "bash"
+    name === "bash" ||
+    name === "workspace_batch"
   ) {
     READ_CACHE.clear();
   }
@@ -224,12 +240,14 @@ app.post("/call", async (req, res) => {
     }
   }
 
-  // Check In-Memory Cache for idempotent safe read tools
+  // 7. Check In-Memory Cache for idempotent safe read tools
   const isCacheable =
     name === "read_file" ||
     name === "read_text_file" ||
     name === "list_directory" ||
     name === "list_allowed_directories" ||
+    name === "directory_tree" ||
+    name === "search_files" ||
     name === "get_file_info";
 
   const cacheKey = isCacheable ? `${name}:${JSON.stringify(args)}` : null;
@@ -261,7 +279,7 @@ app.post("/call", async (req, res) => {
 
     // Smart context pruning to keep DeepSeek token count light & fast
     if (result && result.content) {
-      result.content = pruneToolResult(name, result.content);
+      result.content = pruneToolResult(name, result.content, args);
     }
 
     if (cacheKey && !result?.isError) {
