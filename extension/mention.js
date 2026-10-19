@@ -219,5 +219,8 @@
   root.DSMention = {
     getProjectSkeleton,
     attachInputMentionInterceptor,
+    attachInputMentionInterface: attachInputMentionInterceptor,
+    getChatInput: () => root.DSState.getChatInput(),
+    setInputValue: (el, val) => root.DSState.setInputValue(el, val),
   };
 })(window);

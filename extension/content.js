@@ -495,7 +495,11 @@
             if (data?.isError) {
               if (data.isCancelled)
                 throw new Error("Task was cancelled by user");
-              throw new Error(data.error || "Execution failed");
+              const errMsg =
+                data.error ||
+                (Array.isArray(data.content) && data.content[0]?.text) ||
+                "Execution failed";
+              throw new Error(errMsg);
             }
             return {
               name: payload.name,
@@ -633,7 +637,11 @@
       const data = bgRes.data;
       if (data?.isError) {
         if (data.isCancelled) throw new Error("Task was cancelled by user");
-        throw new Error(data.error || "Execution failed");
+        const errMsg =
+          data.error ||
+          (Array.isArray(data.content) && data.content[0]?.text) ||
+          "Execution failed";
+        throw new Error(errMsg);
       }
 
       if (targetEl) {

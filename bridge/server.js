@@ -274,6 +274,17 @@ app.post("/call", async (req, res) => {
     return res.status(404).json({ error: `Tool ${name} not found` });
   }
 
+  // Auto-alias common parameter variations
+  if (
+    !args.path &&
+    (args.file || args.filename || args.filePath || args.targetPath)
+  ) {
+    args.path = args.file || args.filename || args.filePath || args.targetPath;
+  }
+  if (!args.command && (args.cmd || args.script)) {
+    args.command = args.cmd || args.script;
+  }
+
   // Pre-snapshot file before any writing or patching for instant 1-click Undo:
   if (
     (name === "write_file" || name === "edit_file" || name === "smart_patch") &&
@@ -284,6 +295,25 @@ app.post("/call", async (req, res) => {
         ? path.resolve(project, args.path)
         : args.path;
     recordFileSnapshot(resolvedP);
+  }
+
+  // Validate required path parameter to provide actionable feedback instead of crashing
+  const requiresPath = [
+    "write_file",
+    "edit_file",
+    "read_file",
+    "read_text_file",
+    "smart_patch",
+    "get_file_info",
+  ];
+  if (requiresPath.includes(name) && !args.path) {
+    const msg = `Validation Error: Tool '${name}' requires a 'path' parameter. Example: { "path": "path/to/file", "content": "..." }`;
+    console.warn(`[Bridge] ${msg}`);
+    return res.status(400).json({
+      error: msg,
+      content: [{ type: "text", text: msg }],
+      isError: true,
+    });
   }
 
   // Invalidate read cache on file writes or modifications
@@ -396,7 +426,13 @@ app.post("/call", async (req, res) => {
         isCancelled: true,
       });
     } else {
-      res.status(500).json({ error: err.message, isError: true });
+      res.status(500).json({
+        error: err.message,
+        content: [
+          { type: "text", text: `MCP Tool Error [${name}]: ${err.message}` },
+        ],
+        isError: true,
+      });
     }
   } finally {
     runningCalls.delete(activeId);
