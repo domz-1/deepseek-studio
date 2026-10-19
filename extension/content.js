@@ -1365,8 +1365,8 @@ function renderPermissionCard(
     ) {
       targetEl.style.display = "none";
     } else {
-      // It is a div.ds-markdown container where DSML was printed as raw text
-      // Hide or strip the DSML tags from the DOM content
+      // It is a div.ds-markdown container where DSML or XML tags were printed as raw text
+      // Hide or strip the tool call tags from the DOM content
       try {
         const rawHtml = targetEl.innerHTML;
         const cleanedHtml = rawHtml
@@ -1383,8 +1383,10 @@ function renderPermissionCard(
             /(&lt;|<)\/[\|\uff5c\s]*DSML[\|\uff5c\s]*calls(&gt;|>)/gi,
             "",
           )
-          .replace(/(&lt;|<)tool_call(?:s)?(&gt;|>)/gi, "")
-          .replace(/(&lt;|<)\/tool_call(?:s)?(&gt;|>)/gi, "");
+          .replace(
+            /(&lt;|<)\/?(tool_calls?|function_calls?|call|invoke|action|mcp_call)(?:\s+[^>]*?)?(&gt;|>)/gi,
+            "",
+          );
         if (cleanedHtml.trim() !== rawHtml.trim()) {
           targetEl.innerHTML = cleanedHtml;
         }
@@ -1781,11 +1783,17 @@ function scanMessages() {
       }
     }
 
-    // 2. Check for standard MCP tool calls (JSON, DeepSeek DSML, or <tool_call> tags)
+    // 2. Check for standard MCP tool calls (JSON, DeepSeek DSML, or generic tool tags)
     if (
       !text.includes("name") &&
       !text.includes("invoke") &&
-      !text.includes("tool_call")
+      !text.includes("tool_call") &&
+      !text.includes("function_call") &&
+      !text.includes("<bash>") &&
+      !text.includes("<sh>") &&
+      !text.includes("<execute_command>") &&
+      !text.includes("```json") &&
+      !text.includes("DSML")
     )
       return;
 

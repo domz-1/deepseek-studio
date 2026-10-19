@@ -142,7 +142,22 @@ Guidelines:
       } catch (_) {}
     }
 
-    // 2. Try parsing single JSON object
+    // 2. Try parsing single or multiple JSON objects with regex (e.g. {"name": "...", "arguments": {...}})
+    // Also handles cases where JSON is directly in the text without markdown blocks or XML wrappers:
+    const directObjRegex =
+      /\{\s*"name"\s*:\s*"([^"]+)"\s*,\s*"arguments"\s*:\s*(\{[\s\S]*?\})\s*\}/g;
+    let directMatch;
+    while ((directMatch = directObjRegex.exec(text)) !== null) {
+      try {
+        const name = directMatch[1].trim();
+        const args = JSON.parse(directMatch[2]);
+        if (name) {
+          calls.push({ name, arguments: args || {} });
+        }
+      } catch (_) {}
+    }
+    if (calls.length) return calls;
+
     const objStart = text.indexOf("{");
     const objEnd = text.lastIndexOf("}");
     if (objStart !== -1 && objEnd !== -1 && objEnd > objStart) {
@@ -221,12 +236,15 @@ Guidelines:
       }
     }
 
-    // 4. Try parsing <tool_call> or <tool_calls> wrappers:
-    // e.g. <tool_call>{"name": "write_file", "arguments": {...}}</tool_call>
-    const toolCallRegex = /<tool_call(?:s)?>([\s\S]*?)<\/tool_call(?:s)?>/gi;
-    let tcMatch;
-    while ((tcMatch = toolCallRegex.exec(text)) !== null) {
-      const body = tcMatch[1].trim();
+    // 4. Try parsing generic tool call tags:
+    // e.g. <tool_call>, <tool_calls>, <function_call>, <function_calls>, <call>, <invoke>, <action>, <tool>, <mcp_call>
+    const genericTagRegex =
+      /<(tool_calls?|function_calls?|call|invoke|action|tool|mcp_call)(?:\s+[^>]*)?>([\s\S]*?)<\/\1>/gi;
+    let gtMatch;
+    while ((gtMatch = genericTagRegex.exec(text)) !== null) {
+      const body = gtMatch[2].trim();
+
+      // Check if body is JSON (object or array)
       try {
         const parsed = JSON.parse(body);
         if (Array.isArray(parsed)) {
@@ -238,7 +256,58 @@ Guidelines:
         } else if (parsed && parsed.name) {
           calls.push({ name: parsed.name, arguments: parsed.arguments || {} });
         }
-      } catch (_) {}
+      } catch (_) {
+        // Body might have inner JSON block or raw JSON object
+        const innerJsonMatch = body.match(/\{[\s\S]*\}/);
+        if (innerJsonMatch) {
+          try {
+            const innerParsed = JSON.parse(innerJsonMatch[0]);
+            if (innerParsed && innerParsed.name) {
+              calls.push({
+                name: innerParsed.name,
+                arguments: innerParsed.arguments || {},
+              });
+            }
+          } catch (e) {}
+        }
+
+        // Body might have XML parameters: <parameter name="...">...</parameter> or <param name="...">...</param>
+        const xmlParamRegex =
+          /<(?:parameter|param)\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)<\/(?:parameter|param)>/gi;
+        let pMatch;
+        const xmlArgs = {};
+        while ((pMatch = xmlParamRegex.exec(body)) !== null) {
+          const pName = pMatch[1].trim();
+          let pVal = pMatch[2].trim();
+          try {
+            pVal = JSON.parse(pVal);
+          } catch (_) {}
+          xmlArgs[pName] = pVal;
+        }
+
+        // Check if tag itself or body specifies tool name:
+        let name = "";
+        const tagOpening = gtMatch[0].slice(0, gtMatch[0].indexOf(">") + 1);
+        const nameAttrMatch =
+          tagOpening.match(/name=["']([^"']+)["']/i) ||
+          body.match(/name=["']([^"']+)["']/i) ||
+          body.match(/<tool_name>([^<]+)<\/tool_name>/i);
+        if (nameAttrMatch) {
+          name = nameAttrMatch[1].trim();
+        }
+
+        if ((name === "filesystem" || name === "fs") && xmlArgs.command) {
+          name = xmlArgs.command;
+          delete xmlArgs.command;
+        }
+        if (name === "bash" && !xmlArgs.command && xmlArgs.cmd) {
+          xmlArgs.command = xmlArgs.cmd;
+        }
+
+        if (name) {
+          calls.push({ name, arguments: xmlArgs });
+        }
+      }
     }
     if (calls.length) return calls;
 
