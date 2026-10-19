@@ -236,7 +236,7 @@ function getSendButton() {
 
 let lastSentMessage = "";
 let lastActivityTime = Date.now();
-const INACTIVITY_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+const INACTIVITY_TIMEOUT_MS = 90 * 1000; // 90 seconds responsive watchdog heartbeat
 const GRILL_AUTO_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
 function recordActivity() {
@@ -1108,11 +1108,11 @@ setInterval(checkAndProcessQueue, 1500);
 
 const HUMAN_RESULT_TEMPLATES = [
   (name, out) =>
-    `Output of ${name}:\n\`\`\`json\n${out}\n\`\`\`\nAnalyze this result and proceed with the next tool call or action to finish the task.`,
+    `Output of ${name}:\n\`\`\`json\n${out}\n\`\`\`\nProceed immediately with the next tool call autonomously without conversational preamble until task is 100% complete.`,
   (name, out) =>
-    `Results for ${name}:\n\`\`\`json\n${out}\n\`\`\`\nContinue executing the next step autonomously until complete.`,
+    `Results for ${name}:\n\`\`\`json\n${out}\n\`\`\`\nContinue executing the next step autonomously. Keep reasoning under 50 words and emit the tool block immediately.`,
   (name, out) =>
-    `Tool ${name} completed:\n\`\`\`json\n${out}\n\`\`\`\nCheck the output and proceed with the next tool call.`,
+    `Tool ${name} completed:\n\`\`\`json\n${out}\n\`\`\`\nProceed autonomously to the next action.`,
 ];
 
 // Batch Tool execution & card rendering

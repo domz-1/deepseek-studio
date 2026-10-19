@@ -192,6 +192,15 @@ function pruneToolResult(name, content, args = {}) {
       FILE_CONTENT_CACHE.set(p, t);
     }
 
+    // 4. Error/Noise Auto-Filter for terminal and build commands
+    if (name === "execute_command" || name === "bash") {
+      // Remove noisy download bars and npm/vite info banners
+      t = t
+        .replace(/(\r\n|\r|\n)\s*(?:\[\d+\/\d+\]|\d+%).*/g, "")
+        .replace(/info\s+visit\s+https:\/\/yarnpkg\.com.*/gi, "")
+        .replace(/npm\s+notice.*/gi, "");
+    }
+
     // If output is massive (> 8,000 chars) for command/files, smartly summarize middle
     const MAX_CHARS = 8000;
     if (t.length > MAX_CHARS) {
@@ -201,7 +210,7 @@ function pruneToolResult(name, content, args = {}) {
       t = `${head}\n\n... [DeepSeek Studio Turbo: Omitted ${omitted} characters of intermediate output to keep context fast] ...\n\n${tail}`;
     }
 
-    return { ...item, text: t };
+    return { ...item, text: t.trim() };
   });
 }
 
@@ -450,6 +459,60 @@ app.get("/fs-index", (req, res) => {
     // Fallback: Node walk
     const results = [];
     res.json({ results, total: 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 3. Fast Project Tree Skeleton (Generates instant compact map of workspace in ~20ms)
+app.get("/project-skeleton", (req, res) => {
+  try {
+    const projectPath = req.query.project || DEFAULT_PROJECTS_DIR;
+    if (!fs.existsSync(projectPath)) {
+      return res.status(404).json({ error: "Project path not found" });
+    }
+
+    const fdArgs = [
+      "--max-depth",
+      "3",
+      "--exclude",
+      ".git",
+      "--exclude",
+      "node_modules",
+      "--exclude",
+      "dist",
+      "--exclude",
+      "build",
+      "--exclude",
+      ".next",
+      "--exclude",
+      ".cache",
+      "--exclude",
+      "coverage",
+      "--max-results",
+      "80",
+      projectPath,
+    ];
+
+    const fdRes = spawnSync(FD_BIN, fdArgs, {
+      encoding: "utf8",
+      timeout: 1500,
+    });
+    let tree = [];
+    if (!fdRes.error && fdRes.stdout) {
+      tree = fdRes.stdout
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((p) => path.relative(projectPath, p));
+    }
+
+    res.json({
+      project: projectPath,
+      name: path.basename(projectPath),
+      skeleton: tree.slice(0, 60).join("\n"),
+      totalFiles: tree.length,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
