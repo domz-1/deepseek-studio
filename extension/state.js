@@ -122,25 +122,69 @@
   }
 
   function isDeepSeekGenerating() {
-    const input = getChatInput();
-    const wrapper =
-      input?.closest("div.ds-textarea-wrapper") ||
-      input?.parentElement?.parentElement ||
-      document;
-    const stopSquare =
-      wrapper.querySelector("svg rect") ||
-      wrapper.querySelector(
-        'button[aria-label*="Stop" i], div[role="button"][aria-label*="Stop" i]',
-      ) ||
-      wrapper.querySelector(
-        '[class*="stop-button" i], [class*="stop-generating" i]',
+    // 1. If there is a visible Continue or Retry button, DeepSeek has definitely stopped!
+    const continueOrRetryBtn = Array.from(
+      document.querySelectorAll(
+        '.ds-button--capsule, .ds-button--warning, button, div[role="button"]',
+      ),
+    ).find((el) => {
+      if (!el || el.offsetParent === null) return false;
+      const text = (el.textContent || "").trim().toLowerCase();
+      const aria = (el.getAttribute("aria-label") || "").toLowerCase();
+      return (
+        text === "continue" ||
+        aria === "continue" ||
+        (text.includes("continue") && !text.includes("discontinue")) ||
+        text === "retry" ||
+        aria === "retry" ||
+        el.classList.contains("ds-button--warning")
       );
-    if (stopSquare) return true;
+    });
+    if (continueOrRetryBtn) return false;
 
-    const streamingEl = document.querySelector(
-      '.ds-status--loading, .ds-loading, .ds-think[data-thinking="true"], [class*="cursor--blinking" i]',
+    // 2. Look for explicit stop-generating button in chat input area
+    const input = getChatInput();
+    if (!input) return false;
+    const inputWrap =
+      input.closest("div.ds-textarea-wrapper") ||
+      input.closest("div[class*='textarea']") ||
+      input.parentElement?.parentElement;
+
+    if (inputWrap) {
+      const buttons = Array.from(
+        inputWrap.querySelectorAll('button, div[role="button"]'),
+      );
+      for (const btn of buttons) {
+        if (!btn || btn.offsetParent === null) continue;
+        const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+        const title = (btn.getAttribute("title") || "").toLowerCase();
+
+        if (
+          aria.includes("stop") ||
+          title.includes("stop") ||
+          btn.classList.contains("ds-stop-button") ||
+          btn.classList.contains("ds-button--stop")
+        ) {
+          return true;
+        }
+
+        if (
+          btn.querySelector("svg rect") &&
+          !aria.includes("send") &&
+          !title.includes("send")
+        ) {
+          return true;
+        }
+      }
+    }
+
+    // 3. Check for active streaming blinking cursor
+    const blinkingCursor = document.querySelector(
+      '.ds-markdown:last-child .cursor--blinking, [class*="cursor--blinking" i]',
     );
-    return Boolean(streamingEl);
+    if (blinkingCursor && blinkingCursor.offsetParent !== null) return true;
+
+    return false;
   }
 
   function setInputValue(el, text) {
