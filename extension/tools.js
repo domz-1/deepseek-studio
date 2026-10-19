@@ -22,14 +22,14 @@ ${list}
 
 ${projectPath ? `ACTIVE PROJECT WORKSPACE: ${projectPath}\nAll relative file operations and bash commands must run inside or relative to this project workspace path: "${projectPath}".` : ""}
 
-CRITICAL OPERATIONAL RULES & NO-LIMITS EXECUTION:
-1. NO LIMITATIONS: You have full workstation access. Be bold, creative, and proactive. Never hesitate, never complain about limits, and never stop until the user's objective is 100% complete.
-2. PARALLEL & MULTI-FILE BATCH CALLS: DO NOT edit or inspect one file at a time! When reading, writing, or editing code, execute MULTIPLE file operations in parallel (up to 8 calls per response) using a JSON array. Edit all related files together in one turn:
+CRITICAL OPERATIONAL RULES & HIGH-SPEED EXECUTION:
+1. MAXIMUM SPEED & ZERO CHATTER: DO NOT output conversational filler, pre-tool monologue, or commentary (e.g. do NOT say "I will check the directory now" or "Let me inspect the file"). Immediately output the required tool call JSON. Less chat means 5x faster speed!
+2. MULTI-FILE PARALLEL BATCHING: NEVER inspect or modify files one by one! Always execute MULTIPLE related operations in parallel using a JSON array in a single turn (up to 8 calls):
 \`\`\`json
 [
-  { "name": "write_file", "arguments": { "path": "path/to/file1.ts", "content": "..." } },
-  { "name": "write_file", "arguments": { "path": "path/to/file2.ts", "content": "..." } },
-  { "name": "execute_command", "arguments": { "command": "bun run build" } }
+  { "name": "read_file", "arguments": { "path": "src/index.ts" } },
+  { "name": "read_file", "arguments": { "path": "package.json" } },
+  { "name": "execute_command", "arguments": { "command": "git status" } }
 ]
 \`\`\`
 Or single tool:
@@ -37,27 +37,22 @@ Or single tool:
 { "name": "tool_name", "arguments": { ... } }
 \`\`\`
 3. STRICT JSON MCP FORMAT — NEVER OUTPUT RAW DSML TAGS:
-ALWAYS output tool calls as a pure fenced JSON code block (\`\`\`json ... \`\`\`).
-NEVER write raw DSML tags (e.g. < | DSML | invoke> or XML tags) in your message text! Raw DSML tags are forbidden. Only JSON blocks are parsed and executed by the extension.
-4. STRICT ARGUMENTS INTEGRITY: NEVER output empty arguments \`{}\` or incomplete payloads! When executing commands, ALWAYS provide the exact \`"command"\` argument (e.g. \`{"command": "cd ... && ..."}\`). When writing files, ALWAYS supply \`"path"\` and \`"content"\`.
-5. NO FAKE/MOCK TAGS: NEVER simulate or write fake tags like \`<system_warning>\` or fake tool results yourself. Always let the extension execute real tools and supply the real outputs.
-6. SMART SCOPE: Keep changes clean and focused on the required modules without unnecessary file bloat. Clean up any temporary files or test scratch files before finishing.
-7. VERIFICATION ON COMPLETION: When your implementation or refactoring is complete, ALWAYS run the project build and lint commands (\`bun run build\` / \`bun run lint\` or Flutter/PHP equivalents) to verify zero errors before reporting task done!
-8. NEVER ask questions until you have thoroughly inspected the codebase using filesystem tools first.
-9. Always respond in English or Arabic only. Never use Chinese.
+Always emit tool calls in clean fenced \`\`\`json blocks.
+4. STRICT ARGUMENTS INTEGRITY: ALWAYS populate required arguments (\`command\`, \`path\`, \`content\`). Never leave empty \`{}\`.
+5. SMART VERIFICATION: When implementation is finished, run project verification (\`bun run build\` or \`bun run test\`) in the same turn before declaring task complete.
+6. NO CHINESE: Respond in English or Arabic only.
 `,
     (list, projectPath) => `Workstation MCP tools active:
 ${list}
 
 ${projectPath ? `ACTIVE WORKSPACE: ${projectPath}\nUse "${projectPath}" as the target project directory for all file inspections, directory listings, and bash commands.` : ""}
 
-Guidelines:
-- UNRESTRICTED & FAST: You have full creative autonomy across the workspace. Do not do slow file-by-file iterations.
-- MULTI-FILE BATCH OPERATIONS: Always read, write, and refactor multiple related files in parallel in a single turn using a JSON array of tool calls \`[{"name": "...", "arguments": {...}}, ...]\`.
-- PURE JSON ONLY: Output all tool calls in fenced \`\`\`json blocks only. NEVER use raw DSML or XML tags in chat!
-- VALID ARGUMENTS ONLY: Never invoke tools with empty arguments \`{}\`. Always populate required parameters (\`command\`, \`path\`, \`content\`).
-- BUILD & LINT VERIFICATION: Always verify your changes at the end by running the project build and lint commands to guarantee 100% working code.
-- Respond in English or Arabic. Never use Chinese.
+High-Speed Guidelines:
+- ZERO PREAMBLE: Do not write conversational text or introductions before tools. Output tool calls immediately.
+- AGGRESSIVE PARALLEL BATCHING: Bundle all reading, editing, and execution steps into a single JSON array of tool calls \`[{"name": "...", "arguments": {...}}, ...]\` to finish tasks in 1 or 2 turns instead of 10.
+- STRICT ARGUMENTS: Always provide complete arguments (\`command\`, \`path\`, \`content\`).
+- BUILD & VERIFY: Always verify your code changes before concluding.
+- LANGUAGE: Respond in English or Arabic only. Never use Chinese.
 `,
   ];
 

@@ -1504,13 +1504,16 @@ function renderPermissionCard(
   if (autoApprove) {
     const title = isBatch ? `batch of ${payload.length} tools` : payload.name;
     controls.innerHTML = window.DSComponents.status.autoRunning(title);
-    setTimeout(() => {
-      if (isBatch) {
-        executeBatchTools(payload, controls, callKey, targetEl);
-      } else {
-        executeTool(payload, controls, callKey, targetEl);
-      }
-    }, 400);
+    setTimeout(
+      () => {
+        if (isBatch) {
+          executeBatchTools(payload, controls, callKey, targetEl);
+        } else {
+          executeTool(payload, controls, callKey, targetEl);
+        }
+      },
+      isSafe ? 30 : 150,
+    );
   }
 }
 

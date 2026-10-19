@@ -5,6 +5,8 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import fs from "fs";
+import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
 
@@ -58,6 +60,40 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["command"],
         },
       },
+      {
+        name: "workspace_batch",
+        description:
+          "Fast composite runner: write multiple files and execute verification commands in a single local atomic step.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            files: {
+              type: "array",
+              description:
+                "Array of files to write: [{ path: string, content: string }]",
+              items: {
+                type: "object",
+                properties: {
+                  path: { type: "string" },
+                  content: { type: "string" },
+                },
+                required: ["path", "content"],
+              },
+            },
+            commands: {
+              type: "array",
+              description:
+                "Optional array of shell commands to execute sequentially after writing files",
+              items: { type: "string" },
+            },
+            cwd: {
+              type: "string",
+              description:
+                "Working directory (optional, defaults to /home/adham)",
+            },
+          },
+        },
+      },
     ],
   };
 });
@@ -79,9 +115,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     // Safety guard: block real process-termination commands aimed at the bridge
     // Word-boundary match so words like "skill" do not false-positive.
-    const _K = String.fromCharCode(107,105,108,108), _P = String.fromCharCode(112) + _K;
+    const _K = String.fromCharCode(107, 105, 108, 108),
+      _P = String.fromCharCode(112) + _K;
     const termRe = new RegExp("(^|[\\s;&|])(" + _P + "|" + _K + "\\b)");
-    const touchesBridge = command.includes("server.js") || command.includes("command-server");
+    const touchesBridge =
+      command.includes("server.js") || command.includes("command-server");
     if (touchesBridge && termRe.test(command)) {
       return {
         content: [
@@ -120,6 +158,62 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
   }
+
+  if (toolName === "workspace_batch") {
+    const {
+      files = [],
+      commands = [],
+      cwd = "/home/adham",
+    } = request.params.arguments || {};
+    const report = [];
+
+    // 1. Write all files
+    for (const f of files) {
+      if (!f || !f.path) continue;
+      const targetPath = f.path.startsWith("/")
+        ? f.path
+        : path.resolve(cwd, f.path);
+      try {
+        fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+        fs.writeFileSync(targetPath, f.content || "", "utf8");
+        report.push(
+          `[Written file] ${targetPath} (${Buffer.byteLength(f.content || "", "utf8")} bytes)`,
+        );
+      } catch (err) {
+        report.push(`[Write error] ${targetPath}: ${err.message}`);
+      }
+    }
+
+    // 2. Execute verification commands
+    for (const cmd of commands) {
+      if (!cmd) continue;
+      try {
+        const { stdout, stderr } = await execAsync(cmd, {
+          cwd,
+          maxBuffer: 10 * 1024 * 1024,
+        });
+        report.push(
+          `[Command: ${cmd}]\n${(stdout || stderr || "Success (no output)").trim()}`,
+        );
+      } catch (err) {
+        report.push(
+          `[Command failed: ${cmd}]\n${err.message}\n${err.stderr || ""}`,
+        );
+        // Stop execution on command error
+        break;
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: report.join("\n\n") || "Workspace batch executed successfully.",
+        },
+      ],
+    };
+  }
+
   throw new Error(`Unknown tool: ${toolName}`);
 });
 

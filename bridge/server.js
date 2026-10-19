@@ -165,6 +165,31 @@ app.post("/mcp", async (req, res) => {
   }
 });
 
+const READ_CACHE = new Map();
+const CACHE_TTL_MS = 60 * 1000; // 1 minute in-memory cache for fast repeat reads
+
+function pruneToolResult(name, content) {
+  if (!Array.isArray(content)) return content;
+  return content.map((item) => {
+    if (item.type !== "text" || typeof item.text !== "string") return item;
+    let t = item.text;
+
+    // Prune excessive empty lines and trailing whitespace
+    t = t.replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
+
+    // If output is massive (> 12,000 chars) for command/files, smartly summarize middle
+    const MAX_CHARS = 12000;
+    if (t.length > MAX_CHARS) {
+      const head = t.slice(0, 6000);
+      const tail = t.slice(-5000);
+      const omitted = t.length - 11000;
+      t = `${head}\n\n... [DeepSeek Studio: Omitted ${omitted} characters of intermediate output for context speed] ...\n\n${tail}`;
+    }
+
+    return { ...item, text: t };
+  });
+}
+
 app.post("/call", async (req, res) => {
   const { name, arguments: args = {}, callId, project } = req.body;
   console.log(`[Bridge] Incoming /call: ${name}`, JSON.stringify(args || {}));
@@ -172,6 +197,17 @@ app.post("/call", async (req, res) => {
   if (!target) {
     console.error(`[Bridge] Tool ${name} not found!`);
     return res.status(404).json({ error: `Tool ${name} not found` });
+  }
+
+  // Invalidate read cache on file writes or modifications
+  if (
+    name === "write_file" ||
+    name === "edit_file" ||
+    name === "create_directory" ||
+    name === "execute_command" ||
+    name === "bash"
+  ) {
+    READ_CACHE.clear();
   }
 
   // If a project is specified and arguments contain relative paths or missing cwd, resolve them
@@ -188,6 +224,28 @@ app.post("/call", async (req, res) => {
     }
   }
 
+  // Check In-Memory Cache for idempotent safe read tools
+  const isCacheable =
+    name === "read_file" ||
+    name === "read_text_file" ||
+    name === "list_directory" ||
+    name === "list_allowed_directories" ||
+    name === "get_file_info";
+
+  const cacheKey = isCacheable ? `${name}:${JSON.stringify(args)}` : null;
+  if (cacheKey && READ_CACHE.has(cacheKey)) {
+    const entry = READ_CACHE.get(cacheKey);
+    if (Date.now() - entry.time < CACHE_TTL_MS) {
+      console.log(`[Bridge] Cache hit for ${name} (instant RAM response)`);
+      return res.json({
+        ...entry.result,
+        callId: callId || "cached",
+        fromCache: true,
+      });
+    }
+    READ_CACHE.delete(cacheKey);
+  }
+
   const activeId =
     callId || `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   const abortController = new AbortController();
@@ -200,6 +258,16 @@ app.post("/call", async (req, res) => {
       CallToolResultSchema,
       { signal: abortController.signal },
     );
+
+    // Smart context pruning to keep DeepSeek token count light & fast
+    if (result && result.content) {
+      result.content = pruneToolResult(name, result.content);
+    }
+
+    if (cacheKey && !result?.isError) {
+      READ_CACHE.set(cacheKey, { result, time: Date.now() });
+    }
+
     console.log(`[Bridge] Success /call: ${name}`);
     res.json({ ...result, callId: activeId });
   } catch (err) {
