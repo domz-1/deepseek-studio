@@ -21,8 +21,29 @@
   let isTaskActive = false;
   let lastMessageSentTime = 0;
   let bypassCooldown = false;
-  const SAFE_INTERVAL_MS = 30 * 1000;
-  const INACTIVITY_TIMEOUT_MS = 40 * 1000;
+  let SAFE_INTERVAL_MS = parseInt(
+    localStorage.getItem("deepseek_mcp_safe_interval") || String(30 * 1000),
+    10,
+  );
+  if (SAFE_INTERVAL_MS > 120000) {
+    SAFE_INTERVAL_MS = 30 * 1000;
+    localStorage.setItem(
+      "deepseek_mcp_safe_interval",
+      String(SAFE_INTERVAL_MS),
+    );
+  }
+  let INACTIVITY_TIMEOUT_MS = parseInt(
+    localStorage.getItem("deepseek_mcp_inactivity_timeout") ||
+      String(40 * 1000),
+    10,
+  );
+  if (INACTIVITY_TIMEOUT_MS > 120000) {
+    INACTIVITY_TIMEOUT_MS = 40 * 1000;
+    localStorage.setItem(
+      "deepseek_mcp_inactivity_timeout",
+      String(INACTIVITY_TIMEOUT_MS),
+    );
+  }
   const GRILL_AUTO_TIMEOUT_MS = 2 * 60 * 1000;
 
   // Track user scroll manually so auto-scroll doesn't fight the user if they scroll up
@@ -283,6 +304,13 @@
     bypassCooldown = true;
   }
 
+  function setSafeInterval(ms) {
+    SAFE_INTERVAL_MS = ms;
+    INACTIVITY_TIMEOUT_MS = ms;
+    localStorage.setItem("deepseek_mcp_safe_interval", String(ms));
+    localStorage.setItem("deepseek_mcp_inactivity_timeout", String(ms));
+  }
+
   async function sendText(text, isUserInput = false) {
     if (isSending) return;
     isSending = true;
@@ -501,8 +529,19 @@
     set isTaskActive(v) {
       isTaskActive = v;
     },
-    SAFE_INTERVAL_MS,
-    INACTIVITY_TIMEOUT_MS,
+    get SAFE_INTERVAL_MS() {
+      return SAFE_INTERVAL_MS;
+    },
+    set SAFE_INTERVAL_MS(v) {
+      SAFE_INTERVAL_MS = v;
+    },
+    get INACTIVITY_TIMEOUT_MS() {
+      return INACTIVITY_TIMEOUT_MS;
+    },
+    set INACTIVITY_TIMEOUT_MS(v) {
+      INACTIVITY_TIMEOUT_MS = v;
+    },
+    setSafeInterval,
     GRILL_AUTO_TIMEOUT_MS,
     skipCooldown,
     get lastMessageSentTime() {

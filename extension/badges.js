@@ -176,6 +176,30 @@
             console.log("[DS Studio] Watchdog module initializing...");
           }
         };
+
+        watchdogBtn.oncontextmenu = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const intervals = [
+            { label: "30s", ms: 30 * 1000 },
+            { label: "15s", ms: 15 * 1000 },
+            { label: "45s", ms: 45 * 1000 },
+            { label: "60s", ms: 60 * 1000 },
+            { label: "10s", ms: 10 * 1000 },
+          ];
+          const currentMs = window.DSState?.SAFE_INTERVAL_MS || 30 * 1000;
+          const currIdx = intervals.findIndex((item) => item.ms === currentMs);
+          const nextItem = intervals[(currIdx + 1) % intervals.length];
+          if (typeof window.DSState?.setSafeInterval === "function") {
+            window.DSState.setSafeInterval(nextItem.ms);
+          }
+          if (typeof window.DSWatchdog?.updateWatchdogUI === "function") {
+            window.DSWatchdog.updateWatchdogUI(
+              "idle",
+              `⏱️ Delay: ${nextItem.label}`,
+            );
+          }
+        };
       }
 
       targetParent.parentElement.insertBefore(wrap, targetParent);

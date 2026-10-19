@@ -48,7 +48,7 @@
     return `
       <div class="ds-pills" id="mcp-server-pills"></div>
       <div class="ds-task" id="mcp-task-indicator"></div>
-      <button class="ds-project-btn ds-watchdog-btn" id="mcp-watchdog-btn" type="button" title="Watchdog: Monitors stalled tasks & auto-continues. Click to Restart Timer or Force Continue now.">
+      <button class="ds-project-btn ds-watchdog-btn" id="mcp-watchdog-btn" type="button" title="Watchdog: 30s Safe Anti-Ban Delay. Left-Click: Skip Delay / Force Continue. Right-Click: Change Delay interval.">
         <span class="ds-watchdog-dot"></span>
         <span class="ds-watchdog-label" id="mcp-watchdog-label">⏱️ Watchdog: Ready</span>
         <span class="ds-watchdog-restart-ic" title="Restart Timer / Force Continue">↻</span>
