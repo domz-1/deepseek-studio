@@ -124,6 +124,11 @@
       const mins = Math.floor(remainingMs / 60000);
       const secs = Math.floor((remainingMs % 60000) / 1000);
       lbl.textContent = `⏱️ Continue in ${mins}:${secs < 10 ? "0" : ""}${secs}`;
+    } else if (mode === "cooldown") {
+      btn.classList.add("is-countdown");
+      const mins = Math.floor(remainingMs / 60000);
+      const secs = Math.floor((remainingMs % 60000) / 1000);
+      lbl.textContent = `🛡️ Safe delay: ${mins}:${secs < 10 ? "0" : ""}${secs}`;
     } else if (mode === "triggering") {
       btn.classList.add("is-active");
       lbl.textContent = customText || "⏱️ Resuming chat...";
@@ -163,6 +168,11 @@
 
   function handleWatchdogClick() {
     console.log("[DeepSeek Studio] Watchdog button clicked by user.");
+
+    // If currently in safe cooldown pause, skip it and send immediately!
+    if (root.DSState.skipCooldown) {
+      root.DSState.skipCooldown();
+    }
 
     // 1. If there's an active retry/continue button from DeepSeek, click it immediately!
     const retryHandled = checkAndHandleRetryButton(true);

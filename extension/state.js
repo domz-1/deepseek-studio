@@ -19,6 +19,9 @@
   let lastSentMessage = "";
   let lastActivityTime = Date.now();
   let isTaskActive = false;
+  let lastMessageSentTime = 0;
+  let bypassCooldown = false;
+  const SAFE_INTERVAL_MS = 30 * 1000;
   const INACTIVITY_TIMEOUT_MS = 40 * 1000;
   const GRILL_AUTO_TIMEOUT_MS = 2 * 60 * 1000;
 
@@ -276,6 +279,10 @@
     lastActivityTime = Date.now();
   }
 
+  function skipCooldown() {
+    bypassCooldown = true;
+  }
+
   async function sendText(text, isUserInput = false) {
     if (isSending) return;
     isSending = true;
@@ -288,20 +295,34 @@
       if (!el) return;
 
       if (!isUserInput) {
+        // 1. Wait until DeepSeek finishes generating
         let waited = 0;
-        while (isDeepSeekGenerating() && waited < 15000) {
+        while (isDeepSeekGenerating() && waited < 30000) {
           await new Promise((r) => setTimeout(r, 600));
           waited += 600;
+        }
+
+        // 2. Anti-ban safe throttling (30s) between automated messages
+        bypassCooldown = false;
+        while (!bypassCooldown) {
+          const elapsed = Date.now() - lastMessageSentTime;
+          const remaining = Math.max(0, SAFE_INTERVAL_MS - elapsed);
+          if (remaining <= 0) break;
+
+          if (window.DSWatchdog?.updateWatchdogUI) {
+            window.DSWatchdog.updateWatchdogUI("cooldown", null, remaining);
+          }
+          await new Promise((r) => setTimeout(r, 1000));
         }
       }
 
       setInputValue(el, text);
-      await new Promise((r) => setTimeout(r, 80));
+      await new Promise((r) => setTimeout(r, 120));
 
       const sendBtn = getSendButton();
       if (sendBtn) {
         sendBtn.click();
-        console.log("[MCP] Dispatched message successfully.");
+        console.log("[MCP] Dispatched message safely with anti-ban cooldown.");
       } else {
         const enterEvt = new KeyboardEvent("keydown", {
           key: "Enter",
@@ -313,6 +334,7 @@
         });
         el.dispatchEvent(enterEvt);
       }
+      lastMessageSentTime = Date.now();
     } finally {
       setTimeout(() => {
         isSending = false;
@@ -479,8 +501,13 @@
     set isTaskActive(v) {
       isTaskActive = v;
     },
+    SAFE_INTERVAL_MS,
     INACTIVITY_TIMEOUT_MS,
     GRILL_AUTO_TIMEOUT_MS,
+    skipCooldown,
+    get lastMessageSentTime() {
+      return lastMessageSentTime;
+    },
     scrollToBottom,
     isContextValid,
     fetchActiveTools,
