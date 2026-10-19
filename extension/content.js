@@ -480,6 +480,11 @@ function attachInputMentionInterceptor() {
           const userText = rawVal
             .replace(new RegExp(activeMention, "gi"), "")
             .trim();
+          const sysPrompt = window.DSTools.buildSysPrompt(
+            selectedTools,
+            selectedProject,
+          );
+          const combined = userText ? `${sysPrompt}\n\n${userText}` : sysPrompt;
           sendText(combined, true);
           return;
         }
