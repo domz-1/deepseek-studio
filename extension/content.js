@@ -1369,7 +1369,7 @@ function renderPermissionCard(
       // Hide or strip the tool call tags from the DOM content
       try {
         const rawHtml = targetEl.innerHTML;
-        const cleanedHtml = rawHtml
+        let cleanedHtml = rawHtml
           .replace(
             /(&lt;|<)[\|\uff5c\s]*DSML[\s\S]*?(\/)[\|\uff5c\s]*DSML[\|\uff5c\s]*calls(&gt;|>)/gi,
             "",
@@ -1384,9 +1384,50 @@ function renderPermissionCard(
             "",
           )
           .replace(
-            /(&lt;|<)\/?(tool_calls?|function_calls?|call|invoke|action|mcp_call)(?:\s+[^>]*?)?(&gt;|>)/gi,
+            /(&lt;|<)\/?(tool_calls?|function_calls?|call|calls?|invoke|invokes?|action|actions?|tool|tools?|mcp_call|mcp_calls?)(?:\s+[^>]*?)?(&gt;|>)/gi,
             "",
           );
+
+        // If the entire content was a custom tag or DSML wrapper, strip enclosing custom tags
+        cleanedHtml = cleanedHtml.replace(
+          /(&lt;|<)\/?([a-zA-Z0-9_\-\.:\|]+)(?:\s+[^>]*?)?(&gt;|>)/gi,
+          (match, open, tagName, close) => {
+            const lower = tagName.toLowerCase().replace(/^[|]+|[|]+$/g, "");
+            const standardTags = [
+              "b",
+              "i",
+              "u",
+              "strong",
+              "em",
+              "p",
+              "div",
+              "span",
+              "code",
+              "pre",
+              "a",
+              "li",
+              "ul",
+              "ol",
+              "table",
+              "tr",
+              "td",
+              "th",
+              "h1",
+              "h2",
+              "h3",
+              "h4",
+              "h5",
+              "h6",
+              "blockquote",
+              "hr",
+              "br",
+              "img",
+            ];
+            if (standardTags.includes(lower)) return match;
+            return "";
+          },
+        );
+
         if (cleanedHtml.trim() !== rawHtml.trim()) {
           targetEl.innerHTML = cleanedHtml;
         }
@@ -1783,19 +1824,15 @@ function scanMessages() {
       }
     }
 
-    // 2. Check for standard MCP tool calls (JSON, DeepSeek DSML, or generic tool tags)
-    if (
-      !text.includes("name") &&
-      !text.includes("invoke") &&
-      !text.includes("tool_call") &&
-      !text.includes("function_call") &&
-      !text.includes("<bash>") &&
-      !text.includes("<sh>") &&
-      !text.includes("<execute_command>") &&
-      !text.includes("```json") &&
-      !text.includes("DSML")
-    )
-      return;
+    // 2. Check for tool calls (JSON, DeepSeek DSML, or custom/any XML tags)
+    const hasPossibleCall =
+      text.includes("{") ||
+      text.includes("<") ||
+      text.includes("name") ||
+      text.includes("invoke") ||
+      text.includes("DSML");
+
+    if (!hasPossibleCall) return;
 
     const allCalls = window.DSTools.extractAllMcpCalls
       ? window.DSTools.extractAllMcpCalls(text)

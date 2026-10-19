@@ -236,13 +236,53 @@ Guidelines:
       }
     }
 
-    // 4. Try parsing generic tool call tags:
-    // e.g. <tool_call>, <tool_calls>, <function_call>, <function_calls>, <call>, <invoke>, <action>, <tool>, <mcp_call>
-    const genericTagRegex =
-      /<(tool_calls?|function_calls?|call|invoke|action|tool|mcp_call)(?:\s+[^>]*)?>([\s\S]*?)<\/\1>/gi;
+    // 4. Try parsing ANY custom XML/HTML tag wrapper (e.g. <tool_call>, <function_call>, <custom_tag>, <write_file>, <anything>):
+    const anyTagRegex =
+      /<([a-zA-Z0-9_\-\.:\|]+)(?:\s+[^>]*)?>([\s\S]*?)<\/\1>/gi;
     let gtMatch;
-    while ((gtMatch = genericTagRegex.exec(text)) !== null) {
+    const standardHtmlTags = new Set([
+      "b",
+      "i",
+      "u",
+      "strong",
+      "em",
+      "p",
+      "div",
+      "span",
+      "code",
+      "pre",
+      "a",
+      "li",
+      "ul",
+      "ol",
+      "table",
+      "tr",
+      "td",
+      "th",
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "blockquote",
+      "hr",
+      "br",
+      "img",
+      "style",
+      "script",
+      "head",
+      "body",
+      "html",
+    ]);
+
+    while ((gtMatch = anyTagRegex.exec(text)) !== null) {
+      const rawTag = gtMatch[1];
+      const tagName = rawTag.toLowerCase().replace(/^[|]+|[|]+$/g, "");
       const body = gtMatch[2].trim();
+      const tagOpening = gtMatch[0].slice(0, gtMatch[0].indexOf(">") + 1);
+
+      if (standardHtmlTags.has(tagName)) continue;
 
       // Check if body is JSON (object or array)
       try {
@@ -271,12 +311,16 @@ Guidelines:
           } catch (e) {}
         }
 
+        if (calls.length) continue;
+
         // Body might have XML parameters: <parameter name="...">...</parameter> or <param name="...">...</param>
         const xmlParamRegex =
           /<(?:parameter|param)\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)<\/(?:parameter|param)>/gi;
         let pMatch;
         const xmlArgs = {};
+        let hadXmlArgs = false;
         while ((pMatch = xmlParamRegex.exec(body)) !== null) {
+          hadXmlArgs = true;
           const pName = pMatch[1].trim();
           let pVal = pMatch[2].trim();
           try {
@@ -285,15 +329,49 @@ Guidelines:
           xmlArgs[pName] = pVal;
         }
 
+        // Subtags like <path>...</path>, <content>...</content>
+        if (!hadXmlArgs) {
+          const subTagRegex = /<([a-zA-Z0-9_\-]+)>([\s\S]*?)<\/\1>/gi;
+          let sm;
+          while ((sm = subTagRegex.exec(body)) !== null) {
+            hadXmlArgs = true;
+            const pName = sm[1].trim();
+            let pVal = sm[2].trim();
+            try {
+              pVal = JSON.parse(pVal);
+            } catch (_) {}
+            xmlArgs[pName] = pVal;
+          }
+        }
+
         // Check if tag itself or body specifies tool name:
         let name = "";
-        const tagOpening = gtMatch[0].slice(0, gtMatch[0].indexOf(">") + 1);
         const nameAttrMatch =
           tagOpening.match(/name=["']([^"']+)["']/i) ||
           body.match(/name=["']([^"']+)["']/i) ||
           body.match(/<tool_name>([^<]+)<\/tool_name>/i);
         if (nameAttrMatch) {
           name = nameAttrMatch[1].trim();
+        } else if (
+          ![
+            "tool_call",
+            "tool_calls",
+            "function_call",
+            "function_calls",
+            "call",
+            "calls",
+            "invoke",
+            "invokes",
+            "action",
+            "actions",
+            "tool",
+            "tools",
+            "mcp_call",
+            "mcp_calls",
+            "dsml",
+          ].includes(tagName)
+        ) {
+          name = tagName;
         }
 
         if ((name === "filesystem" || name === "fs") && xmlArgs.command) {
@@ -303,25 +381,38 @@ Guidelines:
         if (name === "bash" && !xmlArgs.command && xmlArgs.cmd) {
           xmlArgs.command = xmlArgs.cmd;
         }
-
-        if (name) {
-          calls.push({ name, arguments: xmlArgs });
+        if (
+          (name === "bash" ||
+            name === "sh" ||
+            name === "shell" ||
+            name === "execute_command") &&
+          !xmlArgs.command &&
+          body &&
+          !hadXmlArgs
+        ) {
+          xmlArgs.command = body;
         }
-      }
-    }
-    if (calls.length) return calls;
 
-    // 5. Try parsing XML/HTML code execution tags:
-    // e.g. <bash>cd ... && tail -4 ...</bash>, <sh>...</sh>, or <execute_command>...</execute_command>
-    const tagRegex = /<(bash|sh|shell|execute_command)>([\s\S]*?)<\/\1>/gi;
-    let tagMatch;
-    while ((tagMatch = tagRegex.exec(text)) !== null) {
-      const cmd = tagMatch[2].trim();
-      if (cmd) {
-        calls.push({
-          name: "execute_command",
-          arguments: { command: cmd },
-        });
+        if (
+          name &&
+          (hadXmlArgs ||
+            Object.keys(xmlArgs).length ||
+            [
+              "execute_command",
+              "bash",
+              "sh",
+              "shell",
+              "list_allowed_directories",
+            ].includes(name))
+        ) {
+          calls.push({
+            name:
+              name === "bash" || name === "sh" || name === "shell"
+                ? "execute_command"
+                : name,
+            arguments: xmlArgs,
+          });
+        }
       }
     }
     if (calls.length) return calls;
