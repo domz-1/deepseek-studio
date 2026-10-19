@@ -238,9 +238,47 @@
     });
   }
 
+  function addProject(rawPath, cb) {
+    if (!rawPath) return;
+    let cleanPath = rawPath.trim();
+    if (cleanPath.startsWith("~")) {
+      cleanPath = `/home/adham${cleanPath.slice(1)}`;
+    }
+    cleanPath = cleanPath.replace(/\/+$/, "");
+
+    const name = cleanPath.split("/").filter(Boolean).pop() || cleanPath;
+    const projectItem = { name: `⭐ ${name}`, path: cleanPath, custom: true };
+
+    // 1. Save in local customs cache
+    let customs = getCustomProjects();
+    const existingIdx = customs.findIndex((c) => c.path === cleanPath);
+    if (existingIdx !== -1) {
+      customs[existingIdx] = projectItem;
+    } else {
+      customs.unshift(projectItem);
+    }
+    localStorage.setItem(
+      "deepseek_mcp_custom_projects",
+      JSON.stringify(customs),
+    );
+
+    // 2. Persist to bridge server
+    try {
+      chrome.runtime.sendMessage(
+        { type: "ADD_PROJECT", path: cleanPath, name },
+        (res) => {
+          if (cb) cb(res?.data?.project || projectItem);
+        },
+      );
+    } catch (_) {
+      if (cb) cb(projectItem);
+    }
+  }
+
   root.DSProjects = {
     getCustomProjects,
     fetchAllProjects,
+    addProject,
     showAddProjectModal,
     updateProjectLabel,
     injectSidebarProjectFilter,

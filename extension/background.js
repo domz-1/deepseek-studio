@@ -54,6 +54,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === "GET_PROJECTS") {
       return await bridgeFetch("/projects");
     }
+    if (msg.type === "ADD_PROJECT") {
+      return await bridgeFetch("/projects", {
+        method: "POST",
+        body: JSON.stringify({ path: msg.path, name: msg.name }),
+      });
+    }
     if (msg.type === "READ_FILE") {
       return await bridgeFetch("/read-file-content", {
         method: "POST",

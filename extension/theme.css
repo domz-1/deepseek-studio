@@ -257,34 +257,83 @@
   }
 }
 
-/* ---- Watchdog countdown chip ---- */
-.ds-watchdog {
-  display: none;
+/* ---- Watchdog interactive button ---- */
+.ds-watchdog-btn {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   background: var(--ds-bg-base);
-  border: 1px solid var(--ds-bg-hover);
+  border: 1px solid var(--ds-border);
   color: var(--ds-fg-muted);
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: var(--ds-radius-pill);
-  font-weight: 500;
   font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
 }
-.ds-watchdog.is-on {
-  display: inline-flex;
+.ds-watchdog-btn:hover {
+  background: var(--ds-bg-hover);
+  color: var(--ds-fg);
+  border-color: var(--ds-accent);
 }
-.ds-watchdog .ds-watchdog-dot {
+.ds-watchdog-btn.is-active {
+  border-color: var(--ds-accent);
+  color: var(--ds-fg);
+  background: rgba(14, 165, 233, 0.08);
+}
+.ds-watchdog-btn.is-countdown {
+  border-color: #f59e0b;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.08);
+}
+.ds-watchdog-btn.is-generating {
+  border-color: #10b981;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+.ds-watchdog-btn.is-done {
+  border-color: #3b82f6;
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.08);
+}
+.ds-watchdog-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
+  background: var(--ds-fg-muted);
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+.ds-watchdog-btn.is-generating .ds-watchdog-dot {
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+  animation: ds-pulse 1s infinite alternate;
+}
+.ds-watchdog-btn.is-countdown .ds-watchdog-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 6px #f59e0b;
+  animation: ds-pulse 0.8s infinite alternate;
+}
+.ds-watchdog-btn.is-active .ds-watchdog-dot {
   background: var(--ds-accent);
   box-shadow: 0 0 5px var(--ds-accent);
-  animation: ds-pulse 1.2s infinite alternate;
 }
-.ds-watchdog .ds-watchdog-time {
-  color: var(--ds-fg);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+.ds-watchdog-btn.is-done .ds-watchdog-dot {
+  background: #3b82f6;
+}
+.ds-watchdog-restart-ic {
+  display: inline-block;
+  font-size: 11px;
+  margin-left: 2px;
+  opacity: 0.7;
+  transition:
+    transform 0.3s ease,
+    opacity 0.2s ease;
+}
+.ds-watchdog-btn:hover .ds-watchdog-restart-ic {
+  opacity: 1;
+  transform: rotate(180deg);
 }
 
 /* ---- Project Select ---- */

@@ -48,7 +48,11 @@
     return `
       <div class="ds-pills" id="mcp-server-pills"></div>
       <div class="ds-task" id="mcp-task-indicator"></div>
-      <div class="ds-watchdog" id="mcp-watchdog-indicator"></div>
+      <button class="ds-project-btn ds-watchdog-btn" id="mcp-watchdog-btn" type="button" title="Watchdog: Monitors stalled tasks & auto-continues. Click to Restart Timer or Force Continue now.">
+        <span class="ds-watchdog-dot"></span>
+        <span class="ds-watchdog-label" id="mcp-watchdog-label">⏱️ Watchdog: Ready</span>
+        <span class="ds-watchdog-restart-ic" title="Restart Timer / Force Continue">↻</span>
+      </button>
       <div class="ds-project-wrap" style="display:inline-flex;align-items:center;gap:6px;margin-left:auto;">
         <button class="ds-project-trigger" id="mcp-project-trigger" type="button" title="Select active workspace">
           <span class="ds-ic" data-ic="folder" style="color:var(--ds-accent);font-size:12px;"></span>

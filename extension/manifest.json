@@ -39,6 +39,7 @@
         "skills.js",
         "ui.js",
         "components.js",
+        "watchdog.js",
         "projects.js",
         "badges.js",
         "execution.js",
@@ -46,7 +47,6 @@
         "scanner.js",
         "mention.js",
         "queue.js",
-        "watchdog.js",
         "content.js"
       ],
       "css": ["theme.css"],

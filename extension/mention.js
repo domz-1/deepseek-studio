@@ -25,6 +25,19 @@
     if (!input || input.__mcpAttached) return;
     input.__mcpAttached = true;
 
+    const sendBtn = root.DSState.getSendButton();
+    if (sendBtn && !sendBtn.__mcpListen) {
+      sendBtn.__mcpListen = true;
+      sendBtn.addEventListener("click", () => {
+        const val = input.value.trim();
+        if (val) {
+          root.DSState.lastSentMessage = val;
+          root.DSState.recordActivity();
+          root.DSState.isTaskActive = true;
+        }
+      });
+    }
+
     input.addEventListener("input", () => {
       const val = input.value;
       const slashMatch = val.match(/\/([\w-]*)$/);
@@ -101,6 +114,10 @@
           window.DSUI.removeSkillMenu();
           const rawVal = input.value.trim();
           if (!rawVal) return;
+
+          root.DSState.lastSentMessage = rawVal;
+          root.DSState.recordActivity();
+          root.DSState.isTaskActive = true;
 
           // Ensure skills list is loaded
           if (!root.DSState.loadedSkills.length && window.DSSkills) {

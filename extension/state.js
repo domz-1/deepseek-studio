@@ -18,7 +18,8 @@
   let loadedSkills = [];
   let lastSentMessage = "";
   let lastActivityTime = Date.now();
-  const INACTIVITY_TIMEOUT_MS = 90 * 1000;
+  let isTaskActive = false;
+  const INACTIVITY_TIMEOUT_MS = 40 * 1000;
   const GRILL_AUTO_TIMEOUT_MS = 2 * 60 * 1000;
 
   // Track user scroll manually so auto-scroll doesn't fight the user if they scroll up
@@ -122,13 +123,24 @@
 
   function isDeepSeekGenerating() {
     const input = getChatInput();
-    if (!input) return false;
     const wrapper =
-      input.closest("div.ds-textarea-wrapper") ||
-      input.parentElement?.parentElement ||
+      input?.closest("div.ds-textarea-wrapper") ||
+      input?.parentElement?.parentElement ||
       document;
-    const stopSquare = wrapper.querySelector("svg rect");
-    return Boolean(stopSquare);
+    const stopSquare =
+      wrapper.querySelector("svg rect") ||
+      wrapper.querySelector(
+        'button[aria-label*="Stop" i], div[role="button"][aria-label*="Stop" i]',
+      ) ||
+      wrapper.querySelector(
+        '[class*="stop-button" i], [class*="stop-generating" i]',
+      );
+    if (stopSquare) return true;
+
+    const streamingEl = document.querySelector(
+      '.ds-status--loading, .ds-loading, .ds-think[data-thinking="true"], [class*="cursor--blinking" i]',
+    );
+    return Boolean(streamingEl);
   }
 
   function setInputValue(el, text) {
@@ -224,6 +236,7 @@
     if (isSending) return;
     isSending = true;
     recordActivity();
+    isTaskActive = true;
     if (text) lastSentMessage = text;
 
     try {
@@ -415,6 +428,12 @@
     },
     set debounceTimer(v) {
       debounceTimer = v;
+    },
+    get isTaskActive() {
+      return isTaskActive;
+    },
+    set isTaskActive(v) {
+      isTaskActive = v;
     },
     INACTIVITY_TIMEOUT_MS,
     GRILL_AUTO_TIMEOUT_MS,

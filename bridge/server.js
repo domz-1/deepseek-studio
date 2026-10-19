@@ -2,6 +2,7 @@ import express from "express";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import os from "os";
 import { execSync, spawnSync } from "child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -518,45 +519,99 @@ const RG_BIN = fs.existsSync("/home/adham/.local/bin/rg")
   : "rg";
 
 const DEFAULT_PROJECTS_DIR = "/home/adham/projects";
+const CUSTOM_PROJECTS_FILE = new URL("./custom-projects.json", import.meta.url)
+  .pathname;
+
+function loadCustomProjects() {
+  try {
+    if (fs.existsSync(CUSTOM_PROJECTS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(CUSTOM_PROJECTS_FILE, "utf8"));
+      if (Array.isArray(data)) return data;
+    }
+  } catch (_) {}
+  return [];
+}
+
+function saveCustomProjects(list) {
+  try {
+    fs.writeFileSync(
+      CUSTOM_PROJECTS_FILE,
+      JSON.stringify(list, null, 2),
+      "utf8",
+    );
+  } catch (err) {
+    console.warn("[Bridge] Failed to write custom projects:", err);
+  }
+}
+
+function scanWorkspacesRecursively(baseDir, maxDepth = 4, currentDepth = 0) {
+  const results = [];
+  if (currentDepth >= maxDepth || !fs.existsSync(baseDir)) return results;
+
+  try {
+    const entries = fs.readdirSync(baseDir, { withFileTypes: true });
+
+    // Check if this directory itself contains project indicators
+    const names = new Set(entries.map((e) => e.name));
+    const isProject =
+      names.has("package.json") ||
+      names.has(".git") ||
+      names.has("bun.lock") ||
+      names.has("Cargo.toml") ||
+      names.has("pyproject.toml") ||
+      names.has("go.mod") ||
+      names.has("requirements.txt") ||
+      names.has("docker-compose.yml");
+
+    if (isProject && currentDepth > 0) {
+      const rel = path.relative(DEFAULT_PROJECTS_DIR, baseDir);
+      results.push({
+        name: rel || path.basename(baseDir),
+        path: baseDir,
+      });
+    }
+
+    for (const e of entries) {
+      if (!e.isDirectory()) continue;
+      if (
+        e.name.startsWith(".") ||
+        e.name === "node_modules" ||
+        e.name === "dist" ||
+        e.name === "build" ||
+        e.name === ".next" ||
+        e.name === "target"
+      ) {
+        continue;
+      }
+      const sub = path.join(baseDir, e.name);
+      results.push(
+        ...scanWorkspacesRecursively(sub, maxDepth, currentDepth + 1),
+      );
+    }
+  } catch (_) {}
+
+  return results;
+}
 
 app.get("/projects", (req, res) => {
   try {
     const list = [];
-    if (fs.existsSync(DEFAULT_PROJECTS_DIR)) {
-      const entries = fs.readdirSync(DEFAULT_PROJECTS_DIR, {
-        withFileTypes: true,
-      });
-      for (const e of entries) {
-        if (e.isDirectory() && !e.name.startsWith(".")) {
-          const p = path.join(DEFAULT_PROJECTS_DIR, e.name);
-          list.push({ name: e.name, path: p });
 
-          // Also check one level deeper for grouped workspaces (e.g. /home/adham/projects/adham/*)
-          try {
-            const sub = fs.readdirSync(p, { withFileTypes: true });
-            for (const s of sub) {
-              if (
-                s.isDirectory() &&
-                !s.name.startsWith(".") &&
-                s.name !== "node_modules"
-              ) {
-                list.push({
-                  name: `${e.name}/${s.name}`,
-                  path: path.join(p, s.name),
-                });
-              }
-            }
-          } catch (_) {}
-        }
-      }
-    }
-    // Also include current directory
+    // 1. Persisted custom projects
+    const customs = loadCustomProjects();
+    list.push(...customs);
+
+    // 2. Discovered workspaces under DEFAULT_PROJECTS_DIR (recursive up to 4 levels)
+    const discovered = scanWorkspacesRecursively(DEFAULT_PROJECTS_DIR, 4);
+    list.push(...discovered);
+
+    // 3. Current extension directory
     list.unshift({
       name: "deepseek-mcp-ext (Current)",
       path: "/home/adham/projects/adham/deepseek-mcp-ext",
     });
 
-    // Deduplicate by path
+    // 4. Deduplicate by path
     const seen = new Set();
     const unique = [];
     for (const item of list) {
@@ -566,6 +621,55 @@ app.get("/projects", (req, res) => {
       }
     }
     res.json({ projects: unique });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/projects", (req, res) => {
+  try {
+    let { path: targetPath, name } = req.body || {};
+    if (!targetPath || typeof targetPath !== "string") {
+      return res.status(400).json({ error: "Missing project path" });
+    }
+
+    targetPath = targetPath.trim();
+    if (targetPath.startsWith("~")) {
+      targetPath = path.join(os.homedir(), targetPath.slice(1));
+    }
+    targetPath = path.resolve(targetPath);
+
+    if (!fs.existsSync(targetPath)) {
+      try {
+        fs.mkdirSync(targetPath, { recursive: true });
+      } catch (err) {
+        return res
+          .status(400)
+          .json({ error: `Cannot access or create directory: ${err.message}` });
+      }
+    }
+
+    const shortName = name || path.basename(targetPath) || targetPath;
+    const customs = loadCustomProjects();
+    const existingIdx = customs.findIndex((c) => c.path === targetPath);
+
+    const projectObj = {
+      name: `⭐ ${shortName.replace(/^⭐\s*/, "")}`,
+      path: targetPath,
+      custom: true,
+      addedAt: Date.now(),
+    };
+
+    if (existingIdx !== -1) {
+      customs[existingIdx] = projectObj;
+    } else {
+      customs.unshift(projectObj);
+    }
+
+    saveCustomProjects(customs);
+    console.log(`[Bridge] Saved custom project workspace: ${targetPath}`);
+
+    res.json({ ok: true, project: projectObj, customs });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

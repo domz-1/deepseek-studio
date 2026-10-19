@@ -93,27 +93,19 @@
       const addBtn = wrap.querySelector("#mcp-add-project-btn");
       if (addBtn) {
         addBtn.onclick = () => {
-          window.DSProjects?.showAddProjectModal((cleanPath) => {
-            if (!cleanPath) return;
-            const name =
-              cleanPath.split("/").filter(Boolean).pop() || cleanPath;
-            let customs = window.DSProjects?.getCustomProjects() || [];
-            if (!customs.find((c) => c.path === cleanPath)) {
-              customs.unshift({ name: `⭐ ${name}`, path: cleanPath });
-              localStorage.setItem(
-                "deepseek_mcp_custom_projects",
-                JSON.stringify(customs),
+          window.DSProjects?.showAddProjectModal((rawPath) => {
+            if (!rawPath) return;
+            window.DSProjects?.addProject(rawPath, (saved) => {
+              const cleanPath = saved?.path || rawPath;
+              window.DSState.selectedProject = cleanPath;
+              localStorage.setItem("deepseek_mcp_selected_project", cleanPath);
+              window.DSProjects?.updateProjectLabel();
+              const filter = document.getElementById(
+                "ds-sidebar-project-filter",
               );
-            }
-            window.DSState.selectedProject = cleanPath;
-            localStorage.setItem(
-              "deepseek_mcp_selected_project",
-              window.DSState.selectedProject,
-            );
-            window.DSProjects?.updateProjectLabel();
-            const filter = document.getElementById("ds-sidebar-project-filter");
-            if (filter) filter.remove();
-            window.DSProjects?.injectSidebarProjectFilter();
+              if (filter) filter.remove();
+              window.DSProjects?.injectSidebarProjectFilter();
+            });
           });
         };
       }
@@ -169,6 +161,19 @@
             }
           } catch (e) {
             console.warn("[MCP] Undo failed:", e);
+          }
+        };
+      }
+
+      const watchdogBtn = wrap.querySelector("#mcp-watchdog-btn");
+      if (watchdogBtn) {
+        watchdogBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.DSWatchdog?.handleWatchdogClick === "function") {
+            window.DSWatchdog.handleWatchdogClick();
+          } else {
+            console.log("[DS Studio] Watchdog module initializing...");
           }
         };
       }
