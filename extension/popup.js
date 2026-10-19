@@ -5,30 +5,43 @@ let cachedTools = [];
 let customSkills = [];
 
 function activate(tab) {
-  ["t-list", "t-json", "t-skills"].forEach((t) => $(t).classList.remove("active"));
-  ["p-list", "p-json", "p-skills"].forEach((p) => $(p).classList.remove("active"));
+  ["t-list", "t-json", "t-skills"].forEach((t) =>
+    $(t).classList.remove("active"),
+  );
+  ["p-list", "p-json", "p-skills"].forEach((p) =>
+    $(p).classList.remove("active"),
+  );
   $(tab).classList.add("active");
   $("p-" + tab.split("t-")[1]).classList.add("active");
 }
 $("t-list").onclick = () => activate("t-list");
 $("t-json").onclick = () => activate("t-json");
-$("t-skills").onclick = () => { activate("t-skills"); renderSkills(); };
+$("t-skills").onclick = () => {
+  activate("t-skills");
+  renderSkills();
+};
 
 async function apiGetMCP() {
-  const bgRes = await new Promise((r) => chrome.runtime.sendMessage({ type: "GET_MCP" }, r));
+  const bgRes = await new Promise((r) =>
+    chrome.runtime.sendMessage({ type: "GET_MCP" }, r),
+  );
   if (bgRes && bgRes.ok) return bgRes.data;
   throw new Error((bgRes && bgRes.error) || "Bridge unreachable");
 }
 
 async function apiSaveMCP(config) {
-  const bgRes = await new Promise((r) => chrome.runtime.sendMessage({ type: "SAVE_MCP", config }, r));
+  const bgRes = await new Promise((r) =>
+    chrome.runtime.sendMessage({ type: "SAVE_MCP", config }, r),
+  );
   if (bgRes && bgRes.ok) return bgRes.data;
   throw new Error((bgRes && bgRes.error) || "Bridge unreachable");
 }
 
 // Load the stored token into the field
 async function loadToken() {
-  const bgRes = await new Promise((r) => chrome.runtime.sendMessage({ type: "GET_TOKEN" }, r));
+  const bgRes = await new Promise((r) =>
+    chrome.runtime.sendMessage({ type: "GET_TOKEN" }, r),
+  );
   if (bgRes && bgRes.ok && bgRes.data && bgRes.data.token) {
     $("token-in").value = bgRes.data.token;
   }
@@ -36,9 +49,12 @@ async function loadToken() {
 
 $("save-token").onclick = async () => {
   const token = $("token-in").value.trim();
-  const bgRes = await new Promise((r) => chrome.runtime.sendMessage({ type: "SET_TOKEN", token }, r));
+  const bgRes = await new Promise((r) =>
+    chrome.runtime.sendMessage({ type: "SET_TOKEN", token }, r),
+  );
   if (bgRes && bgRes.ok) {
-    $('save-token').innerHTML = '<span class=\"ds-ic\" data-ic=\"check\"></span>';
+    $("save-token").innerHTML =
+      '<span class=\"ds-ic\" data-ic=\"check\"></span>';
     setTimeout(() => ($("save-token").textContent = "Set"), 1200);
     load();
   } else {
@@ -49,29 +65,64 @@ $("save-token").onclick = async () => {
 async function load() {
   try {
     const data = await apiGetMCP();
-    if (!data || data.error || !data.config) throw new Error((data && data.error) || "Invalid response");
+    if (!data || data.error || !data.config)
+      throw new Error((data && data.error) || "Invalid response");
     currentCfg = data.config;
     cachedTools = data.tools || [];
     const status = data.status || {};
     $("tot").textContent = cachedTools.length + " tools ready";
     $("json-ed").value = JSON.stringify(currentCfg, null, 2);
     const entries = Object.entries(currentCfg.mcpServers || {});
-    if (!entries.length) { $("srv-list").innerHTML = '<div class="ds-msg ds-msg-muted">No servers defined in JSON.</div>'; return; }
-    $("srv-list").innerHTML = entries.map(([name, srv]) => {
-      const st = status[name] || {};
-      const checked = srv.enabled !== false ? "checked" : "";
-      return '<div class="srv-card"><div><span class="dot ' + (st.online ? "on" : "") + '"></span><b>' + name + '</b><div class="ds-srv-meta">' + srv.command + ' ' + (srv.args || []).join(" ") + ' (' + (st.count || 0) + ' tools)</div></div><input type="checkbox" class="ds-srv-check" data-srv="' + name + '" ' + checked + ' /></div>';
-    }).join("");
+    if (!entries.length) {
+      $("srv-list").innerHTML =
+        '<div class="ds-msg ds-msg-muted">No servers defined in JSON.</div>';
+      return;
+    }
+    $("srv-list").innerHTML = entries
+      .map(([name, srv]) => {
+        const st = status[name] || {};
+        const checked = srv.enabled !== false ? "checked" : "";
+        return (
+          '<div class="srv-card"><div><span class="dot ' +
+          (st.online ? "on" : "") +
+          '"></span><b>' +
+          name +
+          '</b><div class="ds-srv-meta">' +
+          srv.command +
+          " " +
+          (srv.args || []).join(" ") +
+          " (" +
+          (st.count || 0) +
+          ' tools)</div></div><input type="checkbox" class="ds-srv-check" data-srv="' +
+          name +
+          '" ' +
+          checked +
+          " /></div>"
+        );
+      })
+      .join("");
     document.querySelectorAll("input[data-srv]").forEach((cb) => {
       cb.onchange = async (e) => {
         const name = e.target.dataset.srv;
         currentCfg.mcpServers[name].enabled = e.target.checked;
-        $("srv-list").innerHTML = '<div class="ds-msg ds-msg-accent">Reloading...</div>';
-        try { await apiSaveMCP(currentCfg); await load(); } catch (err) { $("srv-list").innerHTML = '<div class="ds-msg ds-msg-danger">Error: ' + err.message + '</div>'; }
+        $("srv-list").innerHTML =
+          '<div class="ds-msg ds-msg-accent">Reloading...</div>';
+        try {
+          await apiSaveMCP(currentCfg);
+          await load();
+        } catch (err) {
+          $("srv-list").innerHTML =
+            '<div class="ds-msg ds-msg-danger">Error: ' +
+            err.message +
+            "</div>";
+        }
       };
     });
   } catch (err) {
-    $("srv-list").innerHTML = '<div class="ds-msg ds-msg-danger"><b>Bridge offline or unreachable:</b><br>' + err.message + '<br><br>Run in terminal:<br><code>cd bridge &amp;&amp; bun run server.js</code></div>';
+    $("srv-list").innerHTML =
+      '<div class="ds-msg ds-msg-danger"><b>Bridge offline or unreachable:</b><br>' +
+      err.message +
+      "<br><br>Run in terminal:<br><code>cd bridge &amp;&amp; bun run server.js</code></div>";
   }
 }
 
@@ -83,22 +134,55 @@ $("save-json").onclick = async () => {
     $("save-json").textContent = "Save & Reload Servers";
     activate("t-list");
     await load();
-  } catch (e) { $("save-json").textContent = "Save & Reload Servers"; alert("Failed to save: " + e.message); }
+  } catch (e) {
+    $("save-json").textContent = "Save & Reload Servers";
+    alert("Failed to save: " + e.message);
+  }
 };
 
 async function renderSkills() {
   customSkills = await window.DSSkills.getCustomSkills();
   const all = await window.DSSkills.loadSkills();
   const list = $("sk-list");
-  if (!all.length) { list.innerHTML = '<div class="muted">No skills yet.</div>'; return; }
-  list.innerHTML = all.map((s) => {
-    const isCustom = customSkills.some((c) => window.DSSkills.slugify(c.name) === s.name);
-    return '<div class="skill-card"><div class="nm">' + (window.DSIcon ? window.DSIcon.forSkill(s) : (s.emoji||'')) + ' /' + s.name + (isCustom ? ' <span class="ds-flag-custom">custom</span>' : ' <span class="ds-flag-builtin">built-in</span>') + '</div><div class="ds">' + (s.description || "") + '</div><div class="pr">' + (s.prompt === "__HELP__" ? "(lists all skills)" : (s.prompt || "")) + '</div>' + (isCustom ? '<div class="row ds-row-tight"><button class="mini" data-edit="' + s.name + '">Edit</button><button class="dang" data-del="' + s.name + '">Delete</button></div>' : '') + '</div>';
-  }).join("");
+  if (!all.length) {
+    list.innerHTML = '<div class="muted">No skills yet.</div>';
+    return;
+  }
+  list.innerHTML = all
+    .map((s) => {
+      const isCustom = customSkills.some(
+        (c) => window.DSSkills.slugify(c.name) === s.name,
+      );
+      return (
+        '<div class="skill-card"><div class="nm">' +
+        (window.DSIcon ? window.DSIcon.forSkill(s) : s.emoji || "") +
+        " /" +
+        s.name +
+        (isCustom
+          ? ' <span class="ds-flag-custom">custom</span>'
+          : ' <span class="ds-flag-builtin">built-in</span>') +
+        '</div><div class="ds">' +
+        (s.description || "") +
+        '</div><div class="pr">' +
+        (s.prompt === "__HELP__" ? "(lists all skills)" : s.prompt || "") +
+        "</div>" +
+        (isCustom
+          ? '<div class="row ds-row-tight"><button class="mini" data-edit="' +
+            s.name +
+            '">Edit</button><button class="dang" data-del="' +
+            s.name +
+            '">Delete</button></div>'
+          : "") +
+        "</div>"
+      );
+    })
+    .join("");
   list.querySelectorAll("[data-del]").forEach((b) => {
     b.onclick = async () => {
       const name = b.dataset.del;
-      customSkills = customSkills.filter((c) => window.DSSkills.slugify(c.name) !== name);
+      customSkills = customSkills.filter(
+        (c) => window.DSSkills.slugify(c.name) !== name,
+      );
       await window.DSSkills.saveCustomSkills(customSkills);
       renderSkills();
     };
@@ -109,7 +193,8 @@ async function renderSkills() {
       const s = all.find((x) => x.name === name);
       if (!s) return;
       $("sk-name").value = s.name;
-      $("sk-emoji").value = s.icon || (window.DSIcon ? window.DSIcon.name(s) : "");
+      $("sk-emoji").value =
+        s.icon || (window.DSIcon ? window.DSIcon.name(s) : "");
       $("sk-desc").value = s.description;
       $("sk-prompt").value = s.prompt;
       window.scrollTo(0, document.body.scrollHeight);
@@ -147,10 +232,19 @@ $("sk-add").onclick = async () => {
 };
 
 $("inj").onclick = async () => {
-  if (!cachedTools.length) return alert("0 active tools. Enable a server first.");
+  if (!cachedTools.length)
+    return alert("0 active tools. Enable a server first.");
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  chrome.tabs.sendMessage(tabs[0].id, { type: "INJECT_NOW", tools: cachedTools });
+  chrome.tabs.sendMessage(tabs[0].id, {
+    type: "INJECT_NOW",
+    tools: cachedTools,
+  });
   window.close();
 };
 
-document.addEventListener("DOMContentLoaded", () => { loadToken(); load(); populateIconSelect(); renderSkills(); });
+document.addEventListener("DOMContentLoaded", () => {
+  loadToken();
+  load();
+  populateIconSelect();
+  renderSkills();
+});

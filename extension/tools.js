@@ -23,10 +23,15 @@
   ]);
 
   const SYSTEM_PROMPT_STYLES = [
-    (list, projectPath) => `You have local workstation MCP tools available:
+    (
+      list,
+      projectPath,
+      skeleton,
+    ) => `You have local workstation MCP tools available:
 ${list}
 
 ${projectPath ? `ACTIVE PROJECT WORKSPACE: ${projectPath}\nAll relative file operations and bash commands must run inside or relative to this project workspace path: "${projectPath}".` : ""}
+${skeleton ? `\nPROJECT STRUCTURE SKELETON (up to 3 levels):\n\`\`\`\n${skeleton}\n\`\`\`\n` : ""}
 
 CRITICAL OPERATIONAL RULES & HIGH-SPEED EXECUTION:
 1. STRICT ZERO CHATTER: DO NOT write conversational commentary or preamble. Output ONLY the tool call payload immediately.
@@ -45,10 +50,11 @@ CRITICAL OPERATIONAL RULES & HIGH-SPEED EXECUTION:
 7. FAST REASONING: Keep thinking concise (under 50 words) and act immediately.
 8. Respond in English or Arabic only.
 `,
-    (list, projectPath) => `Workstation MCP tools active:
+    (list, projectPath, skeleton) => `Workstation MCP tools active:
 ${list}
 
 ${projectPath ? `ACTIVE WORKSPACE: ${projectPath}\nUse "${projectPath}" as the target project directory for all operations.` : ""}
+${skeleton ? `\nPROJECT STRUCTURE SKELETON:\n\`\`\`\n${skeleton}\n\`\`\`\n` : ""}
 
 Turbo Mode Guidelines:
 - ABSOLUTELY ZERO PREAMBLE: Start response directly with the tool JSON block.
@@ -61,7 +67,7 @@ Turbo Mode Guidelines:
 `,
   ];
 
-  function buildSysPrompt(tools, projectPath = "") {
+  function buildSysPrompt(tools, projectPath = "", skeleton = "") {
     const list = (tools || [])
       .map(
         (t) =>
@@ -72,7 +78,7 @@ Turbo Mode Guidelines:
       SYSTEM_PROMPT_STYLES[
         Math.floor(Math.random() * SYSTEM_PROMPT_STYLES.length)
       ];
-    return template(list, projectPath);
+    return template(list, projectPath, skeleton);
   }
 
   function filterToolsByMention(mention, tools) {

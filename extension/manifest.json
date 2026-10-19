@@ -33,7 +33,17 @@
   "content_scripts": [
     {
       "matches": ["https://chat.deepseek.com/*"],
-      "js": ["skills.js", "tools.js", "ui.js", "components.js", "content.js"],
+      "js": [
+        "state.js",
+        "tools.js",
+        "skills.js",
+        "ui.js",
+        "components.js",
+        "mention.js",
+        "queue.js",
+        "watchdog.js",
+        "content.js"
+      ],
       "css": ["theme.css"],
       "run_at": "document_idle"
     }

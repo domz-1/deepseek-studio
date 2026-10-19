@@ -570,6 +570,8 @@ app.get("/fs-index", (req, res) => {
 
       if (q) {
         fdArgs.push(q);
+      } else {
+        fdArgs.push(".");
       }
       fdArgs.push(targetDir);
 
@@ -615,6 +617,8 @@ app.get("/project-skeleton", (req, res) => {
     }
 
     const fdArgs = [
+      ".",
+      projectPath,
       "--max-depth",
       "3",
       "--exclude",
@@ -633,7 +637,6 @@ app.get("/project-skeleton", (req, res) => {
       "coverage",
       "--max-results",
       "80",
-      projectPath,
     ];
 
     const fdRes = spawnSync(FD_BIN, fdArgs, {
