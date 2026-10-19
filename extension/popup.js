@@ -1,5 +1,14 @@
 const $ = (id) => document.getElementById(id);
 
+function escapeHtml(str) {
+  return String(str == null ? "" : str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 let currentCfg = { mcpServers: {} };
 let cachedTools = [];
 let customSkills = [];
@@ -82,19 +91,21 @@ async function load() {
       .map(([name, srv]) => {
         const st = status[name] || {};
         const checked = srv.enabled !== false ? "checked" : "";
+        const safeName = escapeHtml(name);
+        const safeCmd = escapeHtml(
+          srv.command + " " + (srv.args || []).join(" "),
+        );
         return (
           '<div class="srv-card"><div><span class="dot ' +
           (st.online ? "on" : "") +
           '"></span><b>' +
-          name +
+          safeName +
           '</b><div class="ds-srv-meta">' +
-          srv.command +
-          " " +
-          (srv.args || []).join(" ") +
+          safeCmd +
           " (" +
           (st.count || 0) +
           ' tools)</div></div><input type="checkbox" class="ds-srv-check" data-srv="' +
-          name +
+          safeName +
           '" ' +
           checked +
           " /></div>"
@@ -153,24 +164,34 @@ async function renderSkills() {
       const isCustom = customSkills.some(
         (c) => window.DSSkills.slugify(c.name) === s.name,
       );
+      const iconHtml = window.DSIcon
+        ? window.DSIcon.forSkill(s)
+        : escapeHtml(s.emoji || "");
+      const nameHtml = escapeHtml(s.name);
+      const descHtml = escapeHtml(s.description || "");
+      const promptHtml =
+        s.prompt === "__HELP__"
+          ? "(lists all skills)"
+          : escapeHtml(s.prompt || "");
+
       return (
         '<div class="skill-card"><div class="nm">' +
-        (window.DSIcon ? window.DSIcon.forSkill(s) : s.emoji || "") +
+        iconHtml +
         " /" +
-        s.name +
+        nameHtml +
         (isCustom
           ? ' <span class="ds-flag-custom">custom</span>'
           : ' <span class="ds-flag-builtin">built-in</span>') +
         '</div><div class="ds">' +
-        (s.description || "") +
+        descHtml +
         '</div><div class="pr">' +
-        (s.prompt === "__HELP__" ? "(lists all skills)" : s.prompt || "") +
+        promptHtml +
         "</div>" +
         (isCustom
           ? '<div class="row ds-row-tight"><button class="mini" data-edit="' +
-            s.name +
+            nameHtml +
             '">Edit</button><button class="dang" data-del="' +
-            s.name +
+            nameHtml +
             '">Delete</button></div>'
           : "") +
         "</div>"
