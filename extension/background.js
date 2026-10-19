@@ -64,6 +64,28 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }),
       });
     }
+    if (msg.type === "UNDO") {
+      return await bridgeFetch("/undo", { method: "POST" });
+    }
+    if (msg.type === "NOTIFY") {
+      return await bridgeFetch("/notify", {
+        method: "POST",
+        body: JSON.stringify(msg.payload || {}),
+      });
+    }
+    if (msg.type === "GET_SKELETON") {
+      const project = encodeURIComponent(msg.project || "");
+      return await bridgeFetch(`/project-skeleton?project=${project}`);
+    }
+    if (msg.type === "TOGGLE_RALPH") {
+      return await bridgeFetch("/ralph-mode", {
+        method: "POST",
+        body: JSON.stringify(msg.payload || {}),
+      });
+    }
+    if (msg.type === "GET_RALPH") {
+      return await bridgeFetch("/ralph-mode");
+    }
     if (msg.type === "SET_TOKEN") {
       await chrome.storage.local.set({ bridgeToken: msg.token || "" });
       return { ok: true };

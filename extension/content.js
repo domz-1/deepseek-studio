@@ -4,6 +4,8 @@ let debounceTimer = null;
 let activeTools = [];
 let serverStatus = {};
 let autoApprove = localStorage.getItem("deepseek_mcp_auto_approve") !== "false";
+let isRalphLoopActive =
+  localStorage.getItem("deepseek_mcp_ralph_loop") === "true";
 let selectedProject =
   localStorage.getItem("deepseek_mcp_selected_project") ||
   "/home/adham/projects/adham/deepseek-mcp-ext";
@@ -867,6 +869,57 @@ function injectChatBadge() {
         });
       };
     }
+    const ralphBtn = wrap.querySelector("#mcp-ralph-loop-btn");
+    function updateRalphBtn() {
+      if (!ralphBtn) return;
+      if (isRalphLoopActive) {
+        ralphBtn.innerHTML = `🔁 Ralph: ON`;
+        ralphBtn.style.color = "#10b981";
+        ralphBtn.style.borderColor = "#10b981";
+        ralphBtn.style.fontWeight = "bold";
+      } else {
+        ralphBtn.innerHTML = `🔁 Ralph: OFF`;
+        ralphBtn.style.color = "var(--ds-fg-muted)";
+        ralphBtn.style.borderColor = "var(--ds-border)";
+        ralphBtn.style.fontWeight = "normal";
+      }
+    }
+    updateRalphBtn();
+
+    if (ralphBtn) {
+      ralphBtn.onclick = async () => {
+        isRalphLoopActive = !isRalphLoopActive;
+        localStorage.setItem("deepseek_mcp_ralph_loop", isRalphLoopActive);
+        updateRalphBtn();
+        try {
+          chrome.runtime.sendMessage({
+            type: "TOGGLE_RALPH",
+            payload: { enabled: isRalphLoopActive },
+          });
+        } catch (_) {}
+      };
+    }
+
+    const undoBtn = wrap.querySelector("#mcp-undo-tool-btn");
+    if (undoBtn) {
+      undoBtn.onclick = async () => {
+        try {
+          const res = await new Promise((resolve) =>
+            chrome.runtime.sendMessage({ type: "UNDO" }, resolve),
+          );
+          if (res?.ok && res.data?.restored) {
+            undoBtn.textContent = `✓ Reverted ${res.data.restored.split("/").pop()}`;
+            setTimeout(() => {
+              undoBtn.innerHTML = `<span class="ds-ic" data-ic="arrowRight" style="transform:rotate(180deg);display:inline-block;"></span> Undo`;
+            }, 3000);
+          } else {
+            alert(res?.data?.error || "No file snapshots in undo history.");
+          }
+        } catch (e) {
+          console.warn("[MCP] Undo failed:", e);
+        }
+      };
+    }
 
     targetParent.parentElement.insertBefore(wrap, targetParent);
   }
@@ -1046,8 +1099,29 @@ function injectMessageQueueBar(targetParent) {
 
 // Queue Worker: checks if all tasks, sub-commands, and generation are 100% complete
 let isDispatchingQueue = false;
+let hadQueuedTasks = false;
 
 async function checkAndProcessQueue() {
+  if (queuedMessages.length > 0) {
+    hadQueuedTasks = true;
+  } else if (
+    hadQueuedTasks &&
+    !isDeepSeekGenerating() &&
+    runningTaskCount === 0 &&
+    Date.now() - lastActivityTime > 2000
+  ) {
+    hadQueuedTasks = false;
+    try {
+      chrome.runtime.sendMessage({
+        type: "NOTIFY",
+        payload: {
+          title: "DeepSeek Studio",
+          message: "All queued tasks and sub-commands completed successfully!",
+        },
+      });
+    } catch (_) {}
+  }
+
   if (isDispatchingQueue || queuedMessages.length === 0) return;
 
   // 1. Check if DeepSeek is currently generating streaming text
@@ -1107,10 +1181,28 @@ async function checkAndProcessQueue() {
 setInterval(checkAndProcessQueue, 1500);
 
 const HUMAN_RESULT_TEMPLATES = [
-  (name, out) =>
-    `Output of ${name}:\n\`\`\`json\n${out}\n\`\`\`\nProceed immediately with the next tool call autonomously without conversational preamble until task is 100% complete.`,
-  (name, out) =>
-    `Results for ${name}:\n\`\`\`json\n${out}\n\`\`\`\nContinue executing the next step autonomously. Keep reasoning under 50 words and emit the tool block immediately.`,
+  (name, out) => {
+    if (
+      out &&
+      (out.includes("FAILED") ||
+        out.includes("Ralph Auto-Check FAILED") ||
+        out.includes("Hot-check found issues"))
+    ) {
+      return `Output of ${name}:\n\`\`\`json\n${out}\n\`\`\`\n🚨 [Ralph Loop Alert]: Verification failed. Fix the issues above immediately using smart_patch or workspace_batch. Keep reasoning under 40 words.`;
+    }
+    return `Output of ${name}:\n\`\`\`json\n${out}\n\`\`\`\nProceed immediately with the next tool call autonomously without conversational preamble until task is 100% complete.`;
+  },
+  (name, out) => {
+    if (
+      out &&
+      (out.includes("FAILED") ||
+        out.includes("Ralph Auto-Check FAILED") ||
+        out.includes("Hot-check found issues"))
+    ) {
+      return `Results for ${name}:\n\`\`\`json\n${out}\n\`\`\`\n🚨 Errors detected in verification. Analyze and patch the code immediately.`;
+    }
+    return `Results for ${name}:\n\`\`\`json\n${out}\n\`\`\`\nContinue executing the next step autonomously. Keep reasoning under 50 words and emit the tool block immediately.`;
+  },
   (name, out) =>
     `Tool ${name} completed:\n\`\`\`json\n${out}\n\`\`\`\nProceed autonomously to the next action.`,
 ];

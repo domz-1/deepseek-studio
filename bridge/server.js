@@ -168,6 +168,49 @@ app.post("/mcp", async (req, res) => {
 const READ_CACHE = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes in-memory cache for ultra-fast repeat reads
 const FILE_CONTENT_CACHE = new Map(); // Tracks last read/written content per path to produce diffs if requested
+const UNDO_HISTORY = []; // Stack of { path, content, time } for instant 1-click undo
+const MAX_UNDO = 50;
+
+function recordFileSnapshot(targetPath) {
+  try {
+    if (fs.existsSync(targetPath)) {
+      const content = fs.readFileSync(targetPath, "utf8");
+      UNDO_HISTORY.push({ path: targetPath, content, time: Date.now() });
+      if (UNDO_HISTORY.length > MAX_UNDO) UNDO_HISTORY.shift();
+    }
+  } catch (_) {}
+}
+
+let RALPH_AUTO_VERIFY = false;
+
+function runQuickHotCheck(cwd) {
+  try {
+    let cmd = "";
+    if (fs.existsSync(path.join(cwd, "tsconfig.json"))) {
+      cmd = "bunx tsc --noEmit --pretty false";
+    } else if (fs.existsSync(path.join(cwd, "package.json"))) {
+      cmd = "bun test --timeout 3000";
+    } else {
+      return null;
+    }
+    const res = spawnSync("sh", ["-c", cmd], {
+      cwd,
+      timeout: 8000,
+      encoding: "utf8",
+      maxBuffer: 2 * 1024 * 1024,
+    });
+    if (res.status === 0) {
+      return { passed: true };
+    } else {
+      const diag = (res.stdout || res.stderr || "Type or test check failed")
+        .trim()
+        .slice(0, 2000);
+      return { passed: false, diagnostics: diag };
+    }
+  } catch (e) {
+    return null;
+  }
+}
 
 function pruneToolResult(name, content, args = {}) {
   if (!Array.isArray(content)) return content;
@@ -177,6 +220,14 @@ function pruneToolResult(name, content, args = {}) {
 
     // Prune excessive empty lines and trailing whitespace
     t = t.replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
+
+    // 4. Token Saver: Minified Context / Remove comments when reading code
+    if ((name === "read_file" || name === "read_text_file") && args.clean) {
+      t = t
+        .replace(/\/\*[\s\S]*?\*\//g, "") // remove block comments
+        .replace(/(^|[^:])\/\/.*/g, "$1") // remove line comments
+        .replace(/\n\s*\n+/g, "\n"); // collapse empty lines
+    }
 
     // 5. Diff-Only Output for very large files (> 300 lines) if already seen
     if ((name === "read_file" || name === "read_text_file") && args.path) {
@@ -223,10 +274,23 @@ app.post("/call", async (req, res) => {
     return res.status(404).json({ error: `Tool ${name} not found` });
   }
 
+  // Pre-snapshot file before any writing or patching for instant 1-click Undo:
+  if (
+    (name === "write_file" || name === "edit_file" || name === "smart_patch") &&
+    args.path
+  ) {
+    const resolvedP =
+      project && !args.path.startsWith("/")
+        ? path.resolve(project, args.path)
+        : args.path;
+    recordFileSnapshot(resolvedP);
+  }
+
   // Invalidate read cache on file writes or modifications
   if (
     name === "write_file" ||
     name === "edit_file" ||
+    name === "smart_patch" ||
     name === "create_directory" ||
     name === "execute_command" ||
     name === "bash" ||
@@ -291,6 +355,33 @@ app.post("/call", async (req, res) => {
       result.content = pruneToolResult(name, result.content, args);
     }
 
+    // Ralph Auto-Verification Hook:
+    // If enabled, auto-run hot check on any file modification so model gets test results in same turn
+    if (
+      RALPH_AUTO_VERIFY &&
+      (name === "smart_patch" ||
+        name === "write_file" ||
+        name === "edit_file" ||
+        name === "workspace_batch") &&
+      !result?.isError
+    ) {
+      const targetCwd = project || args.cwd || "/home/adham";
+      const checkRes = runQuickHotCheck(targetCwd);
+      if (checkRes) {
+        if (!Array.isArray(result.content)) {
+          result.content = [
+            { type: "text", text: String(result.content || "") },
+          ];
+        }
+        result.content.push({
+          type: "text",
+          text: checkRes.passed
+            ? "\n\n✅ [Ralph Auto-Check]: 0 errors! Verification passed cleanly."
+            : `\n\n🚨 [Ralph Auto-Check FAILED]:\n${checkRes.diagnostics}\n👉 Ralph Loop Alert: Fix the above error immediately in the next step using smart_patch!`,
+        });
+      }
+    }
+
     if (cacheKey && !result?.isError) {
       READ_CACHE.set(cacheKey, { result, time: Date.now() });
     }
@@ -329,6 +420,57 @@ app.post("/kill", (req, res) => {
     count++;
   }
   res.json({ ok: true, killedCount: count });
+});
+
+app.post("/undo", (req, res) => {
+  if (UNDO_HISTORY.length === 0) {
+    return res.status(404).json({ error: "No undo history available." });
+  }
+  const last = UNDO_HISTORY.pop();
+  try {
+    fs.writeFileSync(last.path, last.content, "utf8");
+    READ_CACHE.clear();
+    console.log(`[Bridge] Undo reverted: ${last.path}`);
+    res.json({
+      ok: true,
+      restored: last.path,
+      remainingUndo: UNDO_HISTORY.length,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 5. Native Desktop Notification & Audio Beep
+app.post("/notify", (req, res) => {
+  const { title = "DeepSeek Studio", message = "All queued tasks completed!" } =
+    req.body || {};
+  try {
+    // Send Linux system notification if notify-send exists
+    spawnSync("notify-send", [title, message, "-i", "dialog-information"]);
+    // Emit terminal bell / alert beep
+    process.stdout.write("\x07");
+    res.json({ ok: true });
+  } catch (_) {
+    res.json({ ok: false });
+  }
+});
+
+// Ralph Auto-Verification Mode toggle:
+app.get("/ralph-mode", (req, res) => {
+  res.json({ enabled: RALPH_AUTO_VERIFY });
+});
+
+app.post("/ralph-mode", (req, res) => {
+  if (typeof req.body?.enabled === "boolean") {
+    RALPH_AUTO_VERIFY = req.body.enabled;
+  } else {
+    RALPH_AUTO_VERIFY = !RALPH_AUTO_VERIFY;
+  }
+  console.log(
+    `[Bridge] Ralph Auto-Verify mode is now: ${RALPH_AUTO_VERIFY ? "ON" : "OFF"}`,
+  );
+  res.json({ ok: true, enabled: RALPH_AUTO_VERIFY });
 });
 
 // --- Projects & File Intelligence ---

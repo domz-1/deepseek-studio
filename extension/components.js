@@ -55,6 +55,12 @@
           <span class="ds-project-label" id="mcp-project-label">${projName}</span>
           <span class="ds-ic" data-ic="arrowRight" style="font-size:9px;transform:rotate(90deg);opacity:0.7;"></span>
         </button>
+        <button class="ds-project-btn" id="mcp-ralph-loop-btn" type="button" title="Toggle Ralph Autonomous Loop (auto-verifies code edits)" style="color:var(--ds-fg-muted);border:1px solid var(--ds-border);">
+           Ralph: OFF
+        </button>
+        <button class="ds-project-btn" id="mcp-undo-tool-btn" type="button" title="Undo last tool file modification" style="color:var(--ds-fg-muted);border:1px solid var(--ds-border);">
+          <span class="ds-ic" data-ic="arrowRight" style="transform:rotate(180deg);display:inline-block;"></span> Undo
+        </button>
         <button class="ds-project-btn" id="mcp-add-project-btn" type="button" title="Add custom project path">
           ${ic("plus")} Add
         </button>

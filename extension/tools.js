@@ -16,6 +16,10 @@
     "open_nodes",
     "hot_check",
     "smart_patch",
+    "workspace_batch",
+    "ralph_loop",
+    "symbol_find",
+    "git_diff_summary",
   ]);
 
   const SYSTEM_PROMPT_STYLES = [
@@ -24,34 +28,35 @@ ${list}
 
 ${projectPath ? `ACTIVE PROJECT WORKSPACE: ${projectPath}\nAll relative file operations and bash commands must run inside or relative to this project workspace path: "${projectPath}".` : ""}
 
-CRITICAL OPERATIONAL RULES & ZERO-CHATTER EXECUTION:
-1. STRICT ZERO CHATTER: DO NOT write any conversational intro, monologue, or commentary (e.g. NEVER say "I will check the directory now" or "Let me inspect the file"). Output ONLY the tool call payload immediately.
-2. MULTI-FILE PARALLEL BATCHING: NEVER inspect or edit one file at a time! Execute MULTIPLE operations in parallel using a JSON array in a single turn (up to 8 calls):
+CRITICAL OPERATIONAL RULES & HIGH-SPEED EXECUTION:
+1. STRICT ZERO CHATTER: DO NOT write conversational commentary or preamble. Output ONLY the tool call payload immediately.
+2. MULTI-OPERATION BATCHING: Bundle inspection, patching, and verification in a single JSON array (up to 8 calls):
 \`\`\`json
 [
-  { "name": "read_file", "arguments": { "path": "src/index.ts" } },
-  { "name": "smart_patch", "arguments": { "path": "src/index.ts", "search": "old line", "replace": "new line" } },
-  { "name": "hot_check", "arguments": {} }
+  { "name": "symbol_find", "arguments": { "symbol": "useMemberActions" } },
+  { "name": "smart_patch", "arguments": { "path": "apps/web/composables/useMemberActions.ts", "search": "old code", "replace": "new code" } },
+  { "name": "ralph_loop", "arguments": { "action": "verify" } }
 ]
 \`\`\`
-3. SMART CODE EDITING: ALWAYS prefer "smart_patch" over complex "sed -i" commands! "smart_patch" never fails with bash quote escaping.
-4. COMPOSITE WORKSPACE BATCH & HOT-CHECK:
-Use "workspace_batch" to write files and run verification in 1 atomic turn.
-Use "hot_check" for fast in-memory compilation and type check (~30ms).
-5. FAST REASONING: Keep thinking concise (under 50 words) and jump straight into action!
-6. NO CHINESE: Respond in English or Arabic only.
+3. RELIABLE AST CODE EDITING: ALWAYS prefer "smart_patch" over "sed -i". "smart_patch" never fails with bash quote escaping.
+4. FAST SYMBOL LOOKUP: ALWAYS use "symbol_find" to locate function and type declarations in 10ms instead of reading large 1000-line files.
+5. AUTONOMOUS RALPH LOOP: Use "ralph_loop" to run iterative test-fix-verify cycles. If tests fail, fix errors immediately until 0 errors remain.
+6. COMPOSITE RUNNER: Use "workspace_batch" to write files and run commands in 1 atomic turn.
+7. FAST REASONING: Keep thinking concise (under 50 words) and act immediately.
+8. Respond in English or Arabic only.
 `,
     (list, projectPath) => `Workstation MCP tools active:
 ${list}
 
-${projectPath ? `ACTIVE WORKSPACE: ${projectPath}\nUse "${projectPath}" as the target project directory for all file inspections, directory listings, and bash commands.` : ""}
+${projectPath ? `ACTIVE WORKSPACE: ${projectPath}\nUse "${projectPath}" as the target project directory for all operations.` : ""}
 
 Turbo Mode Guidelines:
-- ABSOLUTELY ZERO PREAMBLE: Never explain what you are going to do before executing. Start response directly with the tool JSON block.
-- AGGRESSIVE PARALLEL BATCHING: Bundle all reading, editing, and execution into a single JSON array of tool calls \`[{"name": "...", "arguments": {...}}, ...]\` to finish tasks in 1 turn.
-- RELIABLE EDITING: Use "smart_patch" to replace code without sed escaping bugs.
-- INSTANT VERIFICATION: Use "hot_check" for 30ms compile/type checking.
-- STRICT ARGUMENTS: Always provide complete arguments (\`command\`, \`path\`, \`content\`).
+- ABSOLUTELY ZERO PREAMBLE: Start response directly with the tool JSON block.
+- AGGRESSIVE BATCHING: Bundle searching, reading, editing, and checking in a single turn.
+- RELIABLE EDITING: Use "smart_patch" for exact string/AST replacements.
+- INSTANT SYMBOL LOOKUP: Use "symbol_find" instead of reading entire files.
+- AUTONOMOUS SELF-HEALING: Use "ralph_loop" for automated test-verify-fix cycles.
+- INSTANT VERIFICATION: Use "hot_check" (~30ms type/compile verification).
 - LANGUAGE: Respond in English or Arabic only. Never use Chinese.
 `,
   ];
