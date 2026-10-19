@@ -10,7 +10,7 @@
     "install:bridge": "cd bridge && bun install",
     "setup": "bun run install:bridge",
     "theme": "node scripts/gen-theme.mjs",
-    "check": "node --check extension/state.js && node --check extension/tools.js && node --check extension/skills.js && node --check extension/ui.js && node --check extension/components.js && node --check extension/projects.js && node --check extension/mention.js && node --check extension/queue.js && node --check extension/watchdog.js && node --check extension/content.js && node --check extension/background.js && node --check extension/popup.js"
+    "check": "node --check extension/state.js && node --check extension/tools.js && node --check extension/skills.js && node --check extension/ui.js && node --check extension/components.js && node --check extension/projects.js && node --check extension/badges.js && node --check extension/execution.js && node --check extension/cards.js && node --check extension/scanner.js && node --check extension/mention.js && node --check extension/queue.js && node --check extension/watchdog.js && node --check extension/content.js && node --check extension/background.js && node --check extension/popup.js"
   },
   "keywords": [
     "deepseek",
