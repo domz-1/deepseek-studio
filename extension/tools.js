@@ -88,6 +88,58 @@ High-Speed Guidelines:
     return filtered.length ? filtered : tools;
   }
 
+  function repairJson(str) {
+    if (!str || typeof str !== "string") return null;
+    try {
+      return JSON.parse(str);
+    } catch (_) {
+      const nameM = str.match(/"name"\s*:\s*"([^"]+)"/);
+      if (!nameM) return null;
+      const name = nameM[1].trim();
+
+      const argsIdx = str.indexOf('"arguments"');
+      if (argsIdx === -1) return null;
+
+      const args = {};
+      const cwdM = str.match(/"cwd"\s*:\s*"([^"]+)"/);
+      if (cwdM) args.cwd = cwdM[1].trim();
+
+      const pathM = str.match(/"path"\s*:\s*"([^"]+)"/);
+      if (pathM) args.path = pathM[1].trim();
+
+      // Tolerant command extraction even when inner quotes aren't escaped:
+      const cmdM = str.match(
+        /"command"\s*:\s*"([\s\S]*?)"\s*(?:,\s*"cwd"|\s*\}\s*\}|\s*\}\s*$)/,
+      );
+      if (cmdM) {
+        args.command = cmdM[1];
+      } else {
+        const sub = str.slice(argsIdx);
+        const afterCmd = sub.match(/"command"\s*:\s*"([\s\S]*)/);
+        if (afterCmd) {
+          let val = afterCmd[1];
+          val = val.replace(
+            /"\s*(?:,\s*"cwd"[\s\S]*|\}\s*\}[\s\S]*|\}\s*)$/,
+            "",
+          );
+          args.command = val;
+        }
+      }
+
+      const contentM = str.match(
+        /"content"\s*:\s*"([\s\S]*?)"\s*(?:\s*\}\s*\}|\s*\}\s*$)/,
+      );
+      if (contentM && !args.content) {
+        args.content = contentM[1];
+      }
+
+      if (Object.keys(args).length > 0 || name) {
+        return { name, arguments: args };
+      }
+    }
+    return null;
+  }
+
   function extractAllMcpCalls(text) {
     if (!text) return [];
     const calls = [];
@@ -109,7 +161,12 @@ High-Speed Guidelines:
         } else if (parsed && parsed.name && typeof parsed.name === "string") {
           calls.push({ name: parsed.name, arguments: parsed.arguments || {} });
         }
-      } catch (_) {}
+      } catch (_) {
+        const repaired = repairJson(code);
+        if (repaired && repaired.name) {
+          calls.push(repaired);
+        }
+      }
     }
     if (calls.length) return calls;
 
@@ -292,18 +349,28 @@ High-Speed Guidelines:
           calls.push({ name: parsed.name, arguments: parsed.arguments || {} });
         }
       } catch (_) {
-        // Body might have inner JSON block or raw JSON object
-        const innerJsonMatch = body.match(/\{[\s\S]*\}/);
-        if (innerJsonMatch) {
-          try {
-            const innerParsed = JSON.parse(innerJsonMatch[0]);
-            if (innerParsed && innerParsed.name) {
-              calls.push({
-                name: innerParsed.name,
-                arguments: innerParsed.arguments || {},
-              });
+        const repaired = repairJson(body);
+        if (repaired && repaired.name) {
+          calls.push(repaired);
+        } else {
+          // Body might have inner JSON block or raw JSON object
+          const innerJsonMatch = body.match(/\{[\s\S]*\}/);
+          if (innerJsonMatch) {
+            try {
+              const innerParsed = JSON.parse(innerJsonMatch[0]);
+              if (innerParsed && innerParsed.name) {
+                calls.push({
+                  name: innerParsed.name,
+                  arguments: innerParsed.arguments || {},
+                });
+              }
+            } catch (e) {
+              const innerRepaired = repairJson(innerJsonMatch[0]);
+              if (innerRepaired && innerRepaired.name) {
+                calls.push(innerRepaired);
+              }
             }
-          } catch (e) {}
+          }
         }
 
         if (calls.length) continue;
