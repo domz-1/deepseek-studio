@@ -137,11 +137,28 @@ Turbo Mode Guidelines:
         }
       }
 
-      const contentM = str.match(
-        /"content"\s*:\s*"([\s\S]*?)"\s*(?:\s*\}\s*\}|\s*\}\s*$)/,
-      );
-      if (contentM && !args.content) {
-        args.content = contentM[1];
+      if (!args.content) {
+        const contentIdx = str.indexOf('"content"');
+        if (contentIdx !== -1) {
+          const afterKey = str.slice(contentIdx + 9);
+          const colonIdx = afterKey.indexOf(":");
+          if (colonIdx !== -1) {
+            let afterColon = afterKey.slice(colonIdx + 1).trim();
+            if (afterColon.startsWith('"')) {
+              afterColon = afterColon.slice(1);
+              const endM = afterColon.match(
+                /"\s*(?:,\s*"[a-zA-Z0-9_]+"\s*:|\s*\}\s*\}|\s*\}\s*$)/,
+              );
+              if (endM) {
+                args.content = afterColon.slice(0, endM.index);
+              } else {
+                args.content = afterColon
+                  .replace(/"?\s*\}\s*\}?\s*$/, "")
+                  .replace(/"$/, "");
+              }
+            }
+          }
+        }
       }
 
       if (Object.keys(args).length > 0 || name) {
@@ -241,22 +258,24 @@ Turbo Mode Guidelines:
     ) {
       const normText = text.replace(/[\uff5c|]+/g, "|");
       const invokeRegex =
-        /invoke\s+name=["']([^"']+)["']([\s\S]*?)<\/\s*\|\s*DSML\s*\|\s*invoke>/gi;
+        /invoke\s+name=["']([^"']+)["']([\s\S]*?)(?:<\/\s*\|\s*DSML\s*\|\s*invoke>|<\/\s*\|\s*DSML\s*>|$)/gi;
       let invokeMatch;
       while ((invokeMatch = invokeRegex.exec(normText)) !== null) {
         let name = invokeMatch[1].trim();
         const body = invokeMatch[2] || "";
         const args = {};
         const paramRegex =
-          /parameter\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)<\/\s*\|\s*DSML\s*\|\s*parameter>/gi;
+          /(?:<\|DSML\|\s*)?parameter\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)(?:<\/\s*\|\s*DSML\s*\|\s*(?:parameter)?\s*>|<\/\s*\|\s*DSML\s*\|\s*invoke>|<\/\s*\|\s*DSML\s*>|<\/\s*(?:parameter|param)\s*>|(?=<\|DSML\|\s*parameter)|(?=<\/\s*\|\s*DSML)|$)/gi;
         let pm;
         while ((pm = paramRegex.exec(body)) !== null) {
-          const pName = pm[1].trim();
-          let pVal = pm[2].trim();
-          try {
-            pVal = JSON.parse(pVal);
-          } catch (_) {}
-          args[pName] = pVal;
+          if (pm[1]) {
+            const pName = pm[1].trim();
+            let pVal = pm[2].trim();
+            try {
+              pVal = JSON.parse(pVal);
+            } catch (_) {}
+            args[pName] = pVal;
+          }
         }
 
         // Translate model confusion when it passes server name as invoke name:
@@ -268,25 +287,30 @@ Turbo Mode Guidelines:
           args.command = args.cmd;
         }
 
-        calls.push({ name, arguments: args });
+        if (name) calls.push({ name, arguments: args });
       }
       if (calls.length) return calls;
 
       // Fallback single invoke without closing tag
-      const singleMatch = normText.match(/invoke\s+name=["']([^"']+)["']/i);
+      const singleMatch = normText.match(
+        /invoke\s+name=["']([^"']+)["']([\s\S]*)/i,
+      );
       if (singleMatch) {
         let name = singleMatch[1].trim();
+        const body = singleMatch[2] || "";
         const args = {};
         const paramRegex =
-          /parameter\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)<\/\s*\|\s*DSML\s*\|\s*parameter>/gi;
+          /(?:<\|DSML\|\s*)?parameter\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)(?:<\/\s*\|\s*DSML\s*\|\s*(?:parameter)?\s*>|<\/\s*\|\s*DSML\s*\|\s*invoke>|<\/\s*\|\s*DSML\s*>|<\/\s*(?:parameter|param)\s*>|(?=<\|DSML\|\s*parameter)|(?=<\/\s*\|\s*DSML)|$)/gi;
         let m;
-        while ((m = paramRegex.exec(normText)) !== null) {
-          const pName = m[1].trim();
-          let pVal = m[2].trim();
-          try {
-            pVal = JSON.parse(pVal);
-          } catch (_) {}
-          args[pName] = pVal;
+        while ((m = paramRegex.exec(body)) !== null) {
+          if (m[1]) {
+            const pName = m[1].trim();
+            let pVal = m[2].trim();
+            try {
+              pVal = JSON.parse(pVal);
+            } catch (_) {}
+            args[pName] = pVal;
+          }
         }
 
         if ((name === "filesystem" || name === "fs") && args.command) {
@@ -294,8 +318,10 @@ Turbo Mode Guidelines:
           delete args.command;
         }
 
-        calls.push({ name, arguments: args });
-        return calls;
+        if (name) {
+          calls.push({ name, arguments: args });
+          return calls;
+        }
       }
     }
 
