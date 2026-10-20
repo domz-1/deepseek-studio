@@ -2,16 +2,15 @@
   "indexRoots": ["/home/adham/projects"],
   "mcpServers": {
     "chrome": {
-      "command": "npx",
+      "command": "bunx",
       "args": [
-        "-y",
         "chrome-devtools-mcp@latest",
         "--channel=stable",
         "--chrome-arg=--no-sandbox",
         "--chrome-arg=--disable-setuid-sandbox",
         "--no-usage-statistics"
       ],
-      "enabled": false
+      "enabled": true
     },
     "playwright": {
       "command": "npx",
