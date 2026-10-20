@@ -39,14 +39,25 @@
     if (cardStatusEl) {
       cardStatusEl.innerHTML = `<div class="ds-card-head ds-mb0">
         <div class="ds-note ds-note-accent ds-pad0"><span class="ds-ic" data-ic="clock"></span> Running batch of ${payloads.length} tools in parallel...</div>
-        <button class="ds-btn ds-btn-no ds-btn-sm mcp-card-kill-btn" type="button"><span class="ds-ic" data-ic="close"></span> Kill Batch</button>
+        <div style="display:inline-flex;gap:4px;">
+          <button class="ds-btn ds-btn-warn ds-btn-xs mcp-card-pause-btn" type="button" title="Pause autonomous task loop">⏸ Pause</button>
+          <button class="ds-btn ds-btn-no ds-btn-xs mcp-card-kill-btn" type="button" title="Stop & Kill entire task completely"><span class="ds-ic" data-ic="close"></span> Stop All</button>
+        </div>
       </div>`;
       const killBtn = cardStatusEl.querySelector(".mcp-card-kill-btn");
       if (killBtn) {
         killBtn.onclick = (e) => {
           e.preventDefault();
           e.stopPropagation();
-          window.DSState.killActiveTask(batchId);
+          window.DSState.killFullTask();
+        };
+      }
+      const pauseBtn = cardStatusEl.querySelector(".mcp-card-pause-btn");
+      if (pauseBtn) {
+        pauseBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          window.DSState.pauseTask();
         };
       }
     }
@@ -138,10 +149,19 @@
           .join("\n\n") +
         `\n\nAnalyze these batch results and continue executing the next step autonomously until complete.`;
 
+      if (window.DSState.isPaused || !window.DSState.isTaskActive) {
+        console.log(
+          "[DS Studio] Batch completed while paused or stopped. Skipping auto-dispatch.",
+        );
+        return;
+      }
       await window.DSState.sendText(batchMessage);
     } catch (err) {
       if (cardStatusEl) {
         cardStatusEl.innerHTML = window.DSComponents.status.error(err.message);
+      }
+      if (window.DSState.isPaused || !window.DSState.isTaskActive) {
+        return;
       }
       await window.DSState.sendText(
         `Execution notice on batch: ${err.message}`,
@@ -213,7 +233,15 @@
         killBtn.onclick = (e) => {
           e.preventDefault();
           e.stopPropagation();
-          window.DSState.killActiveTask(callId);
+          window.DSState.killFullTask();
+        };
+      }
+      const pauseBtn = cardStatusEl.querySelector(".mcp-card-pause-btn");
+      if (pauseBtn) {
+        pauseBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          window.DSState.pauseTask();
         };
       }
     }
@@ -265,10 +293,20 @@
       const template = templates[Math.floor(Math.random() * templates.length)];
       const message = template(payload.name, out);
 
+      if (window.DSState.isPaused || !window.DSState.isTaskActive) {
+        console.log(
+          "[DS Studio] Tool completed while paused or stopped. Skipping auto-dispatch.",
+        );
+        return;
+      }
+
       await window.DSState.sendText(message);
     } catch (err) {
       if (cardStatusEl) {
         cardStatusEl.innerHTML = window.DSComponents.status.error(err.message);
+      }
+      if (window.DSState.isPaused || !window.DSState.isTaskActive) {
+        return;
       }
       await window.DSState.sendText(
         `Execution notice on ${payload.name}: ${err.message}`,

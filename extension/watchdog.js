@@ -141,6 +141,17 @@
     } else if (mode === "waiting") {
       btn.classList.add("is-active");
       lbl.textContent = customText || "⏱️ Waiting...";
+    } else if (mode === "paused") {
+      btn.classList.add("is-active");
+      lbl.textContent = customText || "⏸️ Task Paused";
+    } else if (mode === "stopped") {
+      btn.classList.remove(
+        "is-active",
+        "is-generating",
+        "is-countdown",
+        "is-done",
+      );
+      lbl.textContent = customText || "🛑 Task Stopped";
     } else if (mode === "done") {
       btn.classList.add("is-done");
       lbl.textContent = "⏱️ Task Done";
@@ -175,6 +186,12 @@
   function handleWatchdogClick() {
     console.log("[DeepSeek Studio] Watchdog button clicked by user.");
 
+    // If currently paused, resume!
+    if (root.DSState.isPaused) {
+      root.DSState.resumeTask();
+      return;
+    }
+
     // If currently in safe cooldown pause, skip it and send immediately!
     if (root.DSState.skipCooldown) {
       root.DSState.skipCooldown();
@@ -198,6 +215,16 @@
   }
 
   function checkInactivityAndResend() {
+    // 0. If task is explicitly paused or stopped, do nothing!
+    if (root.DSState.isPaused) {
+      updateWatchdogUI("paused", "⏸️ Task Paused");
+      return;
+    }
+    if (!root.DSState.isTaskActive) {
+      updateWatchdogUI("idle", "⏱️ Watchdog: Ready");
+      return;
+    }
+
     // 1. Always look for retry/continue buttons
     checkAndHandleRetryButton();
 

@@ -630,6 +630,11 @@
   background: var(--ds-danger);
   color: var(--ds-bg-inset);
 }
+.ds-btn-warn {
+  background: var(--ds-warn, #f59e0b);
+  color: #1a1a1a;
+  font-weight: 600;
+}
 .ds-btn-xs {
   padding: 3px 10px;
   font-size: 10px;

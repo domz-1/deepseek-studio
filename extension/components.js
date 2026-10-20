@@ -72,11 +72,19 @@
   }
 
   // ---- Running-task chip -------------------------------------------------
-  function taskChip(count) {
+  function taskChip(count, isPaused = false) {
+    if (isPaused) {
+      return `
+        <span class="ds-ic" data-ic="clock" style="color:var(--ds-warn,#f59e0b);display:inline-block;"></span>
+        <span style="color:var(--ds-warn,#f59e0b);">Paused (${count || 1} task)</span>
+        <button class="ds-btn ds-btn-ok ds-btn-xs" id="mcp-resume-task-btn" type="button" title="Resume autonomous task">▶ Resume</button>
+        <button class="ds-btn ds-btn-no ds-btn-xs" id="mcp-kill-all-btn" type="button" title="Stop & Kill entire task completely">${ic("close")} Stop All</button>`;
+    }
     return `
       <span class="ds-pulse"></span>
       <span>Running task (${count})...</span>
-      <button class="ds-btn ds-btn-no ds-btn-xs" id="mcp-kill-all-btn" type="button">${ic("close")} Kill</button>`;
+      <button class="ds-btn ds-btn-warn ds-btn-xs" id="mcp-pause-task-btn" type="button" title="Pause autonomous task loop">⏸ Pause</button>
+      <button class="ds-btn ds-btn-no ds-btn-xs" id="mcp-kill-all-btn" type="button" title="Stop & Kill entire task completely">${ic("close")} Stop All</button>`;
   }
 
   // ---- Permission card ---------------------------------------------------
@@ -132,7 +140,10 @@
     runningWithKill: (name) =>
       `<div class="ds-card-head ds-mb0">
         <div class="ds-note ds-note-accent ds-pad0">${ic("clock")} Running <code>${escape(name)}</code>...</div>
-        <button class="ds-btn ds-btn-no ds-btn-sm mcp-card-kill-btn" type="button">${ic("close")} Kill Task</button>
+        <div style="display:inline-flex;gap:4px;">
+          <button class="ds-btn ds-btn-warn ds-btn-xs mcp-card-pause-btn" type="button" title="Pause autonomous task loop">⏸ Pause</button>
+          <button class="ds-btn ds-btn-no ds-btn-xs mcp-card-kill-btn" type="button" title="Stop & Kill entire task completely">${ic("close")} Stop All</button>
+        </div>
       </div>`,
     done: (name, resultPreview) => {
       const previewHtml = resultPreview

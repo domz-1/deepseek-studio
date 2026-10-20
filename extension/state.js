@@ -19,6 +19,7 @@
   let lastSentMessage = "";
   let lastActivityTime = Date.now();
   let isTaskActive = false;
+  let isPaused = false;
   let lastMessageSentTime = 0;
   let bypassCooldown = false;
   let SAFE_INTERVAL_MS = parseInt(
@@ -211,6 +212,46 @@
     return false;
   }
 
+  function stopDeepSeekGeneration() {
+    const input = getChatInput();
+    const containers = [
+      input?.closest("div.ds-textarea-wrapper"),
+      input?.closest("div[class*='textarea']"),
+      input?.parentElement?.parentElement?.parentElement,
+      input?.parentElement?.parentElement,
+      document.querySelector("div[class*='chat-input']"),
+      document.querySelector("div[class*='input-wrapper']"),
+      document.body,
+    ].filter(Boolean);
+
+    for (const container of containers) {
+      const candidates = Array.from(
+        container.querySelectorAll(
+          'button, div[role="button"], span[role="button"]',
+        ),
+      );
+      for (const btn of candidates) {
+        const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+        const title = (btn.getAttribute("title") || "").toLowerCase();
+        const text = (btn.textContent || "").toLowerCase();
+        if (
+          aria.includes("stop") ||
+          title.includes("stop") ||
+          text.includes("stop") ||
+          btn.classList.contains("ds-button--stop") ||
+          btn.querySelector("svg rect")
+        ) {
+          try {
+            btn.click();
+            console.log("[DS Studio] Stopped DeepSeek generation.");
+            return true;
+          } catch (_) {}
+        }
+      }
+    }
+    return false;
+  }
+
   function setInputValue(el, text) {
     el.focus();
     const proto = Object.getPrototypeOf(el);
@@ -312,6 +353,10 @@
   }
 
   async function sendText(text, isUserInput = false) {
+    if (isPaused && !isUserInput) {
+      console.log("[DS Studio] Task is paused. Suppressed automated send.");
+      return;
+    }
     if (isSending) return;
     isSending = true;
     recordActivity();
@@ -326,6 +371,7 @@
         // 1. Wait until DeepSeek finishes generating
         let waited = 0;
         while (isDeepSeekGenerating() && waited < 30000) {
+          if (isPaused || !isTaskActive) return;
           await new Promise((r) => setTimeout(r, 600));
           waited += 600;
         }
@@ -333,6 +379,7 @@
         // 2. Anti-ban safe throttling (30s) between automated messages
         bypassCooldown = false;
         while (!bypassCooldown) {
+          if (isPaused || !isTaskActive) return;
           const elapsed = Date.now() - lastMessageSentTime;
           const remaining = Math.max(0, SAFE_INTERVAL_MS - elapsed);
           if (remaining <= 0) break;
@@ -380,19 +427,92 @@
     }
   }
 
+  function pauseTask() {
+    isPaused = true;
+    updateTaskBadge();
+    if (window.DSWatchdog?.updateWatchdogUI) {
+      window.DSWatchdog.updateWatchdogUI("paused", "⏸️ Task Paused");
+    }
+    console.log("[DS Studio] Autonomous task paused by user.");
+  }
+
+  function resumeTask() {
+    isPaused = false;
+    isTaskActive = true;
+    recordActivity();
+    updateTaskBadge();
+    if (window.DSWatchdog?.updateWatchdogUI) {
+      window.DSWatchdog.updateWatchdogUI("triggering", "▶️ Resuming Task...");
+    }
+    console.log("[DS Studio] Autonomous task resumed by user.");
+    setTimeout(() => {
+      if (window.DSWatchdog?.triggerManualContinue) {
+        window.DSWatchdog.triggerManualContinue();
+      }
+    }, 400);
+  }
+
+  async function killFullTask() {
+    isTaskActive = false;
+    isPaused = false;
+    runningTaskCount = 0;
+    isSending = false;
+
+    // 1. Abort any running MCP call on bridge
+    await killActiveTask(null);
+
+    // 2. Stop DeepSeek streaming generation if currently running
+    stopDeepSeekGeneration();
+
+    // 3. Clear pending message queue
+    if (window.DSQueue?.clearQueue) {
+      window.DSQueue.clearQueue();
+    }
+
+    // 4. Update UI states
+    updateTaskBadge();
+    if (window.DSWatchdog?.updateWatchdogUI) {
+      window.DSWatchdog.updateWatchdogUI("stopped", "🛑 Task Stopped");
+    }
+
+    console.log("[DS Studio] Full task stopped and cancelled by user.");
+  }
+
   function updateTaskBadge() {
     const taskIndicator = document.getElementById("mcp-task-indicator");
     if (!taskIndicator) return;
 
-    if (runningTaskCount > 0) {
+    if (runningTaskCount > 0 || isPaused) {
       taskIndicator.classList.add("is-on");
-      taskIndicator.innerHTML = window.DSComponents.taskChip(runningTaskCount);
-      const btn = taskIndicator.querySelector("#mcp-kill-all-btn");
-      if (btn) {
-        btn.onclick = (e) => {
+      taskIndicator.innerHTML = window.DSComponents.taskChip(
+        runningTaskCount,
+        isPaused,
+      );
+
+      const killBtn = taskIndicator.querySelector("#mcp-kill-all-btn");
+      if (killBtn) {
+        killBtn.onclick = (e) => {
           e.preventDefault();
           e.stopPropagation();
-          killActiveTask();
+          killFullTask();
+        };
+      }
+
+      const pauseBtn = taskIndicator.querySelector("#mcp-pause-task-btn");
+      if (pauseBtn) {
+        pauseBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          pauseTask();
+        };
+      }
+
+      const resumeBtn = taskIndicator.querySelector("#mcp-resume-task-btn");
+      if (resumeBtn) {
+        resumeBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          resumeTask();
         };
       }
     } else {
@@ -557,6 +677,16 @@
     getSendButton,
     recordActivity,
     sendText,
+    get isPaused() {
+      return isPaused;
+    },
+    set isPaused(v) {
+      isPaused = v;
+    },
+    pauseTask,
+    resumeTask,
+    killFullTask,
+    stopDeepSeekGeneration,
     killActiveTask,
     updateTaskBadge,
   };

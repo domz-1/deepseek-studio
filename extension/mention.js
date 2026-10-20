@@ -28,12 +28,15 @@
     const sendBtn = root.DSState.getSendButton();
     if (sendBtn && !sendBtn.__mcpListen) {
       sendBtn.__mcpListen = true;
-      sendBtn.addEventListener("click", () => {
+      sendBtn.addEventListener("click", async (e) => {
         const val = input.value.trim();
         if (val) {
-          root.DSState.lastSentMessage = val;
-          root.DSState.recordActivity();
-          root.DSState.isTaskActive = true;
+          const handled = await processAndSubmitInput(val, e);
+          if (!handled) {
+            root.DSState.lastSentMessage = val;
+            root.DSState.recordActivity();
+            root.DSState.isTaskActive = true;
+          }
         }
       });
     }
@@ -100,6 +103,141 @@
       }
     });
 
+    async function processAndSubmitInput(rawVal, e) {
+      if (!rawVal) return false;
+
+      // Detect any @mention in the message
+      const mentionMatches = rawVal.match(/@([\w-]+)/i);
+      const activeMention = mentionMatches ? mentionMatches[0] : null;
+
+      // Detect any /skill in the message
+      const skillMatch = rawVal.match(/\/([a-z0-9_-]+)\b([\s\S]*)$/i);
+
+      // Case 1: Has /skill (with or without @mention)
+      if (window.DSSkills && skillMatch) {
+        const skillName = skillMatch[1].toLowerCase();
+
+        // Ensure skills list is loaded
+        if (!root.DSState.loadedSkills?.length) {
+          root.DSState.loadedSkills =
+            (await window.DSSkills.loadSkills()) || [];
+        }
+
+        let targetSkill = root.DSState.loadedSkills?.find(
+          (s) => s.name === skillName,
+        );
+
+        if (!targetSkill) {
+          root.DSState.loadedSkills =
+            (await window.DSSkills.loadSkills()) || [];
+          targetSkill = root.DSState.loadedSkills?.find(
+            (s) => s.name === skillName,
+          );
+        }
+
+        if (!targetSkill && skillName === "chrome") {
+          targetSkill = {
+            name: "chrome",
+            prompt:
+              "Act as an expert Chrome automation & web security auditor using Chrome DevTools MCP tools.\n" +
+              "1. Handle authentication: check cookies/sessionStorage/localStorage with evaluate_script or fill login forms with fill_form and click.\n" +
+              "2. Log and intercept all network traffic via list_network_requests.\n" +
+              "3. Fetch and expose response payloads for key API endpoints via get_network_request.\n" +
+              "4. Render a clear markdown table of all network endpoints and format response data in structured ```json blocks.\n\n" +
+              "Target application or URL to test:",
+            servers: ["chrome"],
+            builtin: true,
+          };
+        }
+
+        if (targetSkill) {
+          if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+
+          let rest = rawVal
+            .replace(new RegExp(`/${skillName}\\b`, "i"), "")
+            .trim();
+          if (activeMention) {
+            rest = rest.replace(new RegExp(activeMention, "gi"), "").trim();
+          }
+
+          let prompt = window.DSSkills.expandSkill(
+            targetSkill,
+            rest,
+            root.DSState.loadedSkills,
+          );
+
+          // Inject active MCP tools, project context, and skeleton!
+          await root.DSState.fetchActiveTools();
+          if (root.DSState.activeTools.length) {
+            const targetServer =
+              activeMention ||
+              (targetSkill.servers && targetSkill.servers[0]
+                ? `@${targetSkill.servers[0]}`
+                : null) ||
+              (targetSkill.name === "chrome" ? "@chrome" : null);
+
+            const selectedTools = targetServer
+              ? window.DSTools.filterToolsByMention(
+                  targetServer,
+                  root.DSState.activeTools,
+                )
+              : root.DSState.activeTools;
+            const skeleton = await getProjectSkeleton(
+              root.DSState.selectedProject,
+            );
+            prompt = `${window.DSTools.buildSysPrompt(selectedTools, root.DSState.selectedProject, skeleton, targetServer || activeMention)}\n${prompt}`;
+          }
+
+          root.DSState.lastSentMessage = prompt;
+          root.DSState.recordActivity();
+          root.DSState.isTaskActive = true;
+          await root.DSState.sendText(prompt, true);
+          return true;
+        }
+      }
+
+      // Case 2: Only @mention (no /skill)
+      if (activeMention) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+
+        await root.DSState.fetchActiveTools();
+        if (!root.DSState.activeTools.length) {
+          alert("No active MCP tools found on port 43210.");
+          return true;
+        }
+
+        const selectedTools = window.DSTools.filterToolsByMention(
+          activeMention,
+          root.DSState.activeTools,
+        );
+        const userText = rawVal
+          .replace(new RegExp(activeMention, "gi"), "")
+          .trim();
+
+        const skeleton = await getProjectSkeleton(root.DSState.selectedProject);
+        const sysPrompt = window.DSTools.buildSysPrompt(
+          selectedTools,
+          root.DSState.selectedProject,
+          skeleton,
+          activeMention,
+        );
+        const combined = userText ? `${sysPrompt}\n\n${userText}` : sysPrompt;
+        root.DSState.lastSentMessage = combined;
+        root.DSState.recordActivity();
+        root.DSState.isTaskActive = true;
+        await root.DSState.sendText(combined, true);
+        return true;
+      }
+
+      return false;
+    }
+
     input.addEventListener(
       "keydown",
       async (e) => {
@@ -115,104 +253,12 @@
           const rawVal = input.value.trim();
           if (!rawVal) return;
 
-          root.DSState.lastSentMessage = rawVal;
-          root.DSState.recordActivity();
-          root.DSState.isTaskActive = true;
-
-          // Ensure skills list is loaded
-          if (!root.DSState.loadedSkills.length && window.DSSkills) {
-            root.DSState.loadedSkills =
-              (await window.DSSkills.loadSkills()) || [];
+          const handled = await processAndSubmitInput(rawVal, e);
+          if (!handled) {
+            root.DSState.lastSentMessage = rawVal;
+            root.DSState.recordActivity();
+            root.DSState.isTaskActive = true;
           }
-
-          // Detect any @mention in the message
-          const mentionMatches = rawVal.match(/@([\w-]+)/i);
-          const activeMention = mentionMatches ? mentionMatches[0] : null;
-
-          // Detect any /skill in the message
-          const skillMatch = rawVal.match(/\/([a-z0-9_-]+)\b([\s\S]*)$/i);
-
-          // Case 1: Has /skill (with or without @mention)
-          if (window.DSSkills && skillMatch) {
-            const skillName = skillMatch[1].toLowerCase();
-            const targetSkill = root.DSState.loadedSkills.find(
-              (s) => s.name === skillName,
-            );
-
-            if (targetSkill) {
-              e.preventDefault();
-              e.stopPropagation();
-
-              let rest = rawVal
-                .replace(new RegExp(`/${skillName}\\b`, "i"), "")
-                .trim();
-              if (activeMention) {
-                rest = rest.replace(new RegExp(activeMention, "gi"), "").trim();
-              }
-
-              let prompt = window.DSSkills.expandSkill(
-                targetSkill,
-                rest,
-                root.DSState.loadedSkills,
-              );
-
-              // Inject active MCP tools, project context, and skeleton!
-              await root.DSState.fetchActiveTools();
-              if (root.DSState.activeTools.length) {
-                const selectedTools = activeMention
-                  ? window.DSTools.filterToolsByMention(
-                      activeMention,
-                      root.DSState.activeTools,
-                    )
-                  : root.DSState.activeTools;
-                const skeleton = await getProjectSkeleton(
-                  root.DSState.selectedProject,
-                );
-                prompt = `${window.DSTools.buildSysPrompt(selectedTools, root.DSState.selectedProject, skeleton, activeMention)}\n${prompt}`;
-              }
-
-              root.DSState.sendText(prompt, true);
-              return;
-            }
-          }
-
-          // Case 2: Only @mention (no /skill)
-          if (activeMention) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            await root.DSState.fetchActiveTools();
-            if (!root.DSState.activeTools.length) {
-              alert("No active MCP tools found on port 43210.");
-              return;
-            }
-
-            const selectedTools = window.DSTools.filterToolsByMention(
-              activeMention,
-              root.DSState.activeTools,
-            );
-            const userText = rawVal
-              .replace(new RegExp(activeMention, "gi"), "")
-              .trim();
-
-            const skeleton = await getProjectSkeleton(
-              root.DSState.selectedProject,
-            );
-            const sysPrompt = window.DSTools.buildSysPrompt(
-              selectedTools,
-              root.DSState.selectedProject,
-              skeleton,
-              activeMention,
-            );
-            const combined = userText
-              ? `${sysPrompt}\n\n${userText}`
-              : sysPrompt;
-            root.DSState.sendText(combined, true);
-            return;
-          }
-
-          // Case 3: Regular text without mentions/skills.
-          // Dispatches immediately.
         }
       },
       true,

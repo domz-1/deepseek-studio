@@ -184,6 +184,7 @@
     }
 
     if (isDispatchingQueue || queuedMessages.length === 0) return;
+    if (root.DSState.isPaused || !root.DSState.isTaskActive) return;
 
     // 1. Check if DeepSeek is currently generating streaming text
     if (root.DSState.isDeepSeekGenerating()) return;
@@ -241,6 +242,16 @@
     }
   }
 
+  function clearQueue() {
+    queuedMessages = [];
+    saveQueuedMessages();
+    const listEl = document.querySelector(".ds-queue-list");
+    if (listEl) {
+      listEl.innerHTML = "";
+      listEl.style.display = "none";
+    }
+  }
+
   setInterval(checkAndProcessQueue, 1500);
 
   const HUMAN_RESULT_TEMPLATES = [
@@ -275,6 +286,7 @@
       return queuedMessages;
     },
     saveQueuedMessages,
+    clearQueue,
     renderQueueList,
     injectMessageQueueBar,
     checkAndProcessQueue,
