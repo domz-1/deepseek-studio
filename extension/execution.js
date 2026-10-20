@@ -126,13 +126,12 @@
         targetEl.setAttribute("data-mcp-executed", "true");
       }
       if (callKey) {
-        window.DSState.executedCalls.add(callKey);
-        try {
-          sessionStorage.setItem(
-            "deepseek_mcp_executed",
-            JSON.stringify(Array.from(window.DSState.executedCalls)),
-          );
-        } catch (_) {}
+        if (window.DSState.markCallExecuted) {
+          window.DSState.markCallExecuted(callKey);
+        } else {
+          window.DSState.executedCalls.add(callKey);
+          window.DSState.saveExecuted?.();
+        }
       }
 
       if (cardStatusEl) {
@@ -269,13 +268,12 @@
       }
 
       if (callKey) {
-        window.DSState.executedCalls.add(callKey);
-        try {
-          sessionStorage.setItem(
-            "deepseek_mcp_executed",
-            JSON.stringify(Array.from(window.DSState.executedCalls)),
-          );
-        } catch (_) {}
+        if (window.DSState.markCallExecuted) {
+          window.DSState.markCallExecuted(callKey);
+        } else {
+          window.DSState.executedCalls.add(callKey);
+          window.DSState.saveExecuted?.();
+        }
       }
 
       const out = formatToolResult(data).slice(0, 15000);

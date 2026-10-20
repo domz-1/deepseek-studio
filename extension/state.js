@@ -66,11 +66,41 @@
     });
   }
 
-  // Restore previously executed calls from sessionStorage
+  // Restore previously executed calls from both localStorage and sessionStorage
   try {
-    const saved = sessionStorage.getItem("deepseek_mcp_executed");
-    if (saved) executedCalls = new Set(JSON.parse(saved));
+    const savedLocal = localStorage.getItem("deepseek_mcp_executed_v2");
+    const savedSession = sessionStorage.getItem("deepseek_mcp_executed");
+    const combined = [
+      ...(savedLocal ? JSON.parse(savedLocal) : []),
+      ...(savedSession ? JSON.parse(savedSession) : []),
+    ];
+    if (combined.length) executedCalls = new Set(combined.slice(-500));
   } catch (_) {}
+
+  function getCallSignature(calls, indexHint = 0) {
+    try {
+      const chatPath = window.location.pathname || "root";
+      const raw = JSON.stringify(calls);
+      let hash = 2166136261;
+      for (let i = 0; i < raw.length; i++) {
+        hash ^= raw.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      return `mcp_${chatPath}_${indexHint}_${(hash >>> 0).toString(36)}`;
+    } catch (_) {
+      return `mcp_${indexHint}`;
+    }
+  }
+
+  function hasExecutedCall(callKey) {
+    return executedCalls.has(callKey);
+  }
+
+  function markCallExecuted(callKey) {
+    if (!callKey) return;
+    executedCalls.add(callKey);
+    saveExecuted();
+  }
 
   function isContextValid() {
     return typeof chrome !== "undefined" && Boolean(chrome.runtime?.id);
@@ -167,39 +197,36 @@
     });
     if (continueOrRetryBtn) return false;
 
-    // 2. Look for explicit stop-generating button in chat input area
+    // 2. Look for the primary action button (Send / Stop button)
     const input = getChatInput();
     if (!input) return false;
-    const inputWrap =
-      input.closest("div.ds-textarea-wrapper") ||
-      input.closest("div[class*='textarea']") ||
-      input.parentElement?.parentElement;
 
-    if (inputWrap) {
-      const buttons = Array.from(
-        inputWrap.querySelectorAll('button, div[role="button"]'),
-      );
-      for (const btn of buttons) {
-        if (!btn || btn.offsetParent === null) continue;
-        const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
-        const title = (btn.getAttribute("title") || "").toLowerCase();
+    // Check for explicit stop button anywhere in chat controls
+    const stopButton = document.querySelector(
+      'button[aria-label*="Stop" i], div[role="button"][aria-label*="Stop" i], .ds-stop-button, .ds-button--stop',
+    );
+    if (stopButton && stopButton.offsetParent !== null) return true;
 
-        if (
-          aria.includes("stop") ||
-          title.includes("stop") ||
-          btn.classList.contains("ds-stop-button") ||
-          btn.classList.contains("ds-button--stop")
-        ) {
-          return true;
-        }
-
-        if (
-          btn.querySelector("svg rect") &&
-          !aria.includes("send") &&
-          !title.includes("send")
-        ) {
-          return true;
-        }
+    // Check if the primary send/action button is currently in a generating/stop state
+    const actionBtn = getSendButton();
+    if (actionBtn && actionBtn.offsetParent !== null) {
+      const aria = (actionBtn.getAttribute("aria-label") || "").toLowerCase();
+      const title = (actionBtn.getAttribute("title") || "").toLowerCase();
+      if (
+        aria.includes("stop") ||
+        title.includes("stop") ||
+        actionBtn.classList.contains("ds-stop-button") ||
+        actionBtn.classList.contains("ds-button--stop")
+      ) {
+        return true;
+      }
+      // If it contains an SVG rect (stop square) AND NOT an arrow/send path
+      if (
+        actionBtn.querySelector("svg rect") &&
+        !actionBtn.querySelector("path[d*='M']") &&
+        !aria.includes("send")
+      ) {
+        return true;
       }
     }
 
@@ -481,9 +508,32 @@
 
       const sendBtn = getSendButton();
       if (sendBtn) {
-        sendBtn.click();
-        console.log("[MCP] Dispatched message safely with anti-ban cooldown.");
-      } else {
+        try {
+          sendBtn.dispatchEvent(
+            new PointerEvent("pointerdown", {
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+          sendBtn.dispatchEvent(
+            new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+          );
+          sendBtn.dispatchEvent(
+            new PointerEvent("pointerup", { bubbles: true, cancelable: true }),
+          );
+          sendBtn.dispatchEvent(
+            new MouseEvent("mouseup", { bubbles: true, cancelable: true }),
+          );
+          sendBtn.click();
+        } catch (_) {
+          sendBtn.click?.();
+        }
+        console.log("[MCP] Dispatched message safely with click events.");
+      }
+
+      // Check if message was submitted; if textarea still holds the text after 150ms, dispatch Enter key
+      await new Promise((r) => setTimeout(r, 150));
+      if (el && el.value && el.value.trim().length > 0) {
         const enterEvt = new KeyboardEvent("keydown", {
           key: "Enter",
           code: "Enter",
@@ -615,10 +665,9 @@
 
   function saveExecuted() {
     try {
-      sessionStorage.setItem(
-        "deepseek_mcp_executed",
-        JSON.stringify(Array.from(executedCalls)),
-      );
+      const arr = Array.from(executedCalls).slice(-500);
+      sessionStorage.setItem("deepseek_mcp_executed", JSON.stringify(arr));
+      localStorage.setItem("deepseek_mcp_executed_v2", JSON.stringify(arr));
     } catch (_) {}
   }
 
@@ -657,6 +706,9 @@
     },
     init,
     saveExecuted,
+    getCallSignature,
+    hasExecutedCall,
+    markCallExecuted,
     refreshTools: fetchActiveTools,
     get activeTools() {
       return activeTools;

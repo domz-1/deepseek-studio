@@ -11,7 +11,7 @@
         "--chrome-arg=--disable-setuid-sandbox",
         "--no-usage-statistics"
       ],
-      "enabled": true
+      "enabled": false
     },
     "playwright": {
       "command": "npx",

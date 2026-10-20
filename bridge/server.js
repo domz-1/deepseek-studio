@@ -97,6 +97,7 @@ const clients = new Map();
 const toolMap = new Map();
 let serverStatus = {};
 const runningCalls = new Map();
+const RECENT_CALL_DEDUP = new Map(); // Deduplicate identical burst calls within 5 seconds
 
 async function syncServers() {
   for (const [, c] of clients) await c.close().catch(() => {});
@@ -412,8 +413,44 @@ app.post("/call", async (req, res) => {
 
   const activeId =
     callId || `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+  // Guard against identical burst duplicate calls (e.g., multiple tabs or scanner re-triggers within 5 seconds)
+  const dedupKey = `${name}:${project || ""}:${JSON.stringify(args)}`;
+  const nowMs = Date.now();
+  for (const [k, v] of RECENT_CALL_DEDUP.entries()) {
+    if (nowMs - v.time > 5000) RECENT_CALL_DEDUP.delete(k);
+  }
+  if (RECENT_CALL_DEDUP.has(dedupKey)) {
+    const existing = RECENT_CALL_DEDUP.get(dedupKey);
+    if (existing.promise) {
+      console.log(`[Bridge] Deduplicated concurrent identical /call: ${name}`);
+      try {
+        const sharedRes = await existing.promise;
+        return res.json({ ...sharedRes, callId: activeId, deduplicated: true });
+      } catch (err) {
+        return res.status(500).json({ error: err.message, isError: true });
+      }
+    }
+    if (existing.result && nowMs - existing.time < 5000) {
+      console.log(`[Bridge] Deduplicated burst /call (<5s): ${name}`);
+      return res.json({
+        ...existing.result,
+        callId: activeId,
+        deduplicated: true,
+      });
+    }
+  }
+
   const abortController = new AbortController();
   runningCalls.set(activeId, { abortController, name, startedAt: Date.now() });
+
+  let resolveDedup, rejectDedup;
+  const dedupPromise = new Promise((resP, rejP) => {
+    resolveDedup = resP;
+    rejectDedup = rejP;
+  });
+  dedupPromise.catch(() => {}); // Prevent unhandled rejection
+  RECENT_CALL_DEDUP.set(dedupKey, { time: nowMs, promise: dedupPromise });
 
   try {
     const client = clients.get(target.serverName);
@@ -460,9 +497,18 @@ app.post("/call", async (req, res) => {
       READ_CACHE.set(cacheKey, { result, time: Date.now() });
     }
 
+    RECENT_CALL_DEDUP.set(dedupKey, {
+      time: Date.now(),
+      result,
+      promise: null,
+    });
+    resolveDedup(result);
+
     console.log(`[Bridge] Success /call: ${name}`);
     res.json({ ...result, callId: activeId });
   } catch (err) {
+    RECENT_CALL_DEDUP.delete(dedupKey);
+    rejectDedup(err);
     console.error(`[Bridge] Error /call: ${name}`, err.message);
     if (abortController.signal.aborted) {
       res.status(499).json({

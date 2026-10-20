@@ -323,6 +323,38 @@ Turbo Mode Guidelines:
       } catch (_) {}
     }
 
+    // 2b. Handle toolcall:BatchToolCalls or tool_call: format if model falls back into raw pretraining mode
+    if (
+      text.includes("toolcall:") ||
+      text.includes("tool_call:") ||
+      text.includes("BatchToolCalls")
+    ) {
+      const toolCallRegex =
+        /(?:toolcall|tool_call)\s*:\s*([a-zA-Z0-9_\-]+)\s*(\{[\s\S]*?\})/gi;
+      let tcm;
+      while ((tcm = toolCallRegex.exec(text)) !== null) {
+        const fnName = tcm[1].trim();
+        const rawBody = tcm[2].trim();
+        try {
+          const parsed = JSON.parse(rawBody);
+          if (fnName === "BatchToolCalls" && typeof parsed === "object") {
+            for (const key of Object.keys(parsed)) {
+              const item = parsed[key];
+              if (item && item.name) {
+                calls.push({
+                  name: item.name,
+                  arguments: item.arguments || {},
+                });
+              }
+            }
+          } else if (parsed && fnName !== "BatchToolCalls") {
+            calls.push({ name: fnName, arguments: parsed });
+          }
+        } catch (_) {}
+      }
+      if (calls.length) return calls;
+    }
+
     // 3. Try parsing DeepSeek DSML XML format (supporting both standard | and fullwidth ｜ pipes):
     if (
       (text.includes("DSML") || text.includes("\uff5c\uff5cDSML")) &&

@@ -13,7 +13,9 @@
         targetEl.classList.contains("md-code-block")
       ) {
         targetEl.style.display = "none";
-      } else {
+      } else if (!targetEl.classList.contains("ds-markdown")) {
+        // Never mutate innerHTML on the reactive message container (.ds-markdown)
+        // to avoid crashing Vue's virtual DOM reconciliation and tearing the chat layout.
         try {
           const rawHtml = targetEl.innerHTML;
           let cleanedHtml = rawHtml
@@ -149,13 +151,26 @@
 
     card.querySelector(".no").onclick = () => {
       targetEl.setAttribute("data-mcp-executed", "true");
-      window.DSState.executedCalls.add(callKey);
+      if (window.DSState.markCallExecuted) {
+        window.DSState.markCallExecuted(callKey);
+      } else {
+        window.DSState.executedCalls.add(callKey);
+        window.DSState.saveExecuted?.();
+      }
       const title = isBatch ? `batch of ${payload.length} tools` : payload.name;
       controls.innerHTML = window.DSComponents.status.rejected(title);
       window.DSState.sendText(`I skipped "${title}". Please continue.`);
     };
 
-    if (window.DSState.autoApprove) {
+    if (
+      window.DSState.autoApprove &&
+      window.DSState.isTaskActive &&
+      !isAlreadyExecuted &&
+      !window.DSState.hasExecutedCall?.(callKey)
+    ) {
+      if (window.DSState.markCallExecuted) {
+        window.DSState.markCallExecuted(callKey);
+      }
       const title = isBatch ? `batch of ${payload.length} tools` : payload.name;
       controls.innerHTML = window.DSComponents.status.autoRunning(title);
       setTimeout(
@@ -387,13 +402,12 @@
       if (targetEl) {
         targetEl.setAttribute("data-mcp-executed", "true");
       }
-      window.DSState.executedCalls.add(callKey);
-      try {
-        sessionStorage.setItem(
-          "deepseek_mcp_executed",
-          JSON.stringify(Array.from(window.DSState.executedCalls)),
-        );
-      } catch (_) {}
+      if (window.DSState.markCallExecuted) {
+        window.DSState.markCallExecuted(callKey);
+      } else {
+        window.DSState.executedCalls.add(callKey);
+        window.DSState.saveExecuted?.();
+      }
 
       const reasonPrefix = isAuto
         ? "[Auto-selected Recommended Options after 2m timeout]\n"

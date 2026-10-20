@@ -2,12 +2,30 @@
 (function (root) {
   "use strict";
   function scanMessages() {
-    const codeBlocks = Array.from(
+    const rawBlocks = Array.from(
       document.querySelectorAll("div.md-code-block, pre, div.ds-markdown"),
     );
+    if (!rawBlocks.length) return;
+
+    // Filter out parent ds-markdown containers if they already contain inner code blocks.
+    // This prevents duplicate card creation.
+    const codeBlocks = rawBlocks.filter((el) => {
+      if (el.classList.contains("ds-markdown")) {
+        return !el.querySelector("div.md-code-block, pre");
+      }
+      return true;
+    });
     if (!codeBlocks.length) return;
 
-    codeBlocks.forEach((el) => {
+    // Only the very last message container in the chat can be considered "live" for auto-execution,
+    // and ONLY if a task is actively running in this session (not on initial page load / crash restore).
+    const allMarkdownContainers = Array.from(
+      document.querySelectorAll("div.ds-markdown"),
+    );
+    const latestMarkdownContainer =
+      allMarkdownContainers[allMarkdownContainers.length - 1] || null;
+
+    codeBlocks.forEach((el, idx) => {
       if (el.hasAttribute("data-mcp-attached")) return;
       const nextEl = el.nextElementSibling;
       if (nextEl && nextEl.classList.contains("deepseek-mcp-action-card")) {
@@ -16,6 +34,19 @@
       }
 
       const text = el.textContent || "";
+
+      // A block is historical if:
+      // 1. No active task is running in this tab session (e.g., page just loaded or restored after crash)
+      // 2. Or this block is NOT inside the very last assistant message in the conversation
+      // 3. Or this call was already executed previously (persisted in localStorage)
+      const parentMd = el.closest("div.ds-markdown");
+      const isLatestTurn =
+        latestMarkdownContainer &&
+        (el === latestMarkdownContainer ||
+          parentMd === latestMarkdownContainer);
+      const isLiveSessionTurn = Boolean(
+        window.DSState?.isTaskActive && isLatestTurn,
+      );
 
       // 1. Check for interactive Grill-Me Question JSON
       if (
@@ -29,7 +60,9 @@
             grillData.question || grillData.questions[0]?.question || "multi";
           const callKey = `grill:${qTitle.slice(0, 80)}`;
           const isElementExecuted =
-            el.getAttribute("data-mcp-executed") === "true";
+            !isLiveSessionTurn ||
+            el.getAttribute("data-mcp-executed") === "true" ||
+            Boolean(window.DSState?.hasExecutedCall?.(callKey));
 
           root.DSCards?.renderGrillQuestionCard(
             el,
@@ -58,16 +91,27 @@
       if (allCalls && allCalls.length > 0) {
         el.setAttribute("data-mcp-attached", "true");
 
-        const isElementExecuted =
-          el.getAttribute("data-mcp-executed") === "true";
+        // Deterministic fingerprint so the same call in a chat is recognized across reloads
+        const callSignature = window.DSState?.getCallSignature
+          ? window.DSState.getCallSignature(allCalls, idx)
+          : `mcp_${idx}_${JSON.stringify(allCalls).slice(0, 120)}`;
 
         if (!el.dataset.mcpId) {
-          el.dataset.mcpId = `mcp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+          el.dataset.mcpId = callSignature;
         }
+
+        const callKey =
+          allCalls.length === 1
+            ? `${callSignature}:${allCalls[0].name}`
+            : `${callSignature}:batch_${allCalls.length}`;
+
+        const isElementExecuted =
+          !isLiveSessionTurn ||
+          el.getAttribute("data-mcp-executed") === "true" ||
+          Boolean(window.DSState?.hasExecutedCall?.(callKey));
 
         if (allCalls.length === 1) {
           const payload = allCalls[0];
-          const callKey = `${el.dataset.mcpId}:${payload.name}`;
           root.DSCards?.renderPermissionCard(
             el,
             payload,
@@ -75,7 +119,6 @@
             isElementExecuted,
           );
         } else {
-          const callKey = `${el.dataset.mcpId}:batch_${allCalls.length}`;
           root.DSCards?.renderPermissionCard(
             el,
             allCalls,
