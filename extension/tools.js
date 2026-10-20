@@ -240,7 +240,63 @@ Turbo Mode Guidelines:
     return null;
   }
 
-  function extractAllMcpCalls(text) {
+  function normalizeToolCall(call) {
+    if (!call || !call.name) return call;
+    let name = String(call.name).trim();
+    const args = call.arguments || {};
+
+    if (name === "filesystem" || name === "fs") {
+      if (args.command) {
+        name = args.command;
+        delete args.command;
+      }
+    } else if (name === "bash") {
+      if (!args.command && args.cmd) {
+        args.command = args.cmd;
+      }
+    } else if (name === "chrome" || name === "devtools" || name === "browser") {
+      if (args.tool) {
+        name = args.tool;
+        delete args.tool;
+      } else if (args.command) {
+        name = args.command;
+        delete args.command;
+      } else if (args.action && args.action !== "chrome") {
+        name = args.action;
+        delete args.action;
+      } else if (
+        args.url ||
+        args.action === "navigate" ||
+        args.action === "goto"
+      ) {
+        name = "navigate_page";
+      } else if (
+        args.action === "screenshot" ||
+        args.action === "take_screenshot"
+      ) {
+        name = "take_screenshot";
+      } else if (args.action === "snapshot" || args.action === "inspect") {
+        name = "take_snapshot";
+      } else if (args.action === "list" || args.action === "list_pages") {
+        name = "list_pages";
+      } else if (
+        args.action === "network" ||
+        args.action === "list_network_requests"
+      ) {
+        name = "list_network_requests";
+      } else if (
+        args.action === "console" ||
+        args.action === "list_console_messages"
+      ) {
+        name = "list_console_messages";
+      } else {
+        name = args.url ? "navigate_page" : "list_pages";
+      }
+    }
+    return { name, arguments: args };
+  }
+
+  function rawExtractAllMcpCalls(text) {
     if (!text) return [];
     const calls = [];
 
@@ -621,6 +677,11 @@ Turbo Mode Guidelines:
     if (calls.length) return calls;
 
     return calls;
+  }
+
+  function extractAllMcpCalls(text) {
+    const list = rawExtractAllMcpCalls(text) || [];
+    return list.map(normalizeToolCall);
   }
 
   function extractMcpCall(text) {

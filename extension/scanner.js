@@ -2,14 +2,27 @@
 (function (root) {
   "use strict";
   function scanMessages() {
+    // Only search actual markdown blocks, explicitly excluding all extension UI elements (cards, badges, pills, pre tags inside cards)
     const rawBlocks = Array.from(
-      document.querySelectorAll("div.md-code-block, pre, div.ds-markdown"),
+      document.querySelectorAll(
+        "div.ds-markdown div.md-code-block, div.ds-markdown pre, div.ds-markdown",
+      ),
     );
     if (!rawBlocks.length) return;
 
-    // Filter out parent ds-markdown containers if they already contain inner code blocks.
-    // This prevents duplicate card creation.
+    // Filter out:
+    // 1. Any element that is inside or belongs to our own extension action cards or UI elements
+    // 2. Parent ds-markdown containers if they already contain inner code blocks (prevents duplicate cards)
     const codeBlocks = rawBlocks.filter((el) => {
+      if (
+        el.closest(".deepseek-mcp-action-card") ||
+        el.closest("#deepseek-mcp-badge") ||
+        el.closest("#deepseek-mcp-queue-bar") ||
+        el.closest("#mcp-task-indicator") ||
+        el.classList.contains("ds-card-pre")
+      ) {
+        return false;
+      }
       if (el.classList.contains("ds-markdown")) {
         return !el.querySelector("div.md-code-block, pre");
       }
@@ -26,7 +39,13 @@
       allMarkdownContainers[allMarkdownContainers.length - 1] || null;
 
     codeBlocks.forEach((el, idx) => {
-      if (el.hasAttribute("data-mcp-attached")) return;
+      if (
+        el.hasAttribute("data-mcp-attached") ||
+        el.closest(".deepseek-mcp-action-card") ||
+        el.closest("#deepseek-mcp-badge")
+      ) {
+        return;
+      }
       const nextEl = el.nextElementSibling;
       if (nextEl && nextEl.classList.contains("deepseek-mcp-action-card")) {
         el.setAttribute("data-mcp-attached", "true");

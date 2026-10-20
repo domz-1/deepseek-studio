@@ -288,8 +288,53 @@ function pruneToolResult(name, content, args = {}) {
 }
 
 app.post("/call", async (req, res) => {
-  const { name, arguments: args = {}, callId, project } = req.body;
+  let { name, arguments: args = {}, callId, project } = req.body;
   console.log(`[Bridge] Incoming /call: ${name}`, JSON.stringify(args || {}));
+
+  // Resolve model confusion when it passes server name (e.g. "chrome", "filesystem", "bash") as tool name:
+  if (name === "chrome" || name === "devtools" || name === "browser") {
+    if (args.tool && toolMap.has(args.tool)) {
+      name = args.tool;
+    } else if (args.command && toolMap.has(args.command)) {
+      name = args.command;
+    } else if (args.action && toolMap.has(args.action)) {
+      name = args.action;
+    } else if (
+      args.url ||
+      args.action === "navigate" ||
+      args.action === "goto" ||
+      args.action === "open"
+    ) {
+      name = "navigate_page";
+    } else if (
+      args.action === "screenshot" ||
+      args.action === "take_screenshot"
+    ) {
+      name = "take_screenshot";
+    } else if (args.action === "snapshot" || args.action === "inspect") {
+      name = "take_snapshot";
+    } else if (args.action === "list" || args.action === "list_pages") {
+      name = "list_pages";
+    } else if (
+      args.action === "network" ||
+      args.action === "list_network_requests"
+    ) {
+      name = "list_network_requests";
+    } else if (
+      args.action === "console" ||
+      args.action === "list_console_messages"
+    ) {
+      name = "list_console_messages";
+    } else {
+      name = args.url ? "navigate_page" : "list_pages";
+    }
+    delete args.action;
+    delete args.tool;
+    if (args.command && name !== "execute_command" && name !== "bash") {
+      delete args.command;
+    }
+  }
+
   let target = toolMap.get(name);
   if (!target && name && typeof name === "string") {
     if (name.includes(".")) {
