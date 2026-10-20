@@ -1,6 +1,34 @@
 // DeepSeek MCP Studio — Execution Logic
 (function (root) {
   "use strict";
+
+  function formatToolResult(data) {
+    if (!data) return "";
+    if (Array.isArray(data.content)) {
+      return data.content
+        .map((item) => {
+          if (item && item.type === "text" && typeof item.text === "string") {
+            try {
+              const parsed = JSON.parse(item.text);
+              return JSON.stringify(parsed, null, 2);
+            } catch (_) {
+              return item.text;
+            }
+          }
+          return JSON.stringify(item, null, 2);
+        })
+        .join("\n\n");
+    }
+    if (typeof data === "string") {
+      try {
+        return JSON.stringify(JSON.parse(data), null, 2);
+      } catch (_) {
+        return data;
+      }
+    }
+    return JSON.stringify(data, null, 2);
+  }
+
   async function executeBatchTools(payloads, cardStatusEl, callKey, targetEl) {
     if (!Array.isArray(payloads) || payloads.length === 0) return;
     if (payloads.length === 1) {
@@ -70,10 +98,7 @@
             }
             return {
               name: payload.name,
-              output: JSON.stringify(data.content || data, null, 2).slice(
-                0,
-                5000,
-              ),
+              output: formatToolResult(data).slice(0, 8000),
               success: true,
             };
           } catch (err) {
@@ -225,9 +250,12 @@
         } catch (_) {}
       }
 
-      const out = JSON.stringify(data.content || data, null, 2).slice(0, 10000);
+      const out = formatToolResult(data).slice(0, 15000);
       if (cardStatusEl) {
-        cardStatusEl.innerHTML = window.DSComponents.status.done(payload.name);
+        cardStatusEl.innerHTML = window.DSComponents.status.done(
+          payload.name,
+          out,
+        );
       }
 
       const templates = window.DSQueue?.HUMAN_RESULT_TEMPLATES || [
@@ -255,5 +283,5 @@
     }
   }
 
-  root.DSExecution = { executeBatchTools, executeTool };
+  root.DSExecution = { executeBatchTools, executeTool, formatToolResult };
 })(window);

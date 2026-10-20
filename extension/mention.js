@@ -168,7 +168,7 @@
                 const skeleton = await getProjectSkeleton(
                   root.DSState.selectedProject,
                 );
-                prompt = `${window.DSTools.buildSysPrompt(selectedTools, root.DSState.selectedProject, skeleton)}\n${prompt}`;
+                prompt = `${window.DSTools.buildSysPrompt(selectedTools, root.DSState.selectedProject, skeleton, activeMention)}\n${prompt}`;
               }
 
               root.DSState.sendText(prompt, true);
@@ -202,6 +202,7 @@
               selectedTools,
               root.DSState.selectedProject,
               skeleton,
+              activeMention,
             );
             const combined = userText
               ? `${sysPrompt}\n\n${userText}`

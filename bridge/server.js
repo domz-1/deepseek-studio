@@ -114,7 +114,11 @@ async function syncServers() {
       const transport = new StdioClientTransport({
         command: srv.command,
         args: srv.args || [],
-        env: { ...process.env, ...(srv.env || {}) },
+        env: {
+          ...process.env,
+          PATH: `/home/adham/.nvm/versions/node/v22.22.1/bin:${process.env.PATH || ""}`,
+          ...(srv.env || {}),
+        },
       });
       const client = new Client(
         { name: `ds-${name}`, version: "4.0.0" },
@@ -124,8 +128,11 @@ async function syncServers() {
       clients.set(name, client);
 
       const { tools } = await client.listTools();
-      for (const t of tools)
+      for (const t of tools) {
         toolMap.set(t.name, { serverName: name, schema: t });
+        toolMap.set(`${name}.${t.name}`, { serverName: name, schema: t });
+        toolMap.set(`${name}_${t.name}`, { serverName: name, schema: t });
+      }
       serverStatus[name] = { online: true, count: tools.length };
       console.log(`[MCP] ${name} → ${tools.length} tools`);
     } catch (err) {
@@ -137,15 +144,25 @@ async function syncServers() {
 
 await syncServers();
 
+function getUniqueTools() {
+  const seen = new Set();
+  const list = [];
+  for (const v of toolMap.values()) {
+    const key = `${v.serverName}:${v.schema.name}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      list.push({ ...v.schema, server: v.serverName });
+    }
+  }
+  return list;
+}
+
 app.get("/mcp", (req, res) => {
   const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
   res.json({
     config: cfg,
     status: serverStatus,
-    tools: Array.from(toolMap.values()).map((v) => ({
-      ...v.schema,
-      server: v.serverName,
-    })),
+    tools: getUniqueTools(),
   });
 });
 
@@ -156,10 +173,7 @@ app.post("/mcp", async (req, res) => {
     res.json({
       ok: true,
       status: serverStatus,
-      tools: Array.from(toolMap.values()).map((v) => ({
-        ...v.schema,
-        server: v.serverName,
-      })),
+      tools: getUniqueTools(),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -254,11 +268,17 @@ function pruneToolResult(name, content, args = {}) {
     }
 
     // If output is massive (> 8,000 chars) for command/files, smartly summarize middle
-    const MAX_CHARS = 8000;
+    const isNetworkOrBrowserTool =
+      name.includes("network") ||
+      name.includes("page") ||
+      name.includes("console") ||
+      name.includes("snapshot") ||
+      name.includes("screenshot");
+    const MAX_CHARS = isNetworkOrBrowserTool ? 25000 : 8000;
     if (t.length > MAX_CHARS) {
-      const head = t.slice(0, 4000);
-      const tail = t.slice(-3500);
-      const omitted = t.length - 7500;
+      const head = t.slice(0, Math.floor(MAX_CHARS / 2));
+      const tail = t.slice(-Math.floor(MAX_CHARS / 2) + 500);
+      const omitted = t.length - (head.length + tail.length);
       t = `${head}\n\n... [DeepSeek Studio Turbo: Omitted ${omitted} characters of intermediate output to keep context fast] ...\n\n${tail}`;
     }
 
@@ -269,7 +289,16 @@ function pruneToolResult(name, content, args = {}) {
 app.post("/call", async (req, res) => {
   const { name, arguments: args = {}, callId, project } = req.body;
   console.log(`[Bridge] Incoming /call: ${name}`, JSON.stringify(args || {}));
-  const target = toolMap.get(name);
+  let target = toolMap.get(name);
+  if (!target && name && typeof name === "string") {
+    if (name.includes(".")) {
+      const stripped = name.split(".").slice(1).join(".");
+      target = toolMap.get(stripped);
+    } else if (name.includes("_")) {
+      const stripped = name.split("_").slice(1).join("_");
+      target = toolMap.get(stripped);
+    }
+  }
   if (!target) {
     console.error(`[Bridge] Tool ${name} not found!`);
     return res.status(404).json({ error: `Tool ${name} not found` });
@@ -284,6 +313,19 @@ app.post("/call", async (req, res) => {
   }
   if (!args.command && (args.cmd || args.script)) {
     args.command = args.cmd || args.script;
+  }
+
+  // Smart parameter defaults for Chrome DevTools tools:
+  if (target.serverName === "chrome") {
+    if (
+      args.pageId === undefined &&
+      target.schema?.inputSchema?.properties?.pageId
+    ) {
+      args.pageId = 1;
+    }
+    if (typeof args.pageId === "string" && !isNaN(Number(args.pageId))) {
+      args.pageId = Number(args.pageId);
+    }
   }
 
   // Pre-snapshot file before any writing or patching for instant 1-click Undo:
@@ -375,8 +417,9 @@ app.post("/call", async (req, res) => {
 
   try {
     const client = clients.get(target.serverName);
+    const actualToolName = target.schema?.name || name;
     const result = await client.callTool(
-      { name, arguments: args },
+      { name: actualToolName, arguments: args },
       CallToolResultSchema,
       { signal: abortController.signal },
     );

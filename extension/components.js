@@ -134,8 +134,15 @@
         <div class="ds-note ds-note-accent ds-pad0">${ic("clock")} Running <code>${escape(name)}</code>...</div>
         <button class="ds-btn ds-btn-no ds-btn-sm mcp-card-kill-btn" type="button">${ic("close")} Kill Task</button>
       </div>`,
-    done: (name) =>
-      `<div class="ds-note ds-note-success">${ic("check")} Done: <code>${escape(name)}</code></div>`,
+    done: (name, resultPreview) => {
+      const previewHtml = resultPreview
+        ? `<details class="ds-card-result-details" style="margin-top:6px;font-size:11px;">
+             <summary style="cursor:pointer;opacity:0.8;font-weight:600;">View Result Data (${resultPreview.length} chars)</summary>
+             <pre class="ds-card-pre" style="max-height:160px;overflow:auto;margin-top:4px;padding:6px;background:rgba(0,0,0,0.25);border-radius:4px;font-family:monospace;white-space:pre-wrap;">${escape(resultPreview.slice(0, 3000))}</pre>
+           </details>`
+        : "";
+      return `<div class="ds-note ds-note-success">${ic("check")} Done: <code>${escape(name)}</code>${previewHtml}</div>`;
+    },
     error: (msg) =>
       `<div class="ds-note ds-note-danger">${ic("alert")} Error: ${escape(msg)}</div>`,
     rejected: (name) =>

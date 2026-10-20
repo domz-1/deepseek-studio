@@ -70,6 +70,19 @@
       builtin: true,
     },
     {
+      id: "chrome",
+      name: "chrome",
+      description:
+        "Audit authenticated web pages & log all network endpoints via Chrome DevTools.",
+      prompt:
+        "Act as an expert Chrome automation & web security auditor using Chrome DevTools MCP tools.\n" +
+        "1. Handle authentication: check cookies/sessionStorage/localStorage with evaluate_script or fill login forms with fill_form and click.\n" +
+        "2. Log and intercept all network traffic via list_network_requests.\n" +
+        "3. Fetch and expose response payloads for key API endpoints via get_network_request.\n" +
+        "4. Render a clear markdown table of all network endpoints and format response data in structured ```json blocks for:\n",
+      builtin: true,
+    },
+    {
       id: "grill-me",
       name: "grill-me",
       description:

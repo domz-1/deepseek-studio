@@ -20,7 +20,63 @@
     "ralph_loop",
     "symbol_find",
     "git_diff_summary",
+    "list_pages",
+    "list_network_requests",
+    "get_network_request",
+    "list_console_messages",
+    "get_console_message",
+    "get_css_styles",
+    "take_screenshot",
+    "take_snapshot",
+    "wait_for",
   ]);
+
+  const CHROME_PROMPT_TEMPLATE = (
+    list,
+    projectPath,
+  ) => `You have Google Chrome DevTools MCP tools available:
+${list}
+
+${projectPath ? `ACTIVE PROJECT WORKSPACE: ${projectPath}\nAll relative paths and commands resolve relative to "${projectPath}".\n` : ""}
+CRITICAL DIRECTIVES FOR CHROME AUDITING, AUTHENTICATED PAGES & NETWORK ENDPOINTS:
+1. HOW TO TEST AUTHENTICATED PAGES:
+   - Live Session Inspection: Inspect active session cookies, tokens, or storage using "evaluate_script" with:
+     \`document.cookie\` or \`JSON.stringify(localStorage)\` or \`sessionStorage\`.
+   - Automated Authentication & Login Flows:
+     a) Navigate to the login/auth URL using "navigate_page" with { "url": "..." }.
+     b) Inspect form elements and interactive inputs using "take_snapshot".
+     c) Fill credentials via "fill_form" or "fill", and submit via "click".
+     d) Wait for navigation or state changes using "wait_for" to verify the authenticated session.
+   - Session & Cookie Injection: If Bearer tokens or cookies are provided, inject them via "evaluate_script" before accessing protected pages or API endpoints.
+
+2. LOGGING ALL NETWORK ENDPOINTS & TRAFFIC:
+   - Immediately run "list_network_requests" after any page navigation or UI action to capture ALL network traffic (APIs, XHR/Fetch, GraphQL, REST, auth redirects).
+   - For every key endpoint (especially API responses, auth callbacks, or requests returning errors/data), execute "get_network_request" with the specific "reqid" to retrieve full request/response headers, status code, timing, and response body.
+   - Always present a clean markdown summary table of all intercepted network endpoints:
+| Method | Endpoint / URL | Status | Type | Size | Notes / Auth |
+|---|---|---|---|---|---|
+| POST | /api/v1/auth/login | 200 OK | fetch | 1.2 KB | Session established |
+| GET | /api/v1/dashboard/data | 200 OK | xhr | 4.8 KB | Authenticated payload |
+
+3. EXPRESSING & RENDERING ALL DATA COMING ACROSS ENDPOINTS:
+   - All response data received must be rendered clearly and completely without hiding or truncating payloads.
+   - Express the JSON response payload for each intercepted endpoint inside structured, cleanly formatted \`\`\`json blocks so the returned data is immediately visible and readable.
+   - If an endpoint returns an error (4xx/5xx) or validation issue, output the exact error response body and HTTP status code.
+
+4. EXECUTION DISCIPLINE & TURBO BATCHING:
+   - Output tool calls immediately in standard JSON:
+\`\`\`json
+{ "name": "navigate_page", "arguments": { "url": "https://example.com" } }
+\`\`\`
+   - When batching multiple browser steps, bundle them cleanly:
+\`\`\`json
+[
+  { "name": "navigate_page", "arguments": { "url": "https://example.com/dashboard" } },
+  { "name": "list_network_requests", "arguments": {} }
+]
+\`\`\`
+   - Keep thinking concise and respond in English or Arabic only. Never use Chinese.
+`;
 
   const SYSTEM_PROMPT_STYLES = [
     (
@@ -67,13 +123,29 @@ Turbo Mode Guidelines:
 `,
   ];
 
-  function buildSysPrompt(tools, projectPath = "", skeleton = "") {
+  function buildSysPrompt(
+    tools,
+    projectPath = "",
+    skeleton = "",
+    mention = "",
+  ) {
     const list = (tools || [])
       .map(
         (t) =>
           `- [${t.server || "mcp"}] ${t.name}(${Object.keys(t.inputSchema?.properties || {}).join(", ")}): ${t.description?.slice(0, 80) || ""}`,
       )
       .join("\n");
+
+    const m = (mention || "").toLowerCase();
+    const isChromeMention =
+      m.includes("chrome") ||
+      m.includes("devtools") ||
+      (tools && tools.length > 0 && tools.every((t) => t.server === "chrome"));
+
+    if (isChromeMention) {
+      return CHROME_PROMPT_TEMPLATE(list, projectPath);
+    }
+
     const template =
       SYSTEM_PROMPT_STYLES[
         Math.floor(Math.random() * SYSTEM_PROMPT_STYLES.length)
