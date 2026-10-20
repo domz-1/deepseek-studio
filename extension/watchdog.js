@@ -50,6 +50,17 @@
         '.ds-button--capsule, .ds-button, div[role="button"], button',
       ),
     ).find((el) => {
+      if (el.getAttribute("data-mcp-dismissed") === "true") return false;
+      if (el.style.display === "none") return false;
+      if (
+        el.id === "mcp-watchdog-btn" ||
+        el.closest("#deepseek-mcp-badge") ||
+        el.closest(".deepseek-mcp-action-card") ||
+        el.closest("#mcp-task-indicator") ||
+        el.closest("#deepseek-mcp-queue-bar")
+      ) {
+        return false;
+      }
       const text = (el.textContent || "").trim().toLowerCase();
       const aria = (el.getAttribute("aria-label") || "").toLowerCase();
       return (
@@ -192,6 +203,13 @@
       return;
     }
 
+    // If stopped, reset to ready!
+    const lbl = document.getElementById("mcp-watchdog-label");
+    if (lbl && lbl.textContent.includes("Stopped")) {
+      root.DSState.resetTaskStateOnTyping();
+      return;
+    }
+
     // If currently in safe cooldown pause, skip it and send immediately!
     if (root.DSState.skipCooldown) {
       root.DSState.skipCooldown();
@@ -221,6 +239,10 @@
       return;
     }
     if (!root.DSState.isTaskActive) {
+      const lbl = document.getElementById("mcp-watchdog-label");
+      if (lbl && lbl.textContent.includes("Stopped")) {
+        return;
+      }
       updateWatchdogUI("idle", "⏱️ Watchdog: Ready");
       return;
     }

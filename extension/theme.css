@@ -643,6 +643,9 @@
   padding: 4px 12px;
   font-size: 11px;
 }
+[data-mcp-dismissed="true"] {
+  display: none !important;
+}
 .ds-mb0 {
   margin-bottom: 0 !important;
 }

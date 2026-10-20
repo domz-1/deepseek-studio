@@ -352,6 +352,86 @@
     localStorage.setItem("deepseek_mcp_inactivity_timeout", String(ms));
   }
 
+  function removeLingeringContinueButtons() {
+    const candidates = Array.from(
+      document.querySelectorAll(
+        'button, div[role="button"], span[role="button"], .ds-button, .ds-button--capsule',
+      ),
+    );
+    for (const el of candidates) {
+      if (
+        el.id === "mcp-watchdog-btn" ||
+        el.closest("#deepseek-mcp-badge") ||
+        el.closest(".deepseek-mcp-action-card") ||
+        el.closest("#mcp-task-indicator") ||
+        el.closest("#deepseek-mcp-queue-bar")
+      ) {
+        continue;
+      }
+      const text = (el.textContent || "").trim().toLowerCase();
+      const aria = (el.getAttribute("aria-label") || "").toLowerCase();
+      if (
+        text === "continue" ||
+        aria === "continue" ||
+        (text.includes("continue") && !text.includes("discontinue"))
+      ) {
+        try {
+          el.style.display = "none";
+          el.setAttribute("data-mcp-dismissed", "true");
+          const parent = el.parentElement;
+          if (
+            parent &&
+            parent.children.length === 1 &&
+            !parent.closest(".ds-markdown")
+          ) {
+            parent.style.display = "none";
+            parent.setAttribute("data-mcp-dismissed", "true");
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  function resetTaskStateOnTyping() {
+    const lbl = document.getElementById("mcp-watchdog-label");
+    if (lbl && lbl.textContent.includes("Stopped")) {
+      if (window.DSWatchdog?.updateWatchdogUI) {
+        window.DSWatchdog.updateWatchdogUI("idle", "⏱️ Watchdog: Ready");
+      }
+    }
+    removeLingeringContinueButtons();
+  }
+
+  function startNewTask(text) {
+    isTaskActive = true;
+    isPaused = false;
+    runningTaskCount = 0;
+    if (text) lastSentMessage = text;
+    recordActivity();
+    updateTaskBadge();
+
+    // 1. Hide lingering continue buttons from previous stopped turns
+    removeLingeringContinueButtons();
+
+    // 2. Mark any unexecuted cards as superseded
+    document.querySelectorAll(".deepseek-mcp-action-card").forEach((card) => {
+      const okBtn = card.querySelector(".ok");
+      if (okBtn) {
+        const controls = card.querySelector(".card-controls");
+        if (controls) {
+          controls.innerHTML = `<div class="ds-note ds-note-muted">Previous task ended</div>`;
+        }
+      }
+    });
+
+    // 3. Set watchdog UI to active generating state
+    if (window.DSWatchdog?.updateWatchdogUI) {
+      window.DSWatchdog.updateWatchdogUI("generating", "DeepSeek writing...");
+    }
+
+    console.log("[DS Studio] Started new task lifecycle.");
+  }
+
   async function sendText(text, isUserInput = false) {
     if (isPaused && !isUserInput) {
       console.log("[DS Studio] Task is paused. Suppressed automated send.");
@@ -359,9 +439,14 @@
     }
     if (isSending) return;
     isSending = true;
-    recordActivity();
-    isTaskActive = true;
-    if (text) lastSentMessage = text;
+
+    if (isUserInput) {
+      startNewTask(text);
+    } else {
+      recordActivity();
+      isTaskActive = true;
+      if (text) lastSentMessage = text;
+    }
 
     try {
       const el = getChatInput();
@@ -474,6 +559,14 @@
     if (window.DSWatchdog?.updateWatchdogUI) {
       window.DSWatchdog.updateWatchdogUI("stopped", "🛑 Task Stopped");
     }
+
+    // 5. Hide lingering Continue buttons that DeepSeek generates when stopped!
+    setTimeout(() => {
+      removeLingeringContinueButtons();
+    }, 300);
+    setTimeout(() => {
+      removeLingeringContinueButtons();
+    }, 1000);
 
     console.log("[DS Studio] Full task stopped and cancelled by user.");
   }
@@ -689,5 +782,8 @@
     stopDeepSeekGeneration,
     killActiveTask,
     updateTaskBadge,
+    startNewTask,
+    resetTaskStateOnTyping,
+    removeLingeringContinueButtons,
   };
 })(window);

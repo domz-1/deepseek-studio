@@ -22,9 +22,9 @@
 
   function attachInputMentionInterceptor() {
     const input = root.DSState.getChatInput();
-    if (!input || input.__mcpAttached) return;
-    input.__mcpAttached = true;
+    if (!input) return;
 
+    // Continuously ensure send button has listener even when re-rendered by DeepSeek
     const sendBtn = root.DSState.getSendButton();
     if (sendBtn && !sendBtn.__mcpListen) {
       sendBtn.__mcpListen = true;
@@ -33,15 +33,19 @@
         if (val) {
           const handled = await processAndSubmitInput(val, e);
           if (!handled) {
-            root.DSState.lastSentMessage = val;
-            root.DSState.recordActivity();
-            root.DSState.isTaskActive = true;
+            root.DSState.startNewTask(val);
           }
         }
       });
     }
 
+    if (input.__mcpAttached) return;
+    input.__mcpAttached = true;
+
     input.addEventListener("input", () => {
+      // Whenever user types, clear stopped watchdog state and lingering continue buttons
+      root.DSState.resetTaskStateOnTyping();
+
       const val = input.value;
       const slashMatch = val.match(/\/([\w-]*)$/);
       const mentionMatch = val.match(/@([^\s@]*)$/);
@@ -255,9 +259,7 @@
 
           const handled = await processAndSubmitInput(rawVal, e);
           if (!handled) {
-            root.DSState.lastSentMessage = rawVal;
-            root.DSState.recordActivity();
-            root.DSState.isTaskActive = true;
+            root.DSState.startNewTask(rawVal);
           }
         }
       },
