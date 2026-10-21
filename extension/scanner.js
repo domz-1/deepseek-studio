@@ -373,15 +373,73 @@
         turn.style.setProperty("padding", "0", "important");
         turn.style.setProperty("margin", "0", "important");
 
-        // Hide inner message bubble and the action buttons row after the message
+        // Hide inner message bubble and the action buttons row (and its parent) after the message
         turn
           .querySelectorAll(
-            ".ds-message, .ds-flex, [class*='ds-flex'], [class*='flex'], button",
+            ".ds-message, .ds-flex, [class*='ds-flex'], [class*='flex'], button, .ds-button--iconLabelTertiary, [class*='iconLabelTertiary']",
           )
           .forEach((sub) => {
             sub.classList.add("ds-mcp-hidden-turn");
             sub.style.setProperty("display", "none", "important");
+            if (
+              sub.parentElement &&
+              sub.parentElement !== turn &&
+              !isAssistantTurn(sub.parentElement)
+            ) {
+              sub.parentElement.classList.add("ds-mcp-hidden-turn");
+              sub.parentElement.style.setProperty(
+                "display",
+                "none",
+                "important",
+              );
+              sub.parentElement.style.setProperty("height", "0", "important");
+              sub.parentElement.style.setProperty("margin", "0", "important");
+              sub.parentElement.style.setProperty("padding", "0", "important");
+            }
           });
+
+        if (turn.parentElement && !isAssistantTurn(turn.parentElement)) {
+          turn.parentElement
+            .querySelectorAll(
+              ".ds-button--iconLabelTertiary, [class*='iconLabelTertiary'], .ds-flex, [class*='ds-flex'], button",
+            )
+            .forEach((btn) => {
+              btn.classList.add("ds-mcp-hidden-turn");
+              btn.style.setProperty("display", "none", "important");
+              if (btn.parentElement && !isAssistantTurn(btn.parentElement)) {
+                btn.parentElement.classList.add("ds-mcp-hidden-turn");
+                btn.parentElement.style.setProperty(
+                  "display",
+                  "none",
+                  "important",
+                );
+                btn.parentElement.style.setProperty("height", "0", "important");
+                btn.parentElement.style.setProperty(
+                  "padding",
+                  "0",
+                  "important",
+                );
+                btn.parentElement.style.setProperty("margin", "0", "important");
+              }
+            });
+        }
+
+        let nextSib = turn.nextElementSibling;
+        while (nextSib) {
+          if (
+            nextSib.classList.contains("ds-flex") ||
+            nextSib.querySelector?.(
+              ".ds-button--iconLabelTertiary, [class*='iconLabelTertiary'], button",
+            )
+          ) {
+            nextSib.classList.add("ds-mcp-hidden-turn");
+            nextSib.style.setProperty("display", "none", "important");
+            nextSib.style.setProperty("height", "0", "important");
+            nextSib.style.setProperty("padding", "0", "important");
+            nextSib.style.setProperty("margin", "0", "important");
+          }
+          nextSib = nextSib.nextElementSibling;
+        }
       } else {
         turn.classList.remove("ds-mcp-hidden-turn");
         turn.style.removeProperty("display");
