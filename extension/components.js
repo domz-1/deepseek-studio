@@ -121,7 +121,10 @@
             <span style="color:#10b981;font-weight:bold;">✓</span>
             <span style="opacity:0.85;">Executed:</span> ${code}
           </div>
-          ${raw}
+          <div style="display:inline-flex;gap:4px;align-items:center;">
+            <button class="ds-btn ds-btn-xs mcp-rerun-btn" type="button" style="font-size:11px;padding:2px 8px;opacity:0.9;" title="Re-execute this tool now">🔄 Re-run</button>
+            ${raw}
+          </div>
         </div>
         <details class="ds-card-args-details" style="margin-top:6px;">
           <summary style="cursor:pointer;font-size:11px;opacity:0.75;padding:2px 0;user-select:none;">${isMulti ? "Batch Tool Calls" : "Arguments & Parameters"} (${args.length} chars)</summary>
@@ -167,7 +170,12 @@
              <pre class="ds-card-pre" style="max-height:160px;overflow:auto;margin-top:4px;padding:6px;background:rgba(0,0,0,0.25);border-radius:4px;font-family:monospace;white-space:pre-wrap;">${escape(resultPreview.slice(0, 3000))}</pre>
            </details>`
         : "";
-      return `<div class="ds-note ds-note-success">${ic("check")} Done: <code>${escape(name)}</code>${previewHtml}</div>`;
+      return `
+        <div class="ds-card-head ds-mb0" style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+          <div class="ds-note ds-note-success ds-pad0">${ic("check")} Done: <code>${escape(name)}</code></div>
+          <button class="ds-btn ds-btn-ok ds-btn-xs mcp-dispatch-btn" type="button" style="font-size:11px;padding:2px 8px;" title="Send tool output to DeepSeek">📤 Send Output</button>
+        </div>
+        ${previewHtml}`;
     },
     error: (msg) =>
       `<div class="ds-note ds-note-danger">${ic("alert")} Error: ${escape(msg)}</div>`,

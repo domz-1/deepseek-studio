@@ -105,7 +105,7 @@
           } catch (_) {}
 
           const isElementExecuted =
-            !isLiveSessionTurn ||
+            !isLatestTurn ||
             el.getAttribute("data-mcp-executed") === "true" ||
             Boolean(window.DSState?.hasExecutedCall?.(callKey));
 
@@ -161,7 +161,7 @@
         } catch (_) {}
 
         const isElementExecuted =
-          !isLiveSessionTurn ||
+          !isLatestTurn ||
           el.getAttribute("data-mcp-executed") === "true" ||
           Boolean(window.DSState?.hasExecutedCall?.(callKey));
 

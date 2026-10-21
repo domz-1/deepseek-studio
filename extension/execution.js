@@ -31,6 +31,9 @@
 
   async function executeBatchTools(payloads, cardStatusEl, callKey, targetEl) {
     if (!Array.isArray(payloads) || payloads.length === 0) return;
+    window.DSState.isTaskActive = true;
+    window.DSState.isTaskStopped = false;
+    window.DSState.setChatTaskStatus?.("active");
     if (payloads.length === 1) {
       return executeTool(payloads[0], cardStatusEl, callKey, targetEl);
     }
@@ -135,7 +138,21 @@
       }
 
       if (cardStatusEl) {
-        cardStatusEl.innerHTML = `<div class="ds-note ds-note-success"><span class="ds-ic" data-ic="check"></span> Completed batch of ${payloads.length} tools.</div>`;
+        cardStatusEl.innerHTML = window.DSComponents.status.done(
+          `Batch (${payloads.length} tools)`,
+          results.map((r) => `### ${r.name}:\n${r.output}`).join("\n\n"),
+        );
+        const sendBtn = cardStatusEl.querySelector(".mcp-dispatch-btn");
+        if (sendBtn) {
+          sendBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.DSState.isTaskActive = true;
+            window.DSState.isTaskStopped = false;
+            window.DSState.setChatTaskStatus?.("active");
+            window.DSState.sendText(batchMessage);
+          };
+        }
       }
 
       const isArabic = sessionStorage.getItem("deepseek_mcp_arabic") === "true";
@@ -166,7 +183,16 @@
       }
       window.DSState.isTaskActive = true;
       window.DSState.isTaskStopped = false;
+      window.DSState.setChatTaskStatus?.("active");
       await window.DSState.sendText(batchMessage);
+      if (cardStatusEl) {
+        const sendBtn = cardStatusEl.querySelector(".mcp-dispatch-btn");
+        if (sendBtn) {
+          sendBtn.textContent = "✓ Sent";
+          sendBtn.disabled = true;
+          sendBtn.style.opacity = "0.6";
+        }
+      }
     } catch (err) {
       if (cardStatusEl) {
         cardStatusEl.innerHTML = window.DSComponents.status.error(err.message);
@@ -195,6 +221,11 @@
 
   // Tool execution & card rendering
   async function executeTool(payload, cardStatusEl, callKey, targetEl) {
+    if (!payload || !payload.name) return;
+    window.DSState.isTaskActive = true;
+    window.DSState.isTaskStopped = false;
+    window.DSState.setChatTaskStatus?.("active");
+
     const callId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     payload.callId = callId;
 
@@ -300,6 +331,17 @@
           payload.name,
           out,
         );
+        const sendBtn = cardStatusEl.querySelector(".mcp-dispatch-btn");
+        if (sendBtn) {
+          sendBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.DSState.isTaskActive = true;
+            window.DSState.isTaskStopped = false;
+            window.DSState.setChatTaskStatus?.("active");
+            window.DSState.sendText(message);
+          };
+        }
       }
 
       const isArabic = sessionStorage.getItem("deepseek_mcp_arabic") === "true";
@@ -333,7 +375,16 @@
 
       window.DSState.isTaskActive = true;
       window.DSState.isTaskStopped = false;
+      window.DSState.setChatTaskStatus?.("active");
       await window.DSState.sendText(message);
+      if (cardStatusEl) {
+        const sendBtn = cardStatusEl.querySelector(".mcp-dispatch-btn");
+        if (sendBtn) {
+          sendBtn.textContent = "✓ Sent";
+          sendBtn.disabled = true;
+          sendBtn.style.opacity = "0.6";
+        }
+      }
     } catch (err) {
       if (cardStatusEl) {
         cardStatusEl.innerHTML = window.DSComponents.status.error(err.message);

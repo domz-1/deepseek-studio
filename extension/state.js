@@ -482,15 +482,19 @@
         // 1. Wait until DeepSeek finishes generating
         let waited = 0;
         while (isDeepSeekGenerating() && waited < 30000) {
-          if (isPaused || !isTaskActive) return;
+          if (isPaused || isTaskStopped || getChatTaskStatus() === "stopped") {
+            return;
+          }
           await new Promise((r) => setTimeout(r, 600));
           waited += 600;
         }
 
-        // 2. Anti-ban safe throttling (30s) between automated messages
+        // 2. Anti-ban safe throttling between automated messages
         bypassCooldown = false;
         while (!bypassCooldown) {
-          if (isPaused || !isTaskActive) return;
+          if (isPaused || isTaskStopped || getChatTaskStatus() === "stopped") {
+            return;
+          }
           const elapsed = Date.now() - lastMessageSentTime;
           const remaining = Math.max(0, SAFE_INTERVAL_MS - elapsed);
           if (remaining <= 0) break;

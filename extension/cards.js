@@ -187,6 +187,30 @@
 
     if (isAlreadyExecuted) {
       attachCardToTarget(targetEl, card, callKey);
+      const rerunBtn = card.querySelector(".mcp-rerun-btn");
+      if (rerunBtn) {
+        rerunBtn.onclick = () => {
+          window.DSState.isTaskActive = true;
+          window.DSState.isTaskStopped = false;
+          window.DSState.setChatTaskStatus?.("active");
+          const container = card.querySelector(".ds-card-head") || card;
+          if (isBatch) {
+            root.DSExecution?.executeBatchTools(
+              payload,
+              container,
+              callKey,
+              targetEl,
+            );
+          } else {
+            root.DSExecution?.executeTool(
+              payload,
+              container,
+              callKey,
+              targetEl,
+            );
+          }
+        };
+      }
       return;
     }
 
@@ -195,6 +219,9 @@
     const controls = card.querySelector(".card-controls");
 
     card.querySelector(".ok").onclick = async () => {
+      window.DSState.isTaskActive = true;
+      window.DSState.isTaskStopped = false;
+      window.DSState.setChatTaskStatus?.("active");
       try {
         const edited = JSON.parse(card.querySelector(".ed").value);
         if (isBatch && Array.isArray(edited)) {
@@ -230,10 +257,12 @@
 
     if (
       window.DSState.autoApprove &&
-      window.DSState.isTaskActive &&
       !isAlreadyExecuted &&
       !window.DSState.hasExecutedCall?.(callKey)
     ) {
+      window.DSState.isTaskActive = true;
+      window.DSState.isTaskStopped = false;
+      window.DSState.setChatTaskStatus?.("active");
       if (window.DSState.markCallExecuted) {
         window.DSState.markCallExecuted(callKey);
       }

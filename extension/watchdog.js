@@ -242,16 +242,12 @@
   }
 
   function checkInactivityAndResend() {
-    // 0. If task is explicitly paused or stopped by user, or chat is completed, do nothing!
+    // 0. If task is explicitly paused or stopped by user, do nothing!
     if (root.DSState.isPaused) {
       updateWatchdogUI("paused", "⏸️ Task Paused");
       return;
     }
     const currentChatStatus = root.DSState.getChatTaskStatus?.();
-    if (currentChatStatus === "completed") {
-      updateWatchdogUI("done", "✅ Done");
-      return;
-    }
     if (root.DSState.isTaskStopped || currentChatStatus === "stopped") {
       updateWatchdogUI("stopped", "🛑 Task Stopped");
       return;
@@ -264,6 +260,7 @@
     if (root.DSState.isDeepSeekGenerating() || root.DSState.isSending) {
       root.DSState.recordActivity();
       root.DSState.isTaskActive = true;
+      root.DSState.setChatTaskStatus?.("active");
       updateWatchdogUI("generating", "DeepSeek writing...");
       return;
     }
@@ -272,6 +269,7 @@
     if (root.DSState.runningTaskCount > 0) {
       root.DSState.recordActivity();
       root.DSState.isTaskActive = true;
+      root.DSState.setChatTaskStatus?.("active");
       updateWatchdogUI(
         "generating",
         `Tools running (${root.DSState.runningTaskCount})...`,
@@ -384,6 +382,7 @@
     ) {
       root.DSState.isTaskActive = true;
       root.DSState.isTaskStopped = false;
+      root.DSState.setChatTaskStatus?.("active");
       updateWatchdogUI(
         "generating",
         root.DSState.runningTaskCount > 0
@@ -446,6 +445,7 @@
         chatStatus === "active" || root.DSState.isTaskActive;
 
       if (
+        chatStatus === "completed" ||
         isTaskFinished ||
         (isCurrentActive &&
           !hasToolCallInLatestTurn &&
