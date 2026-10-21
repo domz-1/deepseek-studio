@@ -443,17 +443,17 @@
     const isCurrentActive =
       chatStatus === "active" || root.DSState.isTaskActive;
 
-    if (hasRemainingWork) {
-      // The assistant divided the job into parts / sub-tasks and still has work to do!
-      // Keep task actively progressing towards the Big Goal!
-      root.DSState.isTaskActive = true;
-      root.DSState.isTaskStopped = false;
-      root.DSState.setChatTaskStatus?.("active");
-    } else if (
+    // 1. If explicitly stopped by user:
+    if (chatStatus === "stopped" || root.DSState.isTaskStopped) {
+      updateWatchdogUI("stopped", "Task Stopped");
+      return;
+    }
+
+    // 2. Only mark completed when the Big Goal is truly complete:
+    if (
       chatStatus === "completed" ||
-      isBigGoalCompleted ||
-      (isCurrentActive &&
-        !isWaitingOnAssistantResponse &&
+      (isBigGoalCompleted &&
+        !hasRemainingWork &&
         !hasPendingToolCards &&
         root.DSState.runningTaskCount === 0)
     ) {
@@ -463,26 +463,36 @@
       return;
     }
 
+    // 3. If an active task is running, keep it actively progressing towards the Big Goal!
+    // Never stop mid-workflow just because tools aren't running at this exact second!
+    if (isCurrentActive) {
+      root.DSState.isTaskActive = true;
+      root.DSState.isTaskStopped = false;
+      root.DSState.setChatTaskStatus?.("active");
+
+      // Chat is idle and Big Goal is NOT done yet! Countdown & auto-continue:
+      const idleTimeout = Math.min(
+        root.DSState.INACTIVITY_TIMEOUT_MS || 15000,
+        15000,
+      );
+      const idleTime = Date.now() - root.DSState.lastActivityTime;
+      const remainingMs = Math.max(0, idleTimeout - idleTime);
+
+      if (remainingMs > 0) {
+        updateWatchdogUI("countdown", null, remainingMs);
+      } else {
+        console.log(
+          `[DeepSeek Studio] Sub-task idle while big goal is in progress (${Math.round(idleTime / 1000)}s). Auto-continuing now...`,
+        );
+        triggerManualContinue();
+      }
+      return;
+    }
+
     // If no active task has been registered yet, stay in Ready state
     if (!root.DSState.isTaskActive && !root.DSState.lastSentMessage) {
       updateWatchdogUI("idle", "Watchdog: Ready");
       return;
-    }
-
-    // Chat is idle and Big Goal is NOT done! Start countdown & auto-continue:
-    const idleTime = Date.now() - root.DSState.lastActivityTime;
-    const remainingMs = Math.max(
-      0,
-      root.DSState.INACTIVITY_TIMEOUT_MS - idleTime,
-    );
-
-    if (remainingMs > 0) {
-      updateWatchdogUI("countdown", null, remainingMs);
-    } else {
-      console.log(
-        `[DeepSeek Studio] Sub-task paused while big goal has remaining work (${Math.round(idleTime / 1000)}s). Auto-continuing now...`,
-      );
-      triggerManualContinue();
     }
   }
 
