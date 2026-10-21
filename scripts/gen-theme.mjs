@@ -60,10 +60,12 @@ const ICONS = {
   clock: "M12 7v5l3 2",
   alert: "M12 8v4M12 16h.01",
   search: "M20 20l-3.5-3.5",
-  flame: "M12 3c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 1 0 1-2 1-8z",
+  flame:
+    "M12 3c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 1 0 1-2 1-8z",
   arrowRight: "M5 12h14M13 6l6 6-6 6",
   file: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z M14 3v5h5",
-  folder: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z",
+  folder:
+    "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z",
   brain:
     "M9 4a3 3 0 0 0-3 3 3 3 0 0 0-1 5.8A3 3 0 0 0 7 18h2V4z M15 4a3 3 0 0 1 3 3 3 3 0 0 1 1 5.8A3 3 0 0 1 17 18h-2V4z",
   help: "M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5M12 17h.01",
@@ -81,15 +83,22 @@ const ICONS = {
 };
 
 const CIRCLES = {
-  clock: [12, 12, 9], alert: [12, 12, 9], help: [12, 12, 9],
-  search: [11, 11, 7], bug: [12, 13, 5], globe: [12, 12, 9],
+  clock: [12, 12, 9],
+  alert: [12, 12, 9],
+  help: [12, 12, 9],
+  search: [11, 11, 7],
+  bug: [12, 13, 5],
+  globe: [12, 12, 9],
 };
 const RECTS = { clipboard: [6, 4, 12, 17, 2] };
 
 function buildSvg(name) {
   const parts = [];
   const r = RECTS[name];
-  if (r) parts.push(`<rect x='${r[0]}' y='${r[1]}' width='${r[2]}' height='${r[3]}' rx='${r[4]}'/>`);
+  if (r)
+    parts.push(
+      `<rect x='${r[0]}' y='${r[1]}' width='${r[2]}' height='${r[3]}' rx='${r[4]}'/>`,
+    );
   const c = CIRCLES[name];
   if (c) parts.push(`<circle cx='${c[0]}' cy='${c[1]}' r='${c[2]}'/>`);
   if (ICONS[name]) parts.push(`<path d='${ICONS[name]}'/>`);
@@ -174,12 +183,17 @@ const COMPONENTS = `
 .ds-auto input { cursor: pointer; accent-color: var(--ds-accent); }
 
 /* ---- Action card ---- */
-.ds-card {
+.ds-card, .deepseek-mcp-action-card, .deepseek-grill-card {
+  width: 100% !important; max-width: 100% !important; min-width: 0 !important;
+  box-sizing: border-box !important; flex: 1 1 100% !important; flex-shrink: 0 !important; clear: both !important;
   margin: 12px 0 16px; background: var(--ds-bg-elev);
   border: 2px solid var(--ds-accent); border-radius: var(--ds-radius);
   padding: 16px; font-family: var(--ds-font); font-size: 13px;
   color: var(--ds-fg); box-shadow: 0 8px 28px var(--ds-shadow-md);
   display: block; position: relative;
+}
+.ds-markdown:has(.deepseek-mcp-action-card) {
+  width: 100% !important; max-width: 100% !important; box-sizing: border-box !important;
 }
 .ds-card.is-danger { border-color: var(--ds-danger); }
 .ds-card.is-historical { border-color: var(--ds-border); }
@@ -416,4 +430,6 @@ const content = [
 ].join("\n");
 
 writeFileSync(out, content);
-console.log(`wrote ${out} (${content.length} bytes, ${Object.keys(ICONS).length} icons)`);
+console.log(
+  `wrote ${out} (${content.length} bytes, ${Object.keys(ICONS).length} icons)`,
+);

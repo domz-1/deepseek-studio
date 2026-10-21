@@ -24,7 +24,9 @@
         return false;
       }
       if (el.classList.contains("ds-markdown")) {
-        return !el.querySelector("div.md-code-block, pre");
+        return !el.querySelector(
+          "div.md-code-block, pre, .deepseek-mcp-action-card",
+        );
       }
       return true;
     });
@@ -42,7 +44,8 @@
       if (
         el.hasAttribute("data-mcp-attached") ||
         el.closest(".deepseek-mcp-action-card") ||
-        el.closest("#deepseek-mcp-badge")
+        el.closest("#deepseek-mcp-badge") ||
+        el.querySelector(".deepseek-mcp-action-card")
       ) {
         return;
       }
@@ -78,6 +81,17 @@
           const qTitle =
             grillData.question || grillData.questions[0]?.question || "multi";
           const callKey = `grill:${qTitle.slice(0, 80)}`;
+
+          try {
+            if (
+              document.querySelector(
+                `.deepseek-mcp-action-card[data-call-key="${CSS.escape(callKey)}"]`,
+              )
+            ) {
+              return;
+            }
+          } catch (_) {}
+
           const isElementExecuted =
             !isLiveSessionTurn ||
             el.getAttribute("data-mcp-executed") === "true" ||
@@ -123,6 +137,16 @@
           allCalls.length === 1
             ? `${callSignature}:${allCalls[0].name}`
             : `${callSignature}:batch_${allCalls.length}`;
+
+        try {
+          if (
+            document.querySelector(
+              `.deepseek-mcp-action-card[data-call-key="${CSS.escape(callKey)}"]`,
+            )
+          ) {
+            return;
+          }
+        } catch (_) {}
 
         const isElementExecuted =
           !isLiveSessionTurn ||

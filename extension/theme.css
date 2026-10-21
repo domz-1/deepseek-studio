@@ -531,7 +531,16 @@
 }
 
 /* ---- Action card ---- */
-.ds-card {
+.ds-card,
+.deepseek-mcp-action-card,
+.deepseek-grill-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  flex: 1 1 100% !important;
+  flex-shrink: 0 !important;
+  clear: both !important;
   margin: 12px 0 16px;
   background: var(--ds-bg-elev);
   border: 2px solid var(--ds-accent);
@@ -543,6 +552,11 @@
   box-shadow: 0 8px 28px var(--ds-shadow-md);
   display: block;
   position: relative;
+}
+.ds-markdown:has(.deepseek-mcp-action-card) {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 .ds-card.is-danger {
   border-color: var(--ds-danger);

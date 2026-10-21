@@ -1,12 +1,68 @@
 // DeepSeek MCP Studio — UI Cards
 (function (root) {
   "use strict";
+  function attachCardToTarget(targetEl, card, callKey) {
+    if (!targetEl || !card) return;
+    if (callKey) {
+      card.setAttribute("data-call-key", callKey);
+      card.dataset.callKey = callKey;
+      targetEl.setAttribute("data-call-key", callKey);
+    }
+    targetEl.setAttribute("data-mcp-attached", "true");
+
+    // If targetEl is the message container (.ds-markdown), append INSIDE it
+    // so it stays within normal block document flow and does NOT become an
+    // afterend sibling in DeepSeek's outer horizontal flex row (flex-wrap: nowrap).
+    if (targetEl.classList.contains("ds-markdown")) {
+      targetEl.appendChild(card);
+    } else {
+      targetEl.insertAdjacentElement("afterend", card);
+    }
+  }
+
+  function toggleRawVisibility(targetEl) {
+    if (!targetEl) return;
+    if (
+      targetEl.tagName === "PRE" ||
+      targetEl.classList.contains("md-code-block")
+    ) {
+      targetEl.style.display =
+        targetEl.style.display === "none" ? "block" : "none";
+    } else {
+      const inner = targetEl.querySelector("div.md-code-block, pre");
+      if (inner) {
+        inner.style.display = inner.style.display === "none" ? "block" : "none";
+      }
+    }
+  }
+
   function renderPermissionCard(
     targetEl,
     payload,
     callKey,
     isAlreadyExecuted = false,
   ) {
+    // Deduplication check: do not render duplicate card if callKey already exists in document or targetEl
+    if (callKey) {
+      try {
+        const existing = document.querySelector(
+          `.deepseek-mcp-action-card[data-call-key="${CSS.escape(callKey)}"]`,
+        );
+        if (existing) {
+          if (targetEl) targetEl.setAttribute("data-mcp-attached", "true");
+          return;
+        }
+      } catch (_) {}
+    }
+    if (
+      targetEl?.querySelector?.(
+        `.deepseek-mcp-action-card[data-call-key="${CSS.escape(callKey)}"]`,
+      )
+    ) {
+      targetEl.setAttribute("data-mcp-attached", "true");
+      return;
+    }
+
     if (targetEl) {
       if (
         targetEl.tagName === "PRE" ||
@@ -104,27 +160,17 @@
       batchCount: isBatch ? payload.length : 1,
     });
 
+    const rawBtn = card.querySelector(".view-raw-btn");
+    if (rawBtn && targetEl) {
+      rawBtn.onclick = () => toggleRawVisibility(targetEl);
+    }
+
     if (isAlreadyExecuted) {
-      const btn = card.querySelector(".view-raw-btn");
-      if (btn && targetEl) {
-        btn.onclick = () => {
-          targetEl.style.display =
-            targetEl.style.display === "none" ? "block" : "none";
-        };
-      }
-      targetEl.insertAdjacentElement("afterend", card);
+      attachCardToTarget(targetEl, card, callKey);
       return;
     }
 
-    const btn = card.querySelector(".view-raw-btn");
-    if (btn && targetEl) {
-      btn.onclick = () => {
-        targetEl.style.display =
-          targetEl.style.display === "none" ? "block" : "none";
-      };
-    }
-
-    targetEl.insertAdjacentElement("afterend", card);
+    attachCardToTarget(targetEl, card, callKey);
 
     const controls = card.querySelector(".card-controls");
 
@@ -197,8 +243,34 @@
     callKey,
     isHistorical = false,
   ) {
+    // Deduplication check: do not render duplicate grill card if callKey already exists in document or targetEl
+    if (callKey) {
+      try {
+        const existing = document.querySelector(
+          `.deepseek-mcp-action-card[data-call-key="${CSS.escape(callKey)}"]`,
+        );
+        if (existing) {
+          if (targetEl) targetEl.setAttribute("data-mcp-attached", "true");
+          return;
+        }
+      } catch (_) {}
+    }
+    if (
+      targetEl?.querySelector?.(
+        `.deepseek-mcp-action-card[data-call-key="${CSS.escape(callKey)}"]`,
+      )
+    ) {
+      targetEl.setAttribute("data-mcp-attached", "true");
+      return;
+    }
+
     if (targetEl) {
-      targetEl.style.display = "none";
+      if (
+        targetEl.tagName === "PRE" ||
+        targetEl.classList.contains("md-code-block")
+      ) {
+        targetEl.style.display = "none";
+      }
     }
 
     const card = document.createElement("div");
@@ -221,12 +293,9 @@
       `;
       const btn = card.querySelector(".view-raw-btn");
       if (btn && targetEl) {
-        btn.onclick = () => {
-          targetEl.style.display =
-            targetEl.style.display === "none" ? "block" : "none";
-        };
+        btn.onclick = () => toggleRawVisibility(targetEl);
       }
-      targetEl.insertAdjacentElement("afterend", card);
+      attachCardToTarget(targetEl, card, callKey);
       return;
     }
 
@@ -294,14 +363,11 @@
       </div>
     `;
 
-    targetEl.insertAdjacentElement("afterend", card);
+    attachCardToTarget(targetEl, card, callKey);
 
     const toggleBtn = card.querySelector(".toggle-raw-json-btn");
     if (toggleBtn && targetEl) {
-      toggleBtn.onclick = () => {
-        targetEl.style.display =
-          targetEl.style.display === "none" ? "block" : "none";
-      };
+      toggleBtn.onclick = () => toggleRawVisibility(targetEl);
     }
 
     card.querySelectorAll(".grill-opt-card").forEach((optEl) => {
