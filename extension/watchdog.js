@@ -165,9 +165,9 @@
       lbl.textContent = customText || "🛑 Task Stopped";
     } else if (mode === "done") {
       btn.classList.add("is-done");
-      lbl.textContent = "⏱️ Task Done";
+      lbl.textContent = customText || "✅ Done";
     } else {
-      lbl.textContent = customText || "⏱️ Watchdog: Ready";
+      lbl.textContent = customText || "⏱️ Ready";
     }
   }
 

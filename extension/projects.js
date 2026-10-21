@@ -116,6 +116,13 @@
   }
 
   function injectSidebarProjectFilter() {
+    // Purge any stray filter element that leaked outside the sidebar:
+    document
+      .querySelectorAll(
+        "._871cbca #ds-sidebar-project-filter, ._020ab5b #ds-sidebar-project-filter, ._77cefa5 #ds-sidebar-project-filter, div:has(> textarea) #ds-sidebar-project-filter, main #ds-sidebar-project-filter",
+      )
+      .forEach((el) => el.remove());
+
     let newChatBtn = Array.from(
       document.querySelectorAll("button, div[role='button'], a"),
     ).find((el) => {
@@ -154,11 +161,20 @@
         document.querySelector("aside") ||
         document.querySelector("nav") ||
         document.querySelector("div[class*='sidebar']") ||
-        document.querySelector("div[class*='left']") ||
         document.querySelector("div[class*='chat-history']");
     }
 
     if (!sidebar) return;
+
+    // Strict safety guard: NEVER inject into the chat view, composer, or message containers!
+    if (
+      sidebar.querySelector("textarea, #deepseek-mcp-badge, div.ds-markdown") ||
+      sidebar.closest("._871cbca, ._77cefa5, ._020ab5b, main, [role='main']")
+    ) {
+      const stray = document.getElementById("ds-sidebar-project-filter");
+      if (stray) stray.remove();
+      return;
+    }
 
     let filterWrap = document.getElementById("ds-sidebar-project-filter");
     if (filterWrap && filterWrap.parentElement !== sidebar) {
