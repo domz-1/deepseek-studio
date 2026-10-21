@@ -3,12 +3,31 @@
   "use strict";
   function attachCardToTarget(targetEl, card, callKey) {
     if (!targetEl || !card) return;
+
     if (callKey) {
+      try {
+        const existing = document.querySelector(
+          `.deepseek-mcp-action-card[data-call-key="${CSS.escape(callKey)}"]`,
+        );
+        if (existing) {
+          if (targetEl) targetEl.setAttribute("data-mcp-attached", "true");
+          return;
+        }
+      } catch (_) {}
       card.setAttribute("data-call-key", callKey);
       card.dataset.callKey = callKey;
       targetEl.setAttribute("data-call-key", callKey);
     }
     targetEl.setAttribute("data-mcp-attached", "true");
+
+    if (
+      targetEl.nextElementSibling?.classList.contains(
+        "deepseek-mcp-action-card",
+      ) ||
+      targetEl.querySelector?.(".deepseek-mcp-action-card")
+    ) {
+      return;
+    }
 
     // If targetEl is the message container (.ds-markdown), append INSIDE it
     // so it stays within normal block document flow and does NOT become an
@@ -55,8 +74,9 @@
       } catch (_) {}
     }
     if (
-      targetEl?.querySelector?.(
-        `.deepseek-mcp-action-card[data-call-key="${CSS.escape(callKey)}"]`,
+      targetEl?.querySelector?.(".deepseek-mcp-action-card") ||
+      targetEl?.nextElementSibling?.classList.contains(
+        "deepseek-mcp-action-card",
       )
     ) {
       targetEl.setAttribute("data-mcp-attached", "true");

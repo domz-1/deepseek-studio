@@ -55,7 +55,19 @@
         return;
       }
 
-      const text = el.textContent || "";
+      // Read clean text without any injected card text
+      let text = "";
+      if (el.classList.contains("ds-markdown")) {
+        const clone = el.cloneNode(true);
+        clone
+          .querySelectorAll(
+            ".deepseek-mcp-action-card, .ds-card, #deepseek-mcp-badge, #deepseek-mcp-queue-bar",
+          )
+          .forEach((c) => c.remove());
+        text = clone.textContent || "";
+      } else {
+        text = el.textContent || "";
+      }
 
       // A block is historical if:
       // 1. No active task is running in this tab session (e.g., page just loaded or restored after crash)
@@ -126,8 +138,8 @@
 
         // Deterministic fingerprint so the same call in a chat is recognized across reloads
         const callSignature = window.DSState?.getCallSignature
-          ? window.DSState.getCallSignature(allCalls, idx)
-          : `mcp_${idx}_${JSON.stringify(allCalls).slice(0, 120)}`;
+          ? window.DSState.getCallSignature(allCalls)
+          : `mcp_${JSON.stringify(allCalls).slice(0, 120)}`;
 
         if (!el.dataset.mcpId) {
           el.dataset.mcpId = callSignature;

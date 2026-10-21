@@ -233,17 +233,13 @@
   }
 
   function checkInactivityAndResend() {
-    // 0. If task is explicitly paused or stopped, do nothing!
+    // 0. If task is explicitly paused or stopped by user, do nothing!
     if (root.DSState.isPaused) {
       updateWatchdogUI("paused", "⏸️ Task Paused");
       return;
     }
-    if (!root.DSState.isTaskActive) {
-      const lbl = document.getElementById("mcp-watchdog-label");
-      if (lbl && lbl.textContent.includes("Stopped")) {
-        return;
-      }
-      updateWatchdogUI("idle", "⏱️ Watchdog: Ready");
+    if (root.DSState.isTaskStopped) {
+      updateWatchdogUI("stopped", "🛑 Task Stopped");
       return;
     }
 

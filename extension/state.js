@@ -20,6 +20,7 @@
   let lastActivityTime = Date.now();
   let isTaskActive = false;
   let isPaused = false;
+  let isTaskStopped = false;
   let lastMessageSentTime = 0;
   let bypassCooldown = false;
   let SAFE_INTERVAL_MS = parseInt(
@@ -86,9 +87,9 @@
         hash ^= raw.charCodeAt(i);
         hash = Math.imul(hash, 16777619);
       }
-      return `mcp_${chatPath}_${indexHint}_${(hash >>> 0).toString(36)}`;
+      return `mcp_${chatPath}_${(hash >>> 0).toString(36)}`;
     } catch (_) {
-      return `mcp_${indexHint}`;
+      return `mcp_call`;
     }
   }
 
@@ -420,6 +421,7 @@
   }
 
   function resetTaskStateOnTyping() {
+    isTaskStopped = false;
     const lbl = document.getElementById("mcp-watchdog-label");
     if (lbl && lbl.textContent.includes("Stopped")) {
       if (window.DSWatchdog?.updateWatchdogUI) {
@@ -432,6 +434,7 @@
   function startNewTask(text) {
     isTaskActive = true;
     isPaused = false;
+    isTaskStopped = false;
     runningTaskCount = 0;
     if (text) lastSentMessage = text;
     recordActivity();
@@ -472,6 +475,7 @@
     } else {
       recordActivity();
       isTaskActive = true;
+      isTaskStopped = false;
       if (text) lastSentMessage = text;
     }
 
@@ -573,6 +577,7 @@
 
   function resumeTask() {
     isPaused = false;
+    isTaskStopped = false;
     isTaskActive = true;
     recordActivity();
     updateTaskBadge();
@@ -590,6 +595,7 @@
   async function killFullTask() {
     isTaskActive = false;
     isPaused = false;
+    isTaskStopped = true;
     runningTaskCount = 0;
     isSending = false;
 
@@ -827,6 +833,12 @@
     },
     set isPaused(v) {
       isPaused = v;
+    },
+    get isTaskStopped() {
+      return isTaskStopped;
+    },
+    set isTaskStopped(v) {
+      isTaskStopped = v;
     },
     pauseTask,
     resumeTask,
