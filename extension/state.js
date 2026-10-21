@@ -549,6 +549,14 @@
         el.dispatchEvent(enterEvt);
       }
       lastMessageSentTime = Date.now();
+      if (!isUserInput) {
+        setTimeout(() => {
+          window.DSScanner?.processAutomatedMessages?.();
+        }, 150);
+        setTimeout(() => {
+          window.DSScanner?.processAutomatedMessages?.();
+        }, 500);
+      }
     } finally {
       setTimeout(() => {
         isSending = false;

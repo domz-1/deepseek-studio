@@ -187,80 +187,188 @@
     collapseAutomatedMessages();
   }
 
-  function collapseAutomatedMessages() {
+  function isAutomatedMessageText(text) {
+    if (!text || typeof text !== "string") return false;
+    const t = text.trim();
+    return (
+      t.includes("[MCP_AUTO_RESULT]") ||
+      t.startsWith("Output of ") ||
+      t.startsWith("Results for ") ||
+      t.startsWith("Batch Results for ") ||
+      (t.startsWith("Tool ") && t.includes("completed")) ||
+      t.startsWith("Continue autonomously:") ||
+      t.includes("🚨 [Ralph Loop Alert]:") ||
+      t.startsWith("Execution notice on ")
+    );
+  }
+
+  function findMessageTurnContainer(el) {
+    let curr = el;
+    while (curr && curr.parentElement && curr.parentElement !== document.body) {
+      const parent = curr.parentElement;
+
+      // In DeepSeek, the conversation history is a container whose direct children are message turns.
+      // At least one other child of parent contains an assistant markdown block or card.
+      const hasAssistantSibling = Array.from(parent.children).some(
+        (sib) =>
+          sib !== curr &&
+          (sib.classList.contains("ds-markdown") ||
+            sib.querySelector?.("div.ds-markdown") ||
+            sib.querySelector?.(".deepseek-mcp-action-card")),
+      );
+
+      if (hasAssistantSibling) {
+        return curr;
+      }
+
+      if (
+        curr.classList.contains("ds-message") ||
+        curr.getAttribute("role") === "row" ||
+        curr.getAttribute("data-role") === "user" ||
+        (curr.className &&
+          typeof curr.className === "string" &&
+          (curr.className.includes("chat-item") ||
+            curr.className.includes("message-item") ||
+            curr.className.includes("session-item")))
+      ) {
+        return curr;
+      }
+
+      curr = parent;
+    }
+    return (
+      el.closest(
+        "div[class*='message'], div[class*='chat-item'], div.ds-message",
+      ) || el
+    );
+  }
+
+  function isAssistantTurn(turn) {
+    if (!turn) return false;
+    if (turn.querySelector(".deepseek-mcp-action-card")) return true;
+    if (
+      turn.querySelector(
+        "button[aria-label*='like' i], button[aria-label*='thumbs' i], div[class*='feedback' i]",
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  function collapseElementIntoPill(el, text) {
+    if (el.hasAttribute("data-mcp-auto-styled")) return;
+    el.setAttribute("data-mcp-auto-styled", "true");
+
+    let summary = "تم إرسال مخرجات الأداة في الخلفية (Background Tool Data)";
+    if (text.includes("Batch Results")) {
+      const m = text.match(/Batch Results for (\d+) parallel calls/);
+      summary = `تم إرسال نتائج حزمة أدوات (${m ? m[1] : ""} أدوات) لديب سيك في الخلفية`;
+    } else if (text.includes("Output of ")) {
+      const m = text.match(/Output of ([\w\.-]+)/);
+      summary = `مخرجات أداة: ${m ? m[1] : ""}`;
+    } else if (text.includes("Tool ") && text.includes("completed")) {
+      const m = text.match(/Tool ([\w\.-]+) completed/);
+      summary = `تم إرسال نتيجة الأداة: ${m ? m[1] : ""}`;
+    } else if (text.includes("Continue autonomously")) {
+      summary = `أمر متابعة تلقائي للأجنت في الخلفية (Autonomous Nudge)`;
+    }
+
+    const pill = document.createElement("div");
+    pill.className = "ds-auto-msg-pill";
+    pill.innerHTML = `
+      <div class="ds-auto-pill-bar">
+        <span class="ds-ic" data-ic="zap" style="color:var(--ds-accent,#4f46e5);margin-right:6px;"></span>
+        <span class="ds-auto-pill-title">${summary}</span>
+        <button class="ds-auto-pill-btn" type="button">عرض الداتا ▼</button>
+      </div>
+      <div class="ds-auto-pill-body" style="display:none;margin-top:8px;"></div>
+    `;
+
+    const body = pill.querySelector(".ds-auto-pill-body");
+    const btn = pill.querySelector(".ds-auto-pill-btn");
+    btn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const isHidden = body.style.display === "none";
+      body.style.display = isHidden ? "block" : "none";
+      btn.textContent = isHidden ? "إخفاء الداتا ▲" : "عرض الداتا ▼";
+    };
+
+    while (el.firstChild) {
+      body.appendChild(el.firstChild);
+    }
+    el.appendChild(pill);
+  }
+
+  function updateHiddenCounterBadge() {
+    const hiddenTurns = document.querySelectorAll(
+      "[data-mcp-auto-turn='true']",
+    );
+    const toggleBtn = document.getElementById("mcp-toggle-auto-msg");
+    const label = document.getElementById("mcp-toggle-auto-msg-label");
+    if (!toggleBtn) return;
+    const shouldHide =
+      localStorage.getItem("deepseek_mcp_hide_auto_messages") !== "false";
+    const count = hiddenTurns.length;
+
+    if (label) {
+      label.textContent = shouldHide
+        ? `مخرجات الأدوات: مخفية (${count})`
+        : `مخرجات الأدوات: ظاهرة (${count})`;
+    }
+    toggleBtn.title = shouldHide
+      ? "انقر لإظهار رسائل مخرجات الأدوات في الشات"
+      : "انقر لإخفاء رسائل مخرجات الأدوات من الشات";
+  }
+
+  function processAutomatedMessages() {
+    const shouldHide =
+      localStorage.getItem("deepseek_mcp_hide_auto_messages") !== "false";
+
     const candidates = Array.from(
       document.querySelectorAll(
-        "div[class*='message'], div.ds-markdown, div.md-code-block, p, div[class*='chat-item']",
+        "div[class*='message'], div.ds-markdown, div.md-code-block, pre, p, div[class*='chat-item']",
       ),
     );
 
     for (const el of candidates) {
-      if (el.hasAttribute("data-mcp-auto-styled")) continue;
       const text = el.textContent || "";
-      if (
-        !text.includes("[MCP_AUTO_RESULT]") &&
-        !text.startsWith("Tool ") &&
-        !text.startsWith("Batch Results for ") &&
-        !text.startsWith("Continue autonomously:")
-      ) {
-        continue;
+      if (!isAutomatedMessageText(text)) continue;
+
+      const turn = findMessageTurnContainer(el);
+      if (!turn || isAssistantTurn(turn)) continue;
+
+      turn.setAttribute("data-mcp-auto-turn", "true");
+
+      if (shouldHide) {
+        turn.classList.add("ds-mcp-hidden-turn");
+        turn.style.setProperty("display", "none", "important");
+      } else {
+        turn.classList.remove("ds-mcp-hidden-turn");
+        turn.style.removeProperty("display");
+        collapseElementIntoPill(el, text);
       }
-
-      const bubble =
-        el.closest(
-          "div[class*='message'], div[class*='chat-item'], div.ds-message",
-        ) || el;
-      if (bubble.hasAttribute("data-mcp-auto-styled")) continue;
-      bubble.setAttribute("data-mcp-auto-styled", "true");
-      bubble.classList.add("ds-mcp-automated-bubble");
-
-      let summary = "تم إرسال مخرجات الأداة في الخلفية (Background Tool Data)";
-      if (text.includes("Batch Results")) {
-        const m = text.match(/Batch Results for (\d+) parallel calls/);
-        summary = `تم إرسال نتائج حزمة أدوات (${m ? m[1] : ""} أدوات) لديب سيك في الخلفية`;
-      } else if (text.includes("Tool ") && text.includes("completed")) {
-        const m = text.match(/Tool ([\w\.-]+) completed/);
-        summary = `تم إرسال نتيجة الأداة: ${m ? m[1] : ""}`;
-      } else if (text.includes("Continue autonomously")) {
-        summary = `أمر متابعة تلقائي للأجنت في الخلفية (Autonomous Nudge)`;
-      }
-
-      const pill = document.createElement("div");
-      pill.className = "ds-auto-msg-pill";
-      pill.innerHTML = `
-        <div class="ds-auto-pill-bar">
-          <span class="ds-ic" data-ic="zap" style="color:var(--ds-accent,#4f46e5);margin-right:6px;"></span>
-          <span class="ds-auto-pill-title">${summary}</span>
-          <button class="ds-auto-pill-btn" type="button">عرض الداتا ▼</button>
-        </div>
-        <div class="ds-auto-pill-body" style="display:none;margin-top:8px;"></div>
-      `;
-
-      const body = pill.querySelector(".ds-auto-pill-body");
-      const btn = pill.querySelector(".ds-auto-pill-btn");
-      btn.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const isHidden = body.style.display === "none";
-        body.style.display = isHidden ? "block" : "none";
-        btn.textContent = isHidden ? "إخفاء الداتا ▲" : "عرض الداتا ▼";
-      };
-
-      while (el.firstChild) {
-        body.appendChild(el.firstChild);
-      }
-      el.appendChild(pill);
     }
+
+    updateHiddenCounterBadge();
   }
 
-  root.DSScanner = { scanMessages, collapseAutomatedMessages };
+  const collapseAutomatedMessages = processAutomatedMessages;
+
+  root.DSScanner = {
+    scanMessages,
+    collapseAutomatedMessages,
+    processAutomatedMessages,
+    updateHiddenCounterBadge,
+  };
   root.DSScanner.initObserver = function () {
     new MutationObserver(() => {
       clearTimeout(window.DSState?.debounceTimer);
       if (window.DSState) {
         window.DSState.debounceTimer = setTimeout(() => {
           scanMessages();
-          collapseAutomatedMessages();
+          processAutomatedMessages();
           window.DSMention?.attachInputMentionInterceptor();
           root.DSBadges?.injectChatBadge();
           window.DSProjects?.injectSidebarProjectFilter();

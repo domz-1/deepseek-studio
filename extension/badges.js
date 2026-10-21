@@ -202,12 +202,28 @@
         };
       }
 
+      const toggleAutoMsgBtn = wrap.querySelector("#mcp-toggle-auto-msg");
+      if (toggleAutoMsgBtn) {
+        toggleAutoMsgBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const current =
+            localStorage.getItem("deepseek_mcp_hide_auto_messages") !== "false";
+          localStorage.setItem(
+            "deepseek_mcp_hide_auto_messages",
+            current ? "false" : "true",
+          );
+          window.DSScanner?.processAutomatedMessages?.();
+        };
+      }
+
       targetParent.parentElement.insertBefore(wrap, targetParent);
     }
 
     window.DSProjects?.updateProjectLabel();
     updateServerBadges();
     window.DSState.updateTaskBadge();
+    window.DSScanner?.updateHiddenCounterBadge?.();
 
     if (!window.DSState.activeTools.length) {
       window.DSState.fetchActiveTools().then(() => {

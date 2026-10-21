@@ -256,29 +256,42 @@
 
   const HUMAN_RESULT_TEMPLATES = [
     (name, out) => {
+      const isAr = sessionStorage.getItem("deepseek_mcp_arabic") === "true";
+      const arNote = isAr
+        ? "\n[تنبيه: اشرح خطوتك التالية بالعربية دائماً قبل الكود]."
+        : "";
       if (
         out &&
         (out.includes("FAILED") ||
           out.includes("Ralph Auto-Check FAILED") ||
           out.includes("Hot-check found issues"))
       ) {
-        return `Output of ${name}:\n\`\`\`json\n${out}\n\`\`\`\n🚨 [Ralph Loop Alert]: Verification failed. Fix the issues above immediately using smart_patch or workspace_batch in standard \`\`\`json format. Keep reasoning under 40 words.`;
+        return `[MCP_AUTO_RESULT]\nOutput of ${name}:\n\`\`\`json\n${out}\n\`\`\`\n🚨 [Ralph Loop Alert]: Verification failed. Fix the issues above immediately using smart_patch or workspace_batch in standard \`\`\`json format.${arNote}`;
       }
-      return `Output of ${name}:\n\`\`\`json\n${out}\n\`\`\`\nProceed immediately with the next tool call in standard \`\`\`json format: [ { "name": "...", "arguments": { ... } } ]. No chatter.`;
+      return `[MCP_AUTO_RESULT]\nOutput of ${name}:\n\`\`\`json\n${out}\n\`\`\`\nProceed with the next step autonomously.${arNote}`;
     },
     (name, out) => {
+      const isAr = sessionStorage.getItem("deepseek_mcp_arabic") === "true";
+      const arNote = isAr
+        ? "\n[تنبيه: اشرح خطوتك التالية بالعربية دائماً قبل الكود]."
+        : "";
       if (
         out &&
         (out.includes("FAILED") ||
           out.includes("Ralph Auto-Check FAILED") ||
           out.includes("Hot-check found issues"))
       ) {
-        return `Results for ${name}:\n\`\`\`json\n${out}\n\`\`\`\n🚨 Errors detected in verification. Analyze and patch the code immediately in \`\`\`json format.`;
+        return `[MCP_AUTO_RESULT]\nResults for ${name}:\n\`\`\`json\n${out}\n\`\`\`\n🚨 Errors detected in verification. Analyze and patch the code immediately in \`\`\`json format.${arNote}`;
       }
-      return `Results for ${name}:\n\`\`\`json\n${out}\n\`\`\`\nContinue executing the next step autonomously. Output the next tool call in standard \`\`\`json format: [ { "name": "...", "arguments": { ... } } ].`;
+      return `[MCP_AUTO_RESULT]\nResults for ${name}:\n\`\`\`json\n${out}\n\`\`\`\nContinue executing the next step autonomously.${arNote}`;
     },
-    (name, out) =>
-      `Tool ${name} completed:\n\`\`\`json\n${out}\n\`\`\`\nProceed autonomously to the next action. Output tool calls immediately in standard \`\`\`json format: [ { "name": "...", "arguments": { ... } } ].`,
+    (name, out) => {
+      const isAr = sessionStorage.getItem("deepseek_mcp_arabic") === "true";
+      const arNote = isAr
+        ? "\n[تنبيه: اشرح خطوتك التالية بالعربية دائماً قبل الكود]."
+        : "";
+      return `[MCP_AUTO_RESULT]\nTool ${name} completed:\n\`\`\`json\n${out}\n\`\`\`\nProceed autonomously to the next action.${arNote}`;
+    },
   ];
 
   root.DSQueue = {

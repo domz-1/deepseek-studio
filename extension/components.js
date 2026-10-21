@@ -53,6 +53,10 @@
         <span class="ds-watchdog-label" id="mcp-watchdog-label">⏱️ Watchdog: Ready</span>
         <span class="ds-watchdog-restart-ic" title="Restart Timer / Force Continue">↻</span>
       </button>
+      <button class="ds-project-btn" id="mcp-toggle-auto-msg" type="button" title="إخفاء/إظهار رسائل مخرجات الأدوات التلقائية في الشات" style="color:var(--ds-fg-muted);border:1px solid var(--ds-border);">
+        <span class="ds-ic" data-ic="eye-off"></span>
+        <span id="mcp-toggle-auto-msg-label">مخرجات الأدوات: مخفية</span>
+      </button>
       <div class="ds-project-wrap" style="display:inline-flex;align-items:center;gap:6px;margin-left:auto;">
         <button class="ds-project-trigger" id="mcp-project-trigger" type="button" title="Select active workspace">
           <span class="ds-ic" data-ic="folder" style="color:var(--ds-accent);font-size:12px;"></span>

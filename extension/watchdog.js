@@ -188,9 +188,13 @@
       ? " (استمر بالشرح والرد باللغة العربية دائماً)"
       : "";
 
-    const promptToSend = isToolOutput
+    let promptToSend = isToolOutput
       ? lastMsg
       : `[MCP_AUTO_RESULT]\nContinue autonomously: Please proceed with the next step to complete the task.${arabicNote}`;
+
+    if (!promptToSend.startsWith("[MCP_AUTO_RESULT]")) {
+      promptToSend = `[MCP_AUTO_RESULT]\n${promptToSend}`;
+    }
 
     console.log(
       "[DeepSeek Studio] Dispatched watchdog continuation prompt:",

@@ -1312,6 +1312,30 @@
 }
 
 /* ---- Automated Background Message Pills ---- */
+/* ---- Hidden Automated Intermediate Tool Messages ---- */
+.ds-mcp-hidden-turn {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+#mcp-toggle-auto-msg {
+  transition: all 0.2s ease;
+  font-size: 11px;
+}
+
+#mcp-toggle-auto-msg:hover {
+  background: var(--ds-bg-hover, rgba(255, 255, 255, 0.08));
+  color: var(--ds-fg);
+}
+
 .ds-mcp-automated-bubble {
   margin: 4px 0 !important;
   padding: 2px 0 !important;

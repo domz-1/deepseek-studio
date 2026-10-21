@@ -300,7 +300,13 @@
           `[MCP_AUTO_RESULT]\nTool ${name} completed:\n\`\`\`json\n${o}\n\`\`\`\nProceed autonomously.${arabicNote}`,
       ];
       const template = templates[Math.floor(Math.random() * templates.length)];
-      const message = template(payload.name, out);
+      let message = template(payload.name, out);
+      if (!message.startsWith("[MCP_AUTO_RESULT]")) {
+        message = `[MCP_AUTO_RESULT]\n${message}`;
+      }
+      if (arabicNote && !message.includes("[تنبيه:")) {
+        message += arabicNote;
+      }
 
       if (window.DSState.isPaused || !window.DSState.isTaskActive) {
         console.log(
