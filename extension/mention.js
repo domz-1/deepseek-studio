@@ -141,6 +141,24 @@
         return true;
       }
 
+      // 3. Handle task completion check (/done, /finish, خلصت؟, هل انتهيت؟)
+      const isDoneCheck =
+        /^(\/done|\/finish|\/complete|خلصت\?|خلصت؟|هل انتهيت\?|هل انتهيت؟)\s*$/i.test(
+          rawVal.trim(),
+        );
+      if (isDoneCheck) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        const prompt = isArabic
+          ? `[فحص اكتمال المهمة - Task Completion Check]:\nهل تم إنجاز المهمة المطلوبة بالكامل؟\n- إذا كانت قد اكتملت بنسبة 100%: اكتب [STATUS: COMPLETED] ولخص ما تم إنجازه ولا تستدعِ أي أدوات أخرى.\n- إذا كان هناك أي عمل متبقٍ: اكتب [STATUS: IN_PROGRESS] واذكر ما يتبقى ثم استدعِ الأداة التالية.`
+          : `[Task Completion Check]:\nIs the requested task 100% finished?\n- If completed: write [STATUS: COMPLETED], summarize what was accomplished, and do NOT invoke any more tools.\n- If there is remaining work: write [STATUS: IN_PROGRESS], describe what remains, and invoke the next tool.`;
+
+        await root.DSState.sendText(prompt, true);
+        return true;
+      }
+
       // Detect any @mention in the message
       const mentionMatches = rawVal.match(/@([\w-]+)/i);
       const activeMention = mentionMatches ? mentionMatches[0] : null;
