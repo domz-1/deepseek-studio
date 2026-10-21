@@ -203,6 +203,10 @@
   }
 
   function findMessageTurnContainer(el) {
+    // 1. If inside DeepSeek virtual list item, return the top-level virtual list row
+    const vItem = el.closest("[data-virtual-list-item-key]");
+    if (vItem) return vItem;
+
     let curr = el;
     while (curr && curr.parentElement && curr.parentElement !== document.body) {
       const parent = curr.parentElement;
@@ -222,6 +226,7 @@
       }
 
       if (
+        curr.hasAttribute("data-virtual-list-item-key") ||
         curr.classList.contains("ds-message") ||
         curr.getAttribute("role") === "row" ||
         curr.getAttribute("data-role") === "user" ||
@@ -238,7 +243,7 @@
     }
     return (
       el.closest(
-        "div[class*='message'], div[class*='chat-item'], div.ds-message",
+        "[data-virtual-list-item-key], div[class*='message'], div[class*='chat-item'], div.ds-message",
       ) || el
     );
   }
@@ -335,10 +340,10 @@
     const shouldHide =
       localStorage.getItem("deepseek_mcp_hide_auto_messages") !== "false";
 
-    // Strictly search ONLY non-assistant user containers
+    // Strictly search user containers, including virtual list rows
     const candidates = Array.from(
       document.querySelectorAll(
-        "div[class*='message'], div[class*='chat-item'], div[class*='bubble']",
+        "[data-virtual-list-item-key], div[class*='message'], div[class*='chat-item'], div[class*='bubble']",
       ),
     );
 
@@ -363,9 +368,33 @@
       if (shouldHide) {
         turn.classList.add("ds-mcp-hidden-turn");
         turn.style.setProperty("display", "none", "important");
+        turn.style.setProperty("height", "0", "important");
+        turn.style.setProperty("min-height", "0", "important");
+        turn.style.setProperty("padding", "0", "important");
+        turn.style.setProperty("margin", "0", "important");
+
+        // Hide inner message bubble and the action buttons row after the message
+        turn
+          .querySelectorAll(
+            ".ds-message, .ds-flex, [class*='ds-flex'], [class*='flex'], button",
+          )
+          .forEach((sub) => {
+            sub.classList.add("ds-mcp-hidden-turn");
+            sub.style.setProperty("display", "none", "important");
+          });
       } else {
         turn.classList.remove("ds-mcp-hidden-turn");
         turn.style.removeProperty("display");
+        turn.style.removeProperty("height");
+        turn.style.removeProperty("min-height");
+        turn.style.removeProperty("padding");
+        turn.style.removeProperty("margin");
+
+        turn.querySelectorAll(".ds-mcp-hidden-turn").forEach((sub) => {
+          sub.classList.remove("ds-mcp-hidden-turn");
+          sub.style.removeProperty("display");
+        });
+
         collapseElementIntoPill(el, text);
       }
     }
@@ -375,6 +404,8 @@
       if (isAssistantTurn(hiddenEl)) {
         hiddenEl.classList.remove("ds-mcp-hidden-turn");
         hiddenEl.style.removeProperty("display");
+        hiddenEl.style.removeProperty("height");
+        hiddenEl.style.removeProperty("padding");
       }
     });
 

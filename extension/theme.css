@@ -1313,13 +1313,18 @@
 
 /* ---- Automated Background Message Pills ---- */
 /* ---- Hidden Automated Intermediate Tool Messages ---- */
-.ds-mcp-hidden-turn {
+.ds-mcp-hidden-turn,
+[data-virtual-list-item-key].ds-mcp-hidden-turn,
+[data-virtual-list-item-key]:has(.ds-mcp-hidden-turn) {
   display: none !important;
   visibility: hidden !important;
   height: 0 !important;
   min-height: 0 !important;
+  max-height: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
+  padding-bottom: 0 !important;
+  padding-top: 0 !important;
   border: none !important;
   overflow: hidden !important;
   opacity: 0 !important;
