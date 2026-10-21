@@ -257,40 +257,36 @@
   const HUMAN_RESULT_TEMPLATES = [
     (name, out) => {
       const isAr = sessionStorage.getItem("deepseek_mcp_arabic") === "true";
-      const arNote = isAr
-        ? "\n[تنبيه: اشرح خطوتك التالية بالعربية دائماً قبل الكود]."
-        : "";
+      const arDiscussion = isAr
+        ? "\n\n[توجيه إلزامي: تناقش وتكلم مع المستخدم بالعربي أولاً موضحاً: (1) ما تم إنجازه واكتشافه من الأداة، (2) ما ستفعله الآن ولماذا، (3) ما تبقى لإتمام المهمة، ثم استدعِ الأداة التالية]."
+        : "\n\n[Discuss progress, next step reasoning, and remaining work before outputting the next tool call.]";
       if (
         out &&
-        (out.includes("FAILED") ||
-          out.includes("Ralph Auto-Check FAILED") ||
-          out.includes("Hot-check found issues"))
+        (out.includes("FAILED") || out.includes("Hot-check found issues"))
       ) {
-        return `[MCP_AUTO_RESULT]\nOutput of ${name}:\n\`\`\`json\n${out}\n\`\`\`\n🚨 [Ralph Loop Alert]: Verification failed. Fix the issues above immediately using smart_patch or workspace_batch in standard \`\`\`json format.${arNote}`;
+        return `[MCP_AUTO_RESULT]\nOutput of ${name}:\n\`\`\`json\n${out}\n\`\`\`\n🚨 [Alert]: Verification failed. Fix the issues above immediately in standard \`\`\`json format.${arDiscussion}`;
       }
-      return `[MCP_AUTO_RESULT]\nOutput of ${name}:\n\`\`\`json\n${out}\n\`\`\`\nProceed with the next step autonomously.${arNote}`;
+      return `[MCP_AUTO_RESULT]\nOutput of ${name}:\n\`\`\`json\n${out}\n\`\`\`${arDiscussion}`;
     },
     (name, out) => {
       const isAr = sessionStorage.getItem("deepseek_mcp_arabic") === "true";
-      const arNote = isAr
-        ? "\n[تنبيه: اشرح خطوتك التالية بالعربية دائماً قبل الكود]."
-        : "";
+      const arDiscussion = isAr
+        ? "\n\n[توجيه إلزامي: تناقش وتكلم مع المستخدم بالعربي أولاً موضحاً: (1) ما تم إنجازه واكتشافه من الأداة، (2) ما ستفعله الآن ولماذا، (3) ما تبقى لإتمام المهمة، ثم استدعِ الأداة التالية]."
+        : "\n\n[Discuss progress, next step reasoning, and remaining work before outputting the next tool call.]";
       if (
         out &&
-        (out.includes("FAILED") ||
-          out.includes("Ralph Auto-Check FAILED") ||
-          out.includes("Hot-check found issues"))
+        (out.includes("FAILED") || out.includes("Hot-check found issues"))
       ) {
-        return `[MCP_AUTO_RESULT]\nResults for ${name}:\n\`\`\`json\n${out}\n\`\`\`\n🚨 Errors detected in verification. Analyze and patch the code immediately in \`\`\`json format.${arNote}`;
+        return `[MCP_AUTO_RESULT]\nResults for ${name}:\n\`\`\`json\n${out}\n\`\`\`\n🚨 Errors detected. Analyze and patch the code immediately in \`\`\`json format.${arDiscussion}`;
       }
-      return `[MCP_AUTO_RESULT]\nResults for ${name}:\n\`\`\`json\n${out}\n\`\`\`\nContinue executing the next step autonomously.${arNote}`;
+      return `[MCP_AUTO_RESULT]\nResults for ${name}:\n\`\`\`json\n${out}\n\`\`\`${arDiscussion}`;
     },
     (name, out) => {
       const isAr = sessionStorage.getItem("deepseek_mcp_arabic") === "true";
-      const arNote = isAr
-        ? "\n[تنبيه: اشرح خطوتك التالية بالعربية دائماً قبل الكود]."
-        : "";
-      return `[MCP_AUTO_RESULT]\nTool ${name} completed:\n\`\`\`json\n${out}\n\`\`\`\nProceed autonomously to the next action.${arNote}`;
+      const arDiscussion = isAr
+        ? "\n\n[توجيه إلزامي: تناقش وتكلم مع المستخدم بالعربي أولاً موضحاً: (1) ما تم إنجازه واكتشافه من الأداة، (2) ما ستفعله الآن ولماذا، (3) ما تبقى لإتمام المهمة، ثم استدعِ الأداة التالية]."
+        : "\n\n[Discuss progress, next step reasoning, and remaining work before outputting the next tool call.]";
+      return `[MCP_AUTO_RESULT]\nTool ${name} completed:\n\`\`\`json\n${out}\n\`\`\`${arDiscussion}`;
     },
   ];
 

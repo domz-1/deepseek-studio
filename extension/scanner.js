@@ -245,7 +245,16 @@
 
   function isAssistantTurn(turn) {
     if (!turn) return false;
+    // 1. In DeepSeek, ALL assistant message content is rendered inside .ds-markdown
+    if (
+      turn.classList.contains("ds-markdown") ||
+      turn.querySelector("div.ds-markdown, .ds-markdown")
+    ) {
+      return true;
+    }
+    // 2. Action cards belong ONLY to assistant turns
     if (turn.querySelector(".deepseek-mcp-action-card")) return true;
+    // 3. Feedback icons belong ONLY to assistant turns
     if (
       turn.querySelector(
         "button[aria-label*='like' i], button[aria-label*='thumbs' i], div[class*='feedback' i]",
@@ -326,13 +335,23 @@
     const shouldHide =
       localStorage.getItem("deepseek_mcp_hide_auto_messages") !== "false";
 
+    // Strictly search ONLY non-assistant user containers
     const candidates = Array.from(
       document.querySelectorAll(
-        "div[class*='message'], div.ds-markdown, div.md-code-block, pre, p, div[class*='chat-item']",
+        "div[class*='message'], div[class*='chat-item'], div[class*='bubble']",
       ),
     );
 
     for (const el of candidates) {
+      // NEVER process or hide assistant turns!
+      if (
+        el.classList.contains("ds-markdown") ||
+        el.closest("div.ds-markdown") ||
+        el.querySelector("div.ds-markdown, .ds-markdown")
+      ) {
+        continue;
+      }
+
       const text = el.textContent || "";
       if (!isAutomatedMessageText(text)) continue;
 
@@ -350,6 +369,14 @@
         collapseElementIntoPill(el, text);
       }
     }
+
+    // Safety cleanup: Ensure NO assistant turn ever keeps ds-mcp-hidden-turn
+    document.querySelectorAll(".ds-mcp-hidden-turn").forEach((hiddenEl) => {
+      if (isAssistantTurn(hiddenEl)) {
+        hiddenEl.classList.remove("ds-mcp-hidden-turn");
+        hiddenEl.style.removeProperty("display");
+      }
+    });
 
     updateHiddenCounterBadge();
   }

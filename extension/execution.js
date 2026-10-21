@@ -139,9 +139,9 @@
       }
 
       const isArabic = sessionStorage.getItem("deepseek_mcp_arabic") === "true";
-      const arabicNote = isArabic
-        ? "\n[تنبيه: اشرح خطوتك التالية بالعربية دائماً]."
-        : "";
+      const arDiscussion = isArabic
+        ? "\n\n[توجيه إلزامي: تناقش وتكلم مع المستخدم بالعربي أولاً موضحاً: (1) ما تم إنجازه واكتشافه من نتائج الحزمة، (2) ما ستفعله الآن ولماذا، (3) ما تبقى لإتمام المهمة، ثم استدعِ الأداة التالية]."
+        : "\n\n[Analyze these results, discuss progress and next steps, then proceed with the next tool call.]";
 
       const batchMessage =
         `[MCP_AUTO_RESULT]\n` +
@@ -152,7 +152,7 @@
               `### Tool ${i + 1}: ${r.name}\n\`\`\`json\n${r.output}\n\`\`\``,
           )
           .join("\n\n") +
-        `\n\nAnalyze these batch results and continue executing the next step autonomously until complete.${arabicNote}`;
+        arDiscussion;
 
       if (window.DSState.isPaused || !window.DSState.isTaskActive) {
         console.log(

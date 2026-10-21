@@ -184,13 +184,13 @@
       lastMsg.includes("```json");
 
     const isArabic = sessionStorage.getItem("deepseek_mcp_arabic") === "true";
-    const arabicNote = isArabic
-      ? " (استمر بالشرح والرد باللغة العربية دائماً)"
+    const arDiscussion = isArabic
+      ? "\n\n[توجيه إلزامي: تناقش وتكلم مع المستخدم بالعربي أولاً موضحاً ما تم إنجازه، وما ستقوم به الآن وعشان إيه، وما تبقى، ثم واصل التنفيذ]."
       : "";
 
     let promptToSend = isToolOutput
       ? lastMsg
-      : `[MCP_AUTO_RESULT]\nContinue autonomously: Please proceed with the next step to complete the task.${arabicNote}`;
+      : `[MCP_AUTO_RESULT]\nContinue autonomously: Please proceed with the next step to complete the task.${arDiscussion}`;
 
     if (!promptToSend.startsWith("[MCP_AUTO_RESULT]")) {
       promptToSend = `[MCP_AUTO_RESULT]\n${promptToSend}`;
