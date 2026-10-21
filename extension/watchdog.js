@@ -395,36 +395,58 @@
       }
     }
 
-    // 6. Check for remaining work towards the Big Goal:
+    // 6. Check for optional / future non-blocking remarks:
+    const isOnlyOptionalRemaining =
+      lastText.includes("اختيارية") ||
+      lastText.includes("اختياري") ||
+      lastText.includes("مستقبلاً") ||
+      lastText.includes("تحسينات مستقبلية") ||
+      lastText.includes("optional") ||
+      lastText.includes("future work") ||
+      lastText.includes("nice to have");
+
+    // Check for active blocking remaining work towards the Big Goal:
     const hasRemainingWork =
-      lastText.includes("اللي باقي") ||
-      lastText.includes("الخطوات القادمة") ||
-      lastText.includes("متبقي") ||
-      lastText.includes("لسه باقي") ||
-      lastText.includes("فاضل") ||
-      lastText.includes("الخطوة التالية") ||
-      lastText.includes("الخطوة القادمة") ||
-      lastText.includes("سأقوم بـ") ||
-      lastText.includes("سأفعل") ||
-      lastText.includes("سأبدأ") ||
-      lastText.includes("سأنفذ") ||
-      lastText.includes("سأنتظر") ||
-      lastText.includes("ننتظر") ||
-      lastText.includes("قيد التشغيل") ||
-      lastText.includes("لسه شغال") ||
-      lastText.includes("remaining") ||
-      lastText.includes("next step") ||
-      lastText.includes("next steps") ||
-      lastText.includes("in progress") ||
-      lastText.includes("todo:") ||
-      lastText.includes("will now") ||
-      lastText.includes("pending") ||
-      lastText.includes("waiting for");
+      (!isOnlyOptionalRemaining ||
+        (!lastText.includes("جاهزة للاستخدام") &&
+          !lastText.includes("جاهز للاستخدام") &&
+          !lastText.includes("التحقق النهائي"))) &&
+      (lastText.includes("اللي باقي") ||
+        lastText.includes("الخطوات القادمة") ||
+        lastText.includes("لسه باقي") ||
+        lastText.includes("فاضل") ||
+        lastText.includes("الخطوة التالية") ||
+        lastText.includes("الخطوة القادمة") ||
+        lastText.includes("سأقوم بـ") ||
+        lastText.includes("سأفعل") ||
+        lastText.includes("سأبدأ") ||
+        lastText.includes("سأنفذ") ||
+        lastText.includes("سأنتظر") ||
+        lastText.includes("ننتظر") ||
+        lastText.includes("قيد التشغيل") ||
+        lastText.includes("لسه شغال") ||
+        lastText.includes("next step") ||
+        lastText.includes("next steps") ||
+        lastText.includes("in progress") ||
+        lastText.includes("todo:") ||
+        lastText.includes("will now") ||
+        lastText.includes("waiting for"));
 
     // 7. Check if the Big Goal is explicitly complete:
     const isBigGoalCompleted =
       !hasRemainingWork &&
-      (lastText.includes("[task_completed]") ||
+      (lastText.includes("التحقق النهائي") ||
+        lastText.includes("جاهزة للاستخدام") ||
+        lastText.includes("جاهز للاستخدام") ||
+        lastText.includes("جاهزة للعمل") ||
+        lastText.includes("جاهز للعمل") ||
+        lastText.includes("tests passing") ||
+        lastText.includes("tests passed") ||
+        lastText.includes("all tests pass") ||
+        lastText.includes("ready for use") ||
+        lastText.includes("ready to use") ||
+        lastText.includes("feature complete") ||
+        lastText.includes("[task_completed]") ||
         lastText.includes("[status: completed]") ||
         lastText.includes("task complete") ||
         lastText.includes("all tasks completed") ||
@@ -433,10 +455,11 @@
         lastText.includes("everything is complete") ||
         lastText.includes("all done") ||
         lastText.includes("implementation complete") ||
-        lastText.includes("تم إنجاز المهمة بالكامل") ||
-        lastText.includes("تم الانتهاء من جميع المهام") ||
-        lastText.includes("المهمة اكتملت بالكامل") ||
-        lastText.includes("انتهيت من كامل المطلوب") ||
+        lastText.includes("تم إنجاز المهمة") ||
+        lastText.includes("تم الانتهاء") ||
+        lastText.includes("المهمة اكتملت") ||
+        lastText.includes("انتهيت من") ||
+        lastText.includes("كل شيء جاهز") ||
         lastText.includes("التقرير النهائي:"));
 
     const chatStatus = root.DSState.getChatTaskStatus?.();
