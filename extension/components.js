@@ -106,12 +106,17 @@
 
     if (isHistorical) {
       return `
-        <div class="ds-card-head">
-          <div class="ds-title">${ic("check")} <span>Completed Historical Call:</span> ${code}</div>
+        <div class="ds-card-head ds-mb0">
+          <div class="ds-title" style="font-size:12px;display:flex;align-items:center;gap:6px;">
+            <span style="color:#10b981;font-weight:bold;">✓</span>
+            <span style="opacity:0.85;">Executed:</span> ${code}
+          </div>
           ${raw}
         </div>
-        <div class="ds-card-label">${isMulti ? "Batch Tool Calls:" : "Arguments:"}</div>
-        <pre class="ds-card-pre">${args}</pre>`;
+        <details class="ds-card-args-details" style="margin-top:6px;">
+          <summary style="cursor:pointer;font-size:11px;opacity:0.75;padding:2px 0;user-select:none;">${isMulti ? "Batch Tool Calls" : "Arguments & Parameters"} (${args.length} chars)</summary>
+          <pre class="ds-card-pre" style="margin-top:4px;max-height:220px;overflow:auto;">${args}</pre>
+        </details>`;
     }
 
     const title = isMulti

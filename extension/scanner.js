@@ -183,15 +183,84 @@
         }
       }
     });
+
+    collapseAutomatedMessages();
   }
 
-  root.DSScanner = { scanMessages };
+  function collapseAutomatedMessages() {
+    const candidates = Array.from(
+      document.querySelectorAll(
+        "div[class*='message'], div.ds-markdown, div.md-code-block, p, div[class*='chat-item']",
+      ),
+    );
+
+    for (const el of candidates) {
+      if (el.hasAttribute("data-mcp-auto-styled")) continue;
+      const text = el.textContent || "";
+      if (
+        !text.includes("[MCP_AUTO_RESULT]") &&
+        !text.startsWith("Tool ") &&
+        !text.startsWith("Batch Results for ") &&
+        !text.startsWith("Continue autonomously:")
+      ) {
+        continue;
+      }
+
+      const bubble =
+        el.closest(
+          "div[class*='message'], div[class*='chat-item'], div.ds-message",
+        ) || el;
+      if (bubble.hasAttribute("data-mcp-auto-styled")) continue;
+      bubble.setAttribute("data-mcp-auto-styled", "true");
+      bubble.classList.add("ds-mcp-automated-bubble");
+
+      let summary = "تم إرسال مخرجات الأداة في الخلفية (Background Tool Data)";
+      if (text.includes("Batch Results")) {
+        const m = text.match(/Batch Results for (\d+) parallel calls/);
+        summary = `تم إرسال نتائج حزمة أدوات (${m ? m[1] : ""} أدوات) لديب سيك في الخلفية`;
+      } else if (text.includes("Tool ") && text.includes("completed")) {
+        const m = text.match(/Tool ([\w\.-]+) completed/);
+        summary = `تم إرسال نتيجة الأداة: ${m ? m[1] : ""}`;
+      } else if (text.includes("Continue autonomously")) {
+        summary = `أمر متابعة تلقائي للأجنت في الخلفية (Autonomous Nudge)`;
+      }
+
+      const pill = document.createElement("div");
+      pill.className = "ds-auto-msg-pill";
+      pill.innerHTML = `
+        <div class="ds-auto-pill-bar">
+          <span class="ds-ic" data-ic="zap" style="color:var(--ds-accent,#4f46e5);margin-right:6px;"></span>
+          <span class="ds-auto-pill-title">${summary}</span>
+          <button class="ds-auto-pill-btn" type="button">عرض الداتا ▼</button>
+        </div>
+        <div class="ds-auto-pill-body" style="display:none;margin-top:8px;"></div>
+      `;
+
+      const body = pill.querySelector(".ds-auto-pill-body");
+      const btn = pill.querySelector(".ds-auto-pill-btn");
+      btn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const isHidden = body.style.display === "none";
+        body.style.display = isHidden ? "block" : "none";
+        btn.textContent = isHidden ? "إخفاء الداتا ▲" : "عرض الداتا ▼";
+      };
+
+      while (el.firstChild) {
+        body.appendChild(el.firstChild);
+      }
+      el.appendChild(pill);
+    }
+  }
+
+  root.DSScanner = { scanMessages, collapseAutomatedMessages };
   root.DSScanner.initObserver = function () {
     new MutationObserver(() => {
       clearTimeout(window.DSState?.debounceTimer);
       if (window.DSState) {
         window.DSState.debounceTimer = setTimeout(() => {
           scanMessages();
+          collapseAutomatedMessages();
           window.DSMention?.attachInputMentionInterceptor();
           root.DSBadges?.injectChatBadge();
           window.DSProjects?.injectSidebarProjectFilter();

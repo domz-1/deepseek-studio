@@ -138,7 +138,13 @@
         cardStatusEl.innerHTML = `<div class="ds-note ds-note-success"><span class="ds-ic" data-ic="check"></span> Completed batch of ${payloads.length} tools.</div>`;
       }
 
+      const isArabic = sessionStorage.getItem("deepseek_mcp_arabic") === "true";
+      const arabicNote = isArabic
+        ? "\n[تنبيه: اشرح خطوتك التالية بالعربية دائماً]."
+        : "";
+
       const batchMessage =
+        `[MCP_AUTO_RESULT]\n` +
         `Batch Results for ${payloads.length} parallel calls:\n` +
         results
           .map(
@@ -146,7 +152,7 @@
               `### Tool ${i + 1}: ${r.name}\n\`\`\`json\n${r.output}\n\`\`\``,
           )
           .join("\n\n") +
-        `\n\nAnalyze these batch results and continue executing the next step autonomously until complete.`;
+        `\n\nAnalyze these batch results and continue executing the next step autonomously until complete.${arabicNote}`;
 
       if (window.DSState.isPaused || !window.DSState.isTaskActive) {
         console.log(
@@ -163,7 +169,7 @@
         return;
       }
       await window.DSState.sendText(
-        `Execution notice on batch: ${err.message}`,
+        `[MCP_AUTO_RESULT]\nExecution notice on batch: ${err.message}`,
       );
     } finally {
       window.DSState.runningTaskCount = Math.max(
@@ -284,9 +290,14 @@
         );
       }
 
+      const isArabic = sessionStorage.getItem("deepseek_mcp_arabic") === "true";
+      const arabicNote = isArabic
+        ? "\n[تنبيه: اشرح خطوتك التالية بالعربية دائماً]."
+        : "";
+
       const templates = window.DSQueue?.HUMAN_RESULT_TEMPLATES || [
         (name, o) =>
-          `Tool ${name} completed:\n\`\`\`json\n${o}\n\`\`\`\nProceed autonomously.`,
+          `[MCP_AUTO_RESULT]\nTool ${name} completed:\n\`\`\`json\n${o}\n\`\`\`\nProceed autonomously.${arabicNote}`,
       ];
       const template = templates[Math.floor(Math.random() * templates.length)];
       const message = template(payload.name, out);
@@ -307,7 +318,7 @@
         return;
       }
       await window.DSState.sendText(
-        `Execution notice on ${payload.name}: ${err.message}`,
+        `[MCP_AUTO_RESULT]\nExecution notice on ${payload.name}: ${err.message}`,
       );
     } finally {
       window.DSState.runningTaskCount = Math.max(

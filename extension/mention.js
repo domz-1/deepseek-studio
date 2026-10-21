@@ -110,6 +110,37 @@
     async function processAndSubmitInput(rawVal, e) {
       if (!rawVal) return false;
 
+      // 1. Detect and persist Arabic language preference for the session
+      const hasArabic = /[\u0600-\u06FF]/.test(rawVal);
+      if (hasArabic) {
+        try {
+          sessionStorage.setItem("deepseek_mcp_arabic", "true");
+        } catch (_) {}
+      }
+      const isArabic =
+        hasArabic || sessionStorage.getItem("deepseek_mcp_arabic") === "true";
+
+      // 2. Handle "By The Way" (BTW) progress directive
+      const isBtw = /^(by the way|btw|بالمناسبة|على فكرة)\b/i.test(
+        rawVal.trim(),
+      );
+      if (isBtw) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        let question = rawVal
+          .replace(/^(by the way|btw|بالمناسبة|على فكرة)[:\s,]*/i, "")
+          .trim();
+        if (!question) question = "ما هو ملخص التقدم ونسبة الإنجاز حتى الآن؟";
+        const prompt = isArabic
+          ? `[استعلام جانبي - By The Way Progress Directive]:\nسؤال المستخدم: "${question}"\nالمطلوب منك:\n1. أجب بتقرير ملخص وواضح في 3 نقاط باللغة العربية (ما تم إنجازه حتى الآن / ما يجري حالياً / الخطوة التالية مباشرة).\n2. بعد الإجابة، استمر فوراً في تنفيذ خطوتك التالية في نفس الرد دون توقف.`
+          : `[Side Inquiry - By The Way Progress Directive]:\nUser question: "${question}"\nRequirements:\n1. Provide a concise 3-bullet progress report (Completed so far / Currently in progress / Next step).\n2. Immediately continue executing your next step in the same turn without stopping.`;
+
+        await root.DSState.sendText(prompt, true);
+        return true;
+      }
+
       // Detect any @mention in the message
       const mentionMatches = rawVal.match(/@([\w-]+)/i);
       const activeMention = mentionMatches ? mentionMatches[0] : null;

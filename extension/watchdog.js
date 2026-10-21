@@ -183,9 +183,14 @@
       lastMsg.includes("completed:") ||
       lastMsg.includes("```json");
 
+    const isArabic = sessionStorage.getItem("deepseek_mcp_arabic") === "true";
+    const arabicNote = isArabic
+      ? " (استمر بالشرح والرد باللغة العربية دائماً)"
+      : "";
+
     const promptToSend = isToolOutput
       ? lastMsg
-      : "Continue autonomously: Please proceed with the next step to complete the task.";
+      : `[MCP_AUTO_RESULT]\nContinue autonomously: Please proceed with the next step to complete the task.${arabicNote}`;
 
     console.log(
       "[DeepSeek Studio] Dispatched watchdog continuation prompt:",

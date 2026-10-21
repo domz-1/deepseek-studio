@@ -1310,3 +1310,87 @@
   font-weight: 500;
   padding: 2px 6px;
 }
+
+/* ---- Automated Background Message Pills ---- */
+.ds-mcp-automated-bubble {
+  margin: 4px 0 !important;
+  padding: 2px 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.ds-auto-msg-pill {
+  display: inline-block;
+  max-width: 100%;
+  background: rgba(79, 70, 229, 0.08);
+  border: 1px dashed rgba(79, 70, 229, 0.3);
+  border-radius: var(--ds-radius-md, 8px);
+  padding: 6px 12px;
+  margin: 4px 0;
+  font-size: 11px;
+  color: var(--ds-fg-muted, #94a3b8);
+  transition: all 0.2s ease;
+}
+
+.ds-auto-msg-pill:hover {
+  background: rgba(79, 70, 229, 0.12);
+  border-color: rgba(79, 70, 229, 0.5);
+}
+
+.ds-auto-pill-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ds-auto-pill-title {
+  font-weight: 500;
+  color: var(--ds-fg, #e2e8f0);
+}
+
+.ds-auto-pill-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--ds-border, rgba(255, 255, 255, 0.1));
+  color: var(--ds-fg-muted, #94a3b8);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 10px;
+  cursor: pointer;
+  margin-left: auto;
+  transition: all 0.15s;
+}
+
+.ds-auto-pill-btn:hover {
+  background: var(--ds-accent, #4f46e5);
+  color: #fff;
+}
+
+.ds-auto-pill-body {
+  max-height: 250px;
+  overflow: auto;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+}
+
+/* ---- Compact Historical Tool Cards ---- */
+.ds-card.is-historical {
+  padding: 8px 12px !important;
+  margin: 6px 0 !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: var(--ds-radius-md, 8px) !important;
+}
+
+.ds-card-args-details summary {
+  color: var(--ds-fg-muted);
+  outline: none;
+}
+
+.ds-card-args-details summary:hover {
+  color: var(--ds-fg);
+}
