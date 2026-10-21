@@ -617,8 +617,17 @@
 .ds-card.is-danger {
   border-color: var(--ds-danger);
 }
-.ds-card.is-historical {
-  border-color: var(--ds-border);
+.ds-card.is-historical,
+.ds-card.is-executed {
+  border-color: var(--ds-border) !important;
+  padding: 8px 12px !important;
+  margin: 6px 0 10px !important;
+  box-shadow: none !important;
+  background: var(--ds-bg-inset) !important;
+}
+.ds-card.is-historical .ds-card-head,
+.ds-card.is-executed .ds-card-head {
+  margin-bottom: 0 !important;
 }
 .ds-card-head {
   display: flex;

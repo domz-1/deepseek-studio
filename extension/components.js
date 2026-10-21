@@ -104,6 +104,7 @@
     isHistorical,
     isBatch,
     batchCount,
+    resultOutput,
   }) {
     const isMulti = isBatch || (Array.isArray(payload) && payload.length > 1);
     const code = isMulti
@@ -115,6 +116,13 @@
     );
 
     if (isHistorical) {
+      const resultHtml = resultOutput
+        ? `<details class="ds-card-result-details" style="margin-top:6px;font-size:11px;">
+             <summary style="cursor:pointer;opacity:0.8;font-weight:600;">View Result Data (${resultOutput.length} chars)</summary>
+             <pre class="ds-card-pre" style="max-height:160px;overflow:auto;margin-top:4px;padding:6px;background:rgba(0,0,0,0.25);border-radius:4px;font-family:monospace;white-space:pre-wrap;">${escape(resultOutput.slice(0, 3000))}</pre>
+           </details>`
+        : "";
+
       return `
         <div class="ds-card-head ds-mb0">
           <div class="ds-title" style="font-size:12px;display:flex;align-items:center;gap:6px;">
@@ -122,6 +130,7 @@
             <span style="opacity:0.85;">Executed:</span> ${code}
           </div>
           <div style="display:inline-flex;gap:4px;align-items:center;">
+            <button class="ds-btn ds-btn-ok ds-btn-xs mcp-dispatch-btn" type="button" style="font-size:11px;padding:2px 8px;" title="Send tool output to DeepSeek">📤 Send Output</button>
             <button class="ds-btn ds-btn-xs mcp-rerun-btn" type="button" style="font-size:11px;padding:2px 8px;opacity:0.9;" title="Re-execute this tool now">🔄 Re-run</button>
             ${raw}
           </div>
@@ -129,7 +138,8 @@
         <details class="ds-card-args-details" style="margin-top:6px;">
           <summary style="cursor:pointer;font-size:11px;opacity:0.75;padding:2px 0;user-select:none;">${isMulti ? "Batch Tool Calls" : "Arguments & Parameters"} (${args.length} chars)</summary>
           <pre class="ds-card-pre" style="margin-top:4px;max-height:220px;overflow:auto;">${args}</pre>
-        </details>`;
+        </details>
+        ${resultHtml}`;
     }
 
     const title = isMulti

@@ -170,8 +170,11 @@
     const card = document.createElement("div");
     card.className =
       "deepseek-mcp-action-card ds-card" +
-      (isSafe ? "" : " is-danger") +
-      (isAlreadyExecuted ? " is-historical" : "");
+      (isAlreadyExecuted
+        ? " is-historical is-executed"
+        : isSafe
+          ? ""
+          : " is-danger");
     card.innerHTML = window.DSComponents.permissionCard({
       payload,
       isSafe,
@@ -209,6 +212,22 @@
               targetEl,
             );
           }
+        };
+      }
+      const sendBtn = card.querySelector(".mcp-dispatch-btn");
+      if (sendBtn) {
+        sendBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          window.DSState.isTaskActive = true;
+          window.DSState.isTaskStopped = false;
+          window.DSState.setChatTaskStatus?.("active");
+          const name = isBatch
+            ? `Batch of ${payload.length} tools`
+            : payload.name;
+          window.DSState.sendText(
+            `[MCP_AUTO_RESULT]\nTool ${name} previously executed. Proceed with next step.`,
+          );
         };
       }
       return;

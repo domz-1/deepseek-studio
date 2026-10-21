@@ -39,6 +39,15 @@
     }
 
     const batchId = `batch_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const batchCardEl = cardStatusEl?.closest(".deepseek-mcp-action-card");
+    if (batchCardEl) {
+      batchCardEl
+        .querySelectorAll(".ds-card-ed, .ds-card-label")
+        .forEach((el) => {
+          el.style.display = "none";
+        });
+    }
+
     if (cardStatusEl) {
       cardStatusEl.innerHTML = `<div class="ds-card-head ds-mb0">
         <div class="ds-note ds-note-accent ds-pad0"><span class="ds-ic" data-ic="clock"></span> Running batch of ${payloads.length} tools in parallel...</div>
@@ -137,12 +146,44 @@
         }
       }
 
-      if (cardStatusEl) {
-        cardStatusEl.innerHTML = window.DSComponents.status.done(
-          `Batch (${payloads.length} tools)`,
-          results.map((r) => `### ${r.name}:\n${r.output}`).join("\n\n"),
-        );
-        const sendBtn = cardStatusEl.querySelector(".mcp-dispatch-btn");
+      const batchResultStr = results
+        .map((r) => `### ${r.name}:\n${r.output}`)
+        .join("\n\n");
+      const cardEl = cardStatusEl?.closest(".deepseek-mcp-action-card");
+      if (cardEl) {
+        cardEl.classList.remove("is-danger");
+        cardEl.classList.add("is-historical", "is-executed");
+        cardEl.innerHTML = window.DSComponents.permissionCard({
+          payload: payloads,
+          isSafe: true,
+          isHistorical: true,
+          isBatch: true,
+          batchCount: payloads.length,
+          resultOutput: batchResultStr,
+        });
+
+        const rawBtn = cardEl.querySelector(".view-raw-btn");
+        if (rawBtn && targetEl) {
+          rawBtn.onclick = () =>
+            window.DSCards?.toggleRawVisibility?.(targetEl);
+        }
+
+        const rerunBtn = cardEl.querySelector(".mcp-rerun-btn");
+        if (rerunBtn) {
+          rerunBtn.onclick = () => {
+            window.DSState.isTaskActive = true;
+            window.DSState.isTaskStopped = false;
+            window.DSState.setChatTaskStatus?.("active");
+            root.DSExecution?.executeBatchTools(
+              payloads,
+              cardEl,
+              callKey,
+              targetEl,
+            );
+          };
+        }
+
+        const sendBtn = cardEl.querySelector(".mcp-dispatch-btn");
         if (sendBtn) {
           sendBtn.onclick = (e) => {
             e.preventDefault();
@@ -185,8 +226,8 @@
       window.DSState.isTaskStopped = false;
       window.DSState.setChatTaskStatus?.("active");
       await window.DSState.sendText(batchMessage);
-      if (cardStatusEl) {
-        const sendBtn = cardStatusEl.querySelector(".mcp-dispatch-btn");
+      if (cardEl) {
+        const sendBtn = cardEl.querySelector(".mcp-dispatch-btn");
         if (sendBtn) {
           sendBtn.textContent = "✓ Sent";
           sendBtn.disabled = true;
@@ -272,6 +313,13 @@
       }
     }
 
+    const cardEl = cardStatusEl?.closest(".deepseek-mcp-action-card");
+    if (cardEl) {
+      cardEl.querySelectorAll(".ds-card-ed, .ds-card-label").forEach((el) => {
+        el.style.display = "none";
+      });
+    }
+
     if (cardStatusEl) {
       cardStatusEl.innerHTML = window.DSComponents.status.runningWithKill(
         payload.name,
@@ -326,23 +374,6 @@
       }
 
       const out = formatToolResult(data).slice(0, 15000);
-      if (cardStatusEl) {
-        cardStatusEl.innerHTML = window.DSComponents.status.done(
-          payload.name,
-          out,
-        );
-        const sendBtn = cardStatusEl.querySelector(".mcp-dispatch-btn");
-        if (sendBtn) {
-          sendBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            window.DSState.isTaskActive = true;
-            window.DSState.isTaskStopped = false;
-            window.DSState.setChatTaskStatus?.("active");
-            window.DSState.sendText(message);
-          };
-        }
-      }
 
       const isArabic = sessionStorage.getItem("deepseek_mcp_arabic") === "true";
       const arabicNote = isArabic
@@ -362,6 +393,63 @@
         message += arabicNote;
       }
 
+      if (cardEl) {
+        cardEl.classList.remove("is-danger");
+        cardEl.classList.add("is-historical", "is-executed");
+        cardEl.innerHTML = window.DSComponents.permissionCard({
+          payload,
+          isSafe: true,
+          isHistorical: true,
+          isBatch: false,
+          batchCount: 1,
+          resultOutput: out,
+        });
+
+        const rawBtn = cardEl.querySelector(".view-raw-btn");
+        if (rawBtn && targetEl) {
+          rawBtn.onclick = () =>
+            window.DSCards?.toggleRawVisibility?.(targetEl);
+        }
+
+        const rerunBtn = cardEl.querySelector(".mcp-rerun-btn");
+        if (rerunBtn) {
+          rerunBtn.onclick = () => {
+            window.DSState.isTaskActive = true;
+            window.DSState.isTaskStopped = false;
+            window.DSState.setChatTaskStatus?.("active");
+            root.DSExecution?.executeTool(payload, cardEl, callKey, targetEl);
+          };
+        }
+
+        const sendBtn = cardEl.querySelector(".mcp-dispatch-btn");
+        if (sendBtn) {
+          sendBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.DSState.isTaskActive = true;
+            window.DSState.isTaskStopped = false;
+            window.DSState.setChatTaskStatus?.("active");
+            window.DSState.sendText(message);
+          };
+        }
+      } else if (cardStatusEl) {
+        cardStatusEl.innerHTML = window.DSComponents.status.done(
+          payload.name,
+          out,
+        );
+        const sendBtn = cardStatusEl.querySelector(".mcp-dispatch-btn");
+        if (sendBtn) {
+          sendBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.DSState.isTaskActive = true;
+            window.DSState.isTaskStopped = false;
+            window.DSState.setChatTaskStatus?.("active");
+            window.DSState.sendText(message);
+          };
+        }
+      }
+
       const isExplicitlyStopped =
         window.DSState.isPaused ||
         (window.DSState.isTaskStopped &&
@@ -377,13 +465,13 @@
       window.DSState.isTaskStopped = false;
       window.DSState.setChatTaskStatus?.("active");
       await window.DSState.sendText(message);
-      if (cardStatusEl) {
-        const sendBtn = cardStatusEl.querySelector(".mcp-dispatch-btn");
-        if (sendBtn) {
-          sendBtn.textContent = "✓ Sent";
-          sendBtn.disabled = true;
-          sendBtn.style.opacity = "0.6";
-        }
+      const activeSendBtn = (cardEl || cardStatusEl)?.querySelector(
+        ".mcp-dispatch-btn",
+      );
+      if (activeSendBtn) {
+        activeSendBtn.textContent = "✓ Sent";
+        activeSendBtn.disabled = true;
+        activeSendBtn.style.opacity = "0.6";
       }
     } catch (err) {
       if (cardStatusEl) {
