@@ -314,7 +314,45 @@
       lastAssistantMd ? lastAssistantMd.textContent || "" : ""
     ).toLowerCase();
 
-    // 1. Check if task is explicitly finished via status tag or keywords
+    // 1. Check if there are active unexecuted tool cards waiting to run
+    const hasPendingToolCards = Array.from(
+      document.querySelectorAll(
+        ".deepseek-mcp-action-card:not(.is-historical)",
+      ),
+    ).some(
+      (c) =>
+        c.querySelector(".mcp-approve-btn") ||
+        c.querySelector(".mcp-card-kill-btn"),
+    );
+
+    // 2. Check if the AI called ANY tool in the latest message
+    const hasToolCallInLatestTurn =
+      lastAssistantMd && window.DSTools?.extractMcpCall
+        ? Boolean(
+            window.DSTools.extractMcpCall(lastAssistantMd.textContent || ""),
+          )
+        : false;
+
+    // 3. CRITICAL: If a tool was invoked in the latest turn, or cards are pending,
+    // or tools are currently running, the task is actively progressing and CANNOT be complete!
+    // Even if DeepSeek mentions "[STATUS: COMPLETED]" while explaining what it will do at the end.
+    if (
+      hasToolCallInLatestTurn ||
+      hasPendingToolCards ||
+      root.DSState.runningTaskCount > 0
+    ) {
+      root.DSState.isTaskActive = true;
+      root.DSState.isTaskStopped = false;
+      updateWatchdogUI(
+        "generating",
+        root.DSState.runningTaskCount > 0
+          ? `Tools running (${root.DSState.runningTaskCount})...`
+          : "Processing tool call...",
+      );
+      return;
+    }
+
+    // 4. Check if task is explicitly finished via status tag or keywords (ONLY reached when NO tools are called!)
     const isTaskFinished =
       lastText.includes("[status: completed]") ||
       lastText.includes("status: completed") ||
@@ -332,32 +370,7 @@
       lastText.includes("all done!") ||
       lastText.includes("implementation complete");
 
-    // 2. Check if there are active unexecuted tool cards waiting to run
-    const hasPendingToolCards = Array.from(
-      document.querySelectorAll(
-        ".deepseek-mcp-action-card:not(.is-historical)",
-      ),
-    ).some(
-      (c) =>
-        c.querySelector(".mcp-approve-btn") ||
-        c.querySelector(".mcp-card-kill-btn"),
-    );
-
-    // 3. Check if the AI called ANY tool in the latest message
-    const hasToolCallInLatestTurn =
-      lastAssistantMd && window.DSTools?.extractMcpCall
-        ? Boolean(
-            window.DSTools.extractMcpCall(lastAssistantMd.textContent || ""),
-          )
-        : false;
-
-    // If explicit finish OR if AI finished generating and called NO new tools:
-    if (
-      isTaskFinished ||
-      (!hasPendingToolCards &&
-        !hasToolCallInLatestTurn &&
-        root.DSState.lastSentMessage)
-    ) {
+    if (isTaskFinished) {
       root.DSState.isTaskActive = false;
       root.DSState.isTaskStopped = true;
       updateWatchdogUI("done", "✅ Task Complete");

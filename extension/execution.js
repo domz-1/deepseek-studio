@@ -154,20 +154,24 @@
           .join("\n\n") +
         arDiscussion;
 
-      if (window.DSState.isPaused || !window.DSState.isTaskActive) {
+      if (window.DSState.isPaused || window.DSState.isTaskStopped) {
         console.log(
           "[DS Studio] Batch completed while paused or stopped. Skipping auto-dispatch.",
         );
         return;
       }
+      window.DSState.isTaskActive = true;
+      window.DSState.isTaskStopped = false;
       await window.DSState.sendText(batchMessage);
     } catch (err) {
       if (cardStatusEl) {
         cardStatusEl.innerHTML = window.DSComponents.status.error(err.message);
       }
-      if (window.DSState.isPaused || !window.DSState.isTaskActive) {
+      if (window.DSState.isPaused || window.DSState.isTaskStopped) {
         return;
       }
+      window.DSState.isTaskActive = true;
+      window.DSState.isTaskStopped = false;
       await window.DSState.sendText(
         `[MCP_AUTO_RESULT]\nExecution notice on batch: ${err.message}`,
       );
@@ -308,21 +312,25 @@
         message += arabicNote;
       }
 
-      if (window.DSState.isPaused || !window.DSState.isTaskActive) {
+      if (window.DSState.isPaused || window.DSState.isTaskStopped) {
         console.log(
           "[DS Studio] Tool completed while paused or stopped. Skipping auto-dispatch.",
         );
         return;
       }
 
+      window.DSState.isTaskActive = true;
+      window.DSState.isTaskStopped = false;
       await window.DSState.sendText(message);
     } catch (err) {
       if (cardStatusEl) {
         cardStatusEl.innerHTML = window.DSComponents.status.error(err.message);
       }
-      if (window.DSState.isPaused || !window.DSState.isTaskActive) {
+      if (window.DSState.isPaused || window.DSState.isTaskStopped) {
         return;
       }
+      window.DSState.isTaskActive = true;
+      window.DSState.isTaskStopped = false;
       await window.DSState.sendText(
         `[MCP_AUTO_RESULT]\nExecution notice on ${payload.name}: ${err.message}`,
       );
