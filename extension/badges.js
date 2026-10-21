@@ -181,13 +181,13 @@
           e.preventDefault();
           e.stopPropagation();
           const intervals = [
-            { label: "30s", ms: 30 * 1000 },
+            { label: "1.5s (Turbo)", ms: 1500 },
+            { label: "5s", ms: 5 * 1000 },
             { label: "15s", ms: 15 * 1000 },
-            { label: "45s", ms: 45 * 1000 },
+            { label: "30s", ms: 30 * 1000 },
             { label: "60s", ms: 60 * 1000 },
-            { label: "10s", ms: 10 * 1000 },
           ];
-          const currentMs = window.DSState?.SAFE_INTERVAL_MS || 30 * 1000;
+          const currentMs = window.DSState?.SAFE_INTERVAL_MS || 1500;
           const currIdx = intervals.findIndex((item) => item.ms === currentMs);
           const nextItem = intervals[(currIdx + 1) % intervals.length];
           if (typeof window.DSState?.setSafeInterval === "function") {
