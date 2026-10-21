@@ -123,39 +123,52 @@
   --ds-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
 }
 
-/* ---- Badge bar ---- */
+/* ---- Badge bar (Compact Single Row) ---- */
 .ds-badge-bar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 6px;
   font-family: var(--ds-font);
   font-size: 11px;
   color: var(--ds-fg-muted);
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   user-select: none;
   width: 100%;
-  max-width: 800px;
-  margin-left: auto;
-  margin-right: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 1px 0 3px 0;
+}
+.ds-badge-bar::-webkit-scrollbar {
+  display: none;
+}
+.ds-badge-bar-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 .ds-pills {
-  display: flex;
-  flex-wrap: wrap;
+  display: inline-flex;
   gap: 6px;
   align-items: center;
 }
 .ds-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: var(--ds-bg-base);
   border: 1px solid var(--ds-bg-hover);
   color: var(--ds-fg);
-  padding: 5px 12px;
+  padding: 3px 8px;
   border-radius: var(--ds-radius-pill);
   cursor: pointer;
   font-weight: 500;
+  font-size: 10.5px;
+  height: 24px;
+  box-sizing: border-box;
   transition:
     border-color 0.15s,
     background 0.15s;
@@ -172,33 +185,35 @@
 }
 .ds-pill .ds-count {
   color: var(--ds-fg-muted);
-  font-size: 10px;
+  font-size: 9.5px;
 }
 .ds-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--ds-accent);
-  box-shadow: 0 0 6px var(--ds-accent);
+  box-shadow: 0 0 5px var(--ds-accent);
 }
 
 /* ---- Unified MCP chip (all 3 in one round chip + X more) ---- */
 .ds-mcp-unified-chip {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: var(--ds-bg-base);
-  border: 1px solid var(--ds-bg-hover);
+  border: 1px solid var(--ds-border);
   color: var(--ds-fg);
-  padding: 5px 12px;
+  padding: 2px 8px;
   border-radius: var(--ds-radius-pill);
   font-weight: 500;
-  font-size: 11px;
+  font-size: 10.5px;
+  height: 24px;
+  box-sizing: border-box;
 }
 .ds-chip-item {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   cursor: pointer;
   padding: 1px 3px;
   border-radius: 4px;
@@ -212,13 +227,13 @@
 }
 .ds-chip-item .ds-count {
   color: var(--ds-fg-muted);
-  font-size: 10px;
+  font-size: 9.5px;
 }
 .ds-chip-more {
   color: var(--ds-accent);
   font-weight: 600;
-  font-size: 10px;
-  padding: 2px 6px;
+  font-size: 9.5px;
+  padding: 1px 5px;
   background: var(--ds-blue-soft);
   border-radius: 8px;
   cursor: default;
@@ -423,22 +438,63 @@
 .ds-project-dropdown-item {
   padding: 6px 8px !important;
 }
+.ds-project-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
 .ds-project-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  background: var(--ds-bg-inset);
-  color: var(--ds-accent);
-  border: 1px solid var(--ds-bg-hover);
-  padding: 4px 8px;
+  gap: 3px;
+  background: var(--ds-bg-base);
+  color: var(--ds-fg-muted);
+  border: 1px solid var(--ds-border);
+  padding: 2px 7px;
   border-radius: var(--ds-radius-pill);
-  font-size: 11px;
+  font-size: 10.5px;
   font-family: var(--ds-font);
   cursor: pointer;
+  height: 24px;
+  box-sizing: border-box;
+  white-space: nowrap;
   transition: all 0.15s ease;
 }
 .ds-project-btn:hover {
+  border-color: var(--ds-accent);
+  background: var(--ds-bg-hover);
+  color: var(--ds-accent);
+}
+.ds-project-btn.ds-btn-icon {
+  padding: 0;
+  width: 24px;
+  height: 24px;
+}
+.ds-project-btn.is-active {
+  color: var(--ds-accent) !important;
+  border-color: var(--ds-accent) !important;
+  background: var(--ds-blue-soft) !important;
+  font-weight: 600;
+}
+.ds-project-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--ds-bg-base);
+  color: var(--ds-fg);
+  border: 1px solid var(--ds-border);
+  padding: 2px 8px;
+  border-radius: var(--ds-radius-pill);
+  font-size: 10.5px;
+  height: 24px;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.ds-project-trigger:hover {
   border-color: var(--ds-accent);
   background: var(--ds-bg-hover);
 }
@@ -1157,12 +1213,32 @@
 /* ---- Message Queue Bar & Dedicated Input ---- */
 .ds-queue-container {
   width: 100%;
-  max-width: 800px;
-  margin: 0 auto 10px auto;
+  max-width: 100%;
+  margin: 0 auto 6px auto;
   font-family: var(--ds-font);
-  display: flex;
+  display: none !important;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
+}
+.ds-queue-container.is-open {
+  display: flex !important;
+  animation: ds-modal-pop 0.15s ease-out;
+}
+
+/* ---- Composer Container Optimization ---- */
+._020ab5b {
+  padding: 6px 12px 6px 12px !important;
+  gap: 3px !important;
+}
+._24fad49 {
+  min-height: 38px !important;
+}
+._24fad49 textarea,
+textarea._27c9245 {
+  min-height: 38px !important;
+  max-height: 120px !important;
+  font-size: 13.5px !important;
+  line-height: 1.4 !important;
 }
 
 .ds-queue-input-wrapper {

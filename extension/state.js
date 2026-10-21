@@ -430,6 +430,7 @@
     isTaskStopped = false;
     runningTaskCount = 0;
     if (text) lastSentMessage = text;
+    setChatTaskStatus("active");
     recordActivity();
     updateTaskBadge();
 
@@ -469,6 +470,7 @@
       recordActivity();
       isTaskActive = true;
       isTaskStopped = false;
+      setChatTaskStatus("active");
       if (text) lastSentMessage = text;
     }
 
@@ -580,6 +582,7 @@
     isPaused = false;
     isTaskStopped = false;
     isTaskActive = true;
+    setChatTaskStatus("active");
     recordActivity();
     updateTaskBadge();
     if (window.DSWatchdog?.updateWatchdogUI) {
@@ -593,12 +596,34 @@
     }, 400);
   }
 
+  function getChatId() {
+    const m = window.location.pathname.match(/\/s\/([a-zA-Z0-9_-]+)/);
+    if (m) return m[1];
+    const parts = window.location.pathname.split("/").filter(Boolean);
+    return parts[parts.length - 1] || "default";
+  }
+
+  function setChatTaskStatus(status) {
+    const id = getChatId();
+    if (id) {
+      try {
+        localStorage.setItem(`ds_task_${id}`, status);
+      } catch (_) {}
+    }
+  }
+
+  function getChatTaskStatus() {
+    const id = getChatId();
+    return id ? localStorage.getItem(`ds_task_${id}`) : null;
+  }
+
   async function killFullTask() {
     isTaskActive = false;
     isPaused = false;
     isTaskStopped = true;
     runningTaskCount = 0;
     isSending = false;
+    setChatTaskStatus("stopped");
 
     // 1. Abort any running MCP call on bridge
     await killActiveTask(null);
@@ -850,5 +875,8 @@
     startNewTask,
     resetTaskStateOnTyping,
     removeLingeringContinueButtons,
+    getChatId,
+    setChatTaskStatus,
+    getChatTaskStatus,
   };
 })(window);

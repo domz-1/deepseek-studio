@@ -152,8 +152,8 @@
           e.stopPropagation();
         }
         const prompt = isArabic
-          ? `[فحص اكتمال المهمة - Task Completion Check]:\nهل تم إنجاز المهمة المطلوبة بالكامل؟\n- إذا كانت قد اكتملت بنسبة 100%: اكتب [STATUS: COMPLETED] ولخص ما تم إنجازه ولا تستدعِ أي أدوات أخرى.\n- إذا كان هناك أي عمل متبقٍ: اكتب [STATUS: IN_PROGRESS] واذكر ما يتبقى ثم استدعِ الأداة التالية.`
-          : `[Task Completion Check]:\nIs the requested task 100% finished?\n- If completed: write [STATUS: COMPLETED], summarize what was accomplished, and do NOT invoke any more tools.\n- If there is remaining work: write [STATUS: IN_PROGRESS], describe what remains, and invoke the next tool.`;
+          ? `[فحص اكتمال المهمة - Task Completion Check]:\nهل تم إنجاز المهمة المطلوبة بالكامل؟\n- إذا كانت قد اكتملت: لخص ما تم إنجازه ولا تستدعِ أي أدوات أخرى.\n- إذا كان هناك أي عمل متبقٍ: واصل التنفيذ واستدعِ الأداة التالية.`
+          : `[Task Completion Check]:\nIs the requested task finished?\n- If completed: summarize what was accomplished and invoke no more tools.\n- If there is remaining work: proceed with the next step and invoke the next tool.`;
 
         await root.DSState.sendText(prompt, true);
         return true;

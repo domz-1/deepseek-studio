@@ -217,6 +217,15 @@
         };
       }
 
+      const toggleQueueBtn = wrap.querySelector("#mcp-toggle-queue-btn");
+      if (toggleQueueBtn) {
+        toggleQueueBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          window.DSQueue?.toggleQueueBar?.();
+        };
+      }
+
       targetParent.parentElement.insertBefore(wrap, targetParent);
     }
 

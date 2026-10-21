@@ -44,33 +44,39 @@
   function badgeBar({ selectedProject }) {
     const projName = selectedProject
       ? selectedProject.split("/").pop()
-      : "Select Project";
+      : "Workspace";
     return `
-      <div class="ds-pills" id="mcp-server-pills"></div>
-      <div class="ds-task" id="mcp-task-indicator"></div>
-      <button class="ds-project-btn ds-watchdog-btn" id="mcp-watchdog-btn" type="button" title="Watchdog: 30s Safe Anti-Ban Delay. Left-Click: Skip Delay / Force Continue. Right-Click: Change Delay interval.">
-        <span class="ds-watchdog-dot"></span>
-        <span class="ds-watchdog-label" id="mcp-watchdog-label">⏱️ Watchdog: Ready</span>
-        <span class="ds-watchdog-restart-ic" title="Restart Timer / Force Continue">↻</span>
-      </button>
-      <button class="ds-project-btn" id="mcp-toggle-auto-msg" type="button" title="إخفاء/إظهار رسائل مخرجات الأدوات التلقائية في الشات" style="color:var(--ds-fg-muted);border:1px solid var(--ds-border);">
-        <span class="ds-ic" data-ic="eye-off"></span>
-        <span id="mcp-toggle-auto-msg-label">مخرجات الأدوات: مخفية</span>
-      </button>
-      <div class="ds-project-wrap" style="display:inline-flex;align-items:center;gap:6px;margin-left:auto;">
+      <div class="ds-badge-bar-left">
+        <div class="ds-pills" id="mcp-server-pills"></div>
+        <div class="ds-task" id="mcp-task-indicator"></div>
+        <button class="ds-project-btn ds-watchdog-btn" id="mcp-watchdog-btn" type="button" title="Watchdog Status. Left-Click: Force Continue. Right-Click: Change Delay.">
+          <span class="ds-watchdog-dot"></span>
+          <span class="ds-watchdog-label" id="mcp-watchdog-label">Ready</span>
+          <span class="ds-watchdog-restart-ic" title="Force Continue">↻</span>
+        </button>
+      </div>
+      <div class="ds-project-wrap">
         <button class="ds-project-trigger" id="mcp-project-trigger" type="button" title="Select active workspace">
-          <span class="ds-ic" data-ic="folder" style="color:var(--ds-accent);font-size:12px;"></span>
+          <span class="ds-ic" data-ic="folder"></span>
           <span class="ds-project-label" id="mcp-project-label">${projName}</span>
-          <span class="ds-ic" data-ic="arrowRight" style="font-size:9px;transform:rotate(90deg);opacity:0.7;"></span>
+          <span class="ds-ic" data-ic="arrowRight" style="font-size:8px;transform:rotate(90deg);opacity:0.6;"></span>
         </button>
-        <button class="ds-project-btn" id="mcp-ralph-loop-btn" type="button" title="Toggle Ralph Autonomous Loop (auto-verifies code edits)" style="color:var(--ds-fg-muted);border:1px solid var(--ds-border);">
-           Ralph: OFF
+        <button class="ds-project-btn ds-btn-icon" id="mcp-add-project-btn" type="button" title="Add custom project path">
+          ${ic("plus")}
         </button>
-        <button class="ds-project-btn" id="mcp-undo-tool-btn" type="button" title="Undo last tool file modification" style="color:var(--ds-fg-muted);border:1px solid var(--ds-border);">
+        <button class="ds-project-btn" id="mcp-ralph-loop-btn" type="button" title="Toggle Ralph Loop (auto-verifies edits)">
+          🔁 Ralph
+        </button>
+        <button class="ds-project-btn" id="mcp-undo-tool-btn" type="button" title="Undo last tool file modification">
           <span class="ds-ic" data-ic="arrowRight" style="transform:rotate(180deg);display:inline-block;"></span> Undo
         </button>
-        <button class="ds-project-btn" id="mcp-add-project-btn" type="button" title="Add custom project path">
-          ${ic("plus")} Add
+        <button class="ds-project-btn ds-btn-icon" id="mcp-toggle-auto-msg" type="button" title="إخفاء/إظهار رسائل مخرجات الأدوات">
+          <span class="ds-ic" data-ic="eye-off"></span>
+          <span id="mcp-toggle-auto-msg-label"></span>
+        </button>
+        <button class="ds-project-btn" id="mcp-toggle-queue-btn" type="button" title="Open/Close Message Queue">
+          <span class="ds-ic" data-ic="clock"></span>
+          <span id="mcp-queue-count-label">Queue</span>
         </button>
       </div>`;
   }

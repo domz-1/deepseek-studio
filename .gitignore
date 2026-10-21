@@ -39,3 +39,6 @@ bridge/.bridge-token
 
 # Local MCP config overrides (keep the example, ignore the live one if desired)
 # bridge/mcp-config.local.json
+
+# Local HTML dumps
+*.html

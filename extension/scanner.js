@@ -327,13 +327,15 @@
     const count = hiddenTurns.length;
 
     if (label) {
-      label.textContent = shouldHide
-        ? `مخرجات الأدوات: مخفية (${count})`
-        : `مخرجات الأدوات: ظاهرة (${count})`;
+      label.textContent = count > 0 ? count : "";
+    }
+    const icEl = toggleBtn.querySelector(".ds-ic");
+    if (icEl) {
+      icEl.setAttribute("data-ic", shouldHide ? "eye-off" : "globe");
     }
     toggleBtn.title = shouldHide
-      ? "انقر لإظهار رسائل مخرجات الأدوات في الشات"
-      : "انقر لإخفاء رسائل مخرجات الأدوات من الشات";
+      ? `مخرجات الأدوات: مخفية (${count}) — انقر للإظهار`
+      : `مخرجات الأدوات: ظاهرة (${count}) — انقر للإخفاء`;
   }
 
   function processAutomatedMessages() {

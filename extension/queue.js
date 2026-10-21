@@ -55,6 +55,40 @@
       };
       listEl.appendChild(item);
     });
+    updateQueueButton();
+  }
+
+  let isQueueOpen = localStorage.getItem("deepseek_mcp_queue_open") === "true";
+
+  function updateQueueButton() {
+    const btn = document.getElementById("mcp-toggle-queue-btn");
+    const lbl = document.getElementById("mcp-queue-count-label");
+    const qWrap = document.getElementById("deepseek-mcp-queue-bar");
+    const count = queuedMessages.length;
+    if (lbl) {
+      lbl.textContent = count > 0 ? `Queue (${count})` : "Queue";
+    }
+    if (btn) {
+      btn.classList.toggle("is-active", count > 0 || isQueueOpen);
+    }
+    if (qWrap) {
+      qWrap.classList.toggle("is-open", isQueueOpen || count > 0);
+    }
+  }
+
+  function toggleQueueBar() {
+    isQueueOpen = !isQueueOpen;
+    localStorage.setItem(
+      "deepseek_mcp_queue_open",
+      isQueueOpen ? "true" : "false",
+    );
+    updateQueueButton();
+    const input = document.querySelector(
+      "#deepseek-mcp-queue-bar .ds-queue-input",
+    );
+    if (isQueueOpen && input) {
+      setTimeout(() => input.focus(), 50);
+    }
   }
 
   function injectMessageQueueBar(targetParent) {
@@ -155,6 +189,7 @@
     }
 
     renderQueueList(qWrap);
+    updateQueueButton();
   }
 
   // Queue Worker: checks if all tasks, sub-commands, and generation are 100% complete
@@ -299,6 +334,8 @@
     renderQueueList,
     injectMessageQueueBar,
     checkAndProcessQueue,
+    toggleQueueBar,
+    updateQueueButton,
     HUMAN_RESULT_TEMPLATES,
   };
 })(window);

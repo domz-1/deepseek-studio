@@ -242,12 +242,17 @@
   }
 
   function checkInactivityAndResend() {
-    // 0. If task is explicitly paused or stopped by user, do nothing!
+    // 0. If task is explicitly paused or stopped by user, or chat is completed, do nothing!
     if (root.DSState.isPaused) {
       updateWatchdogUI("paused", "⏸️ Task Paused");
       return;
     }
-    if (root.DSState.isTaskStopped) {
+    const currentChatStatus = root.DSState.getChatTaskStatus?.();
+    if (currentChatStatus === "completed") {
+      updateWatchdogUI("done", "✅ Done");
+      return;
+    }
+    if (root.DSState.isTaskStopped || currentChatStatus === "stopped") {
       updateWatchdogUI("stopped", "🛑 Task Stopped");
       return;
     }
@@ -352,7 +357,9 @@
       return;
     }
 
-    // 4. Check if task is explicitly finished via status tag or keywords (ONLY reached when NO tools are called!)
+    // 4. Check if task is explicitly finished via keywords OR if the turn ended with ZERO tools called!
+    // In autonomous agent loops, when the assistant delivers a response without calling any tools,
+    // it has finished all actions and returned its final report to the user.
     const isTaskFinished =
       lastText.includes("[status: completed]") ||
       lastText.includes("status: completed") ||
@@ -370,10 +377,21 @@
       lastText.includes("all done!") ||
       lastText.includes("implementation complete");
 
-    if (isTaskFinished) {
+    const chatStatus = root.DSState.getChatTaskStatus?.();
+    const isCurrentActive =
+      chatStatus === "active" || root.DSState.isTaskActive;
+
+    if (
+      isTaskFinished ||
+      (isCurrentActive &&
+        !hasToolCallInLatestTurn &&
+        !hasPendingToolCards &&
+        root.DSState.runningTaskCount === 0)
+    ) {
       root.DSState.isTaskActive = false;
       root.DSState.isTaskStopped = true;
-      updateWatchdogUI("done", "✅ Task Complete");
+      root.DSState.setChatTaskStatus?.("completed");
+      updateWatchdogUI("done", "✅ Done");
       return;
     }
 
