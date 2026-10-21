@@ -24,27 +24,20 @@
   let lastMessageSentTime = 0;
   let bypassCooldown = false;
   let SAFE_INTERVAL_MS = parseInt(
-    localStorage.getItem("deepseek_mcp_safe_interval") || String(30 * 1000),
+    localStorage.getItem("deepseek_mcp_safe_interval") || "1500",
     10,
   );
-  if (SAFE_INTERVAL_MS > 120000) {
-    SAFE_INTERVAL_MS = 30 * 1000;
-    localStorage.setItem(
-      "deepseek_mcp_safe_interval",
-      String(SAFE_INTERVAL_MS),
-    );
+  if (SAFE_INTERVAL_MS > 10000) {
+    SAFE_INTERVAL_MS = 1500;
+    localStorage.setItem("deepseek_mcp_safe_interval", "1500");
   }
   let INACTIVITY_TIMEOUT_MS = parseInt(
-    localStorage.getItem("deepseek_mcp_inactivity_timeout") ||
-      String(40 * 1000),
+    localStorage.getItem("deepseek_mcp_inactivity_timeout") || "30000",
     10,
   );
-  if (INACTIVITY_TIMEOUT_MS > 120000) {
-    INACTIVITY_TIMEOUT_MS = 40 * 1000;
-    localStorage.setItem(
-      "deepseek_mcp_inactivity_timeout",
-      String(INACTIVITY_TIMEOUT_MS),
-    );
+  if (INACTIVITY_TIMEOUT_MS > 60000) {
+    INACTIVITY_TIMEOUT_MS = 30000;
+    localStorage.setItem("deepseek_mcp_inactivity_timeout", "30000");
   }
   const GRILL_AUTO_TIMEOUT_MS = 2 * 60 * 1000;
 

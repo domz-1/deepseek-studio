@@ -306,22 +306,61 @@
       return;
     }
 
-    const lastBlock = chatBlocks[chatBlocks.length - 1];
+    const allMarkdown = Array.from(
+      document.querySelectorAll("div.ds-markdown"),
+    );
+    const lastAssistantMd = allMarkdown[allMarkdown.length - 1];
     const lastText = (
-      lastBlock ? lastBlock.textContent || "" : ""
+      lastAssistantMd ? lastAssistantMd.textContent || "" : ""
     ).toLowerCase();
 
-    // Check if task is explicitly finished
+    // 1. Check if task is explicitly finished via status tag or keywords
     const isTaskFinished =
+      lastText.includes("[status: completed]") ||
+      lastText.includes("status: completed") ||
+      lastText.includes("[status: complete]") ||
+      lastText.includes("status: complete") ||
+      lastText.includes("[task_completed]") ||
+      lastText.includes("تم إنجاز المهمة") ||
+      lastText.includes("تم الانتهاء بنجاح") ||
+      lastText.includes("المهمة اكتملت") ||
+      lastText.includes("كل شيء جاهز") ||
+      lastText.includes("انتهيت من تنفيذ") ||
       lastText.includes("task complete") ||
       lastText.includes("task is done") ||
       lastText.includes("all tasks completed") ||
       lastText.includes("all done!") ||
       lastText.includes("implementation complete");
 
-    if (isTaskFinished) {
+    // 2. Check if there are active unexecuted tool cards waiting to run
+    const hasPendingToolCards = Array.from(
+      document.querySelectorAll(
+        ".deepseek-mcp-action-card:not(.is-historical)",
+      ),
+    ).some(
+      (c) =>
+        c.querySelector(".mcp-approve-btn") ||
+        c.querySelector(".mcp-card-kill-btn"),
+    );
+
+    // 3. Check if the AI called ANY tool in the latest message
+    const hasToolCallInLatestTurn =
+      lastAssistantMd && window.DSTools?.extractMcpCall
+        ? Boolean(
+            window.DSTools.extractMcpCall(lastAssistantMd.textContent || ""),
+          )
+        : false;
+
+    // If explicit finish OR if AI finished generating and called NO new tools:
+    if (
+      isTaskFinished ||
+      (!hasPendingToolCards &&
+        !hasToolCallInLatestTurn &&
+        root.DSState.lastSentMessage)
+    ) {
       root.DSState.isTaskActive = false;
-      updateWatchdogUI("done", "Task Done");
+      root.DSState.isTaskStopped = true;
+      updateWatchdogUI("done", "✅ Task Complete");
       return;
     }
 

@@ -103,11 +103,16 @@ CRITICAL OPERATIONAL RULES & AGENT WORKFLOW:
    - Always keep your text human, friendly, and conversational.
    - Place your tool call payload in standard JSON ONLY AFTER your explanation and discussion.
 
-2. BY THE WAY (BTW) PROGRESS DIRECTIVE:
+2. TASK COMPLETION & JOB STATUS (إنهاء المهمة بدقة):
+   - In EVERY turn, be clear on your job status:
+     - If the user's main task is NOT finished yet, output: \`[STATUS: IN_PROGRESS]\` and invoke the next tool(s).
+     - If the user's main task is 100% FINISHED, output: \`[STATUS: COMPLETED]\` (أو "تم إنجاز المهمة بالكامل"), give a clear final summary in Arabic of what was accomplished, and DO NOT call any more tools. Once you report completed, execution halts cleanly.
+
+3. BY THE WAY (BTW) PROGRESS DIRECTIVE:
    - If the user message starts with or asks "by the way", "btw", "بالمناسبة", or "على فكرة":
      Immediately provide a concise 3-bullet status update in Arabic (المنجز / الجاري حالياً / الخطوة التالية), then proceed with executing the next tool call in the same turn without stopping.
 
-3. MULTI-OPERATION BATCHING: Bundle inspection, patching, and verification in a single JSON array (up to 8 calls):
+4. MULTI-OPERATION BATCHING: Bundle inspection, patching, and verification in a single JSON array (up to 8 calls):
 \`\`\`json
 [
   { "name": "symbol_find", "arguments": { "symbol": "useMemberActions" } },
@@ -163,14 +168,14 @@ Turbo Mode Guidelines:
       (tools && tools.length > 0 && tools.every((t) => t.server === "chrome"));
 
     if (isChromeMention) {
-      return `[MCP_SYSTEM_PROMPT]\n${CHROME_PROMPT_TEMPLATE(list, projectPath)}`;
+      return CHROME_PROMPT_TEMPLATE(list, projectPath);
     }
 
     const template =
       SYSTEM_PROMPT_STYLES[
         Math.floor(Math.random() * SYSTEM_PROMPT_STYLES.length)
       ];
-    return `[MCP_SYSTEM_PROMPT]\n${template(list, projectPath, skeleton)}`;
+    return template(list, projectPath, skeleton);
   }
 
   function filterToolsByMention(mention, tools) {

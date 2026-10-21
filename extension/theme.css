@@ -1315,8 +1315,7 @@
 /* ---- Hidden Automated Intermediate Tool Messages ---- */
 .ds-mcp-hidden-turn,
 [data-virtual-list-item-key].ds-mcp-hidden-turn,
-[data-virtual-list-item-key]:has(.ds-mcp-hidden-turn),
-[data-virtual-list-item-key]:has([data-mcp-auto-turn="true"]) {
+[data-virtual-list-item-key]:has(.ds-mcp-hidden-turn) {
   display: none !important;
   visibility: hidden !important;
   height: 0 !important;
@@ -1332,30 +1331,19 @@
   pointer-events: none !important;
 }
 
-/* Hide parent and container of ds-button--iconLabelTertiary when associated with hidden turns */
-[data-virtual-list-item-key]:has(.ds-mcp-hidden-turn) .ds-flex,
-[data-virtual-list-item-key]:has(.ds-mcp-hidden-turn)
-  div:has(.ds-button--iconLabelTertiary),
-[data-virtual-list-item-key]:has([data-mcp-auto-turn="true"]) .ds-flex,
-[data-virtual-list-item-key]:has([data-mcp-auto-turn="true"])
-  div:has(.ds-button--iconLabelTertiary),
-.ds-mcp-hidden-turn + .ds-flex,
-.ds-mcp-hidden-turn ~ .ds-flex,
-.ds-mcp-hidden-turn + div:has(.ds-button--iconLabelTertiary),
-.ds-mcp-hidden-turn ~ div:has(.ds-button--iconLabelTertiary),
-div:has(> .ds-message.ds-mcp-hidden-turn)
-  > div:has(.ds-button--iconLabelTertiary),
-div:has(> .ds-message.ds-mcp-hidden-turn) > .ds-flex {
+/* ---- Hide DeepSeek Tertiary Capsule Button & Its Parent Container ---- */
+.ds-button--iconLabelTertiary,
+.ds-button--iconLabelTertiary.ds-button--capsule,
+button[class*="iconLabelTertiary"],
+*:has(> .ds-button--iconLabelTertiary),
+div:has(> button.ds-button--iconLabelTertiary),
+div:has(> .ds-button--iconLabelTertiary.ds-button--capsule) {
   display: none !important;
   visibility: hidden !important;
   height: 0 !important;
   min-height: 0 !important;
-  max-height: 0 !important;
-  margin: 0 !important;
   padding: 0 !important;
-  border: none !important;
-  overflow: hidden !important;
-  pointer-events: none !important;
+  margin: 0 !important;
 }
 
 #mcp-toggle-auto-msg {

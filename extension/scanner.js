@@ -192,20 +192,13 @@
     const t = text.trim();
     return (
       t.includes("[MCP_AUTO_RESULT]") ||
-      t.includes("[MCP_SYSTEM_PROMPT]") ||
       t.startsWith("Output of ") ||
       t.startsWith("Results for ") ||
       t.startsWith("Batch Results for ") ||
       (t.startsWith("Tool ") && t.includes("completed")) ||
       t.startsWith("Continue autonomously:") ||
       t.includes("🚨 [Ralph Loop Alert]:") ||
-      t.startsWith("Execution notice on ") ||
-      t.includes(
-        "You are an expert AI autonomous software engineering agent",
-      ) ||
-      t.includes("You are an expert AI workstation assistant") ||
-      t.includes("You are an expert web development and QA testing AI agent") ||
-      t.includes("CRITICAL OPERATIONAL RULES & AGENT WORKFLOW:")
+      t.startsWith("Execution notice on ")
     );
   }
 
@@ -367,17 +360,6 @@
       const text = el.textContent || "";
       if (!isAutomatedMessageText(text)) continue;
 
-      // If user typed actual text along with the mention / system prompt:
-      if (text.includes("[USER_PROMPT]")) {
-        const parts = text.split("[USER_PROMPT]");
-        const cleanUserText = (parts[1] || "").trim();
-        if (cleanUserText && !el.hasAttribute("data-mcp-sys-cleaned")) {
-          el.setAttribute("data-mcp-sys-cleaned", "true");
-          el.textContent = cleanUserText;
-        }
-        continue;
-      }
-
       const turn = findMessageTurnContainer(el);
       if (!turn || isAssistantTurn(turn)) continue;
 
@@ -391,73 +373,15 @@
         turn.style.setProperty("padding", "0", "important");
         turn.style.setProperty("margin", "0", "important");
 
-        // Hide inner message bubble and the action buttons row (and its parent) after the message
+        // Hide inner message bubble and the action buttons row after the message
         turn
           .querySelectorAll(
-            ".ds-message, .ds-flex, [class*='ds-flex'], [class*='flex'], button, .ds-button--iconLabelTertiary, [class*='iconLabelTertiary']",
+            ".ds-message, .ds-flex, [class*='ds-flex'], [class*='flex'], button",
           )
           .forEach((sub) => {
             sub.classList.add("ds-mcp-hidden-turn");
             sub.style.setProperty("display", "none", "important");
-            if (
-              sub.parentElement &&
-              sub.parentElement !== turn &&
-              !isAssistantTurn(sub.parentElement)
-            ) {
-              sub.parentElement.classList.add("ds-mcp-hidden-turn");
-              sub.parentElement.style.setProperty(
-                "display",
-                "none",
-                "important",
-              );
-              sub.parentElement.style.setProperty("height", "0", "important");
-              sub.parentElement.style.setProperty("margin", "0", "important");
-              sub.parentElement.style.setProperty("padding", "0", "important");
-            }
           });
-
-        if (turn.parentElement && !isAssistantTurn(turn.parentElement)) {
-          turn.parentElement
-            .querySelectorAll(
-              ".ds-button--iconLabelTertiary, [class*='iconLabelTertiary'], .ds-flex, [class*='ds-flex'], button",
-            )
-            .forEach((btn) => {
-              btn.classList.add("ds-mcp-hidden-turn");
-              btn.style.setProperty("display", "none", "important");
-              if (btn.parentElement && !isAssistantTurn(btn.parentElement)) {
-                btn.parentElement.classList.add("ds-mcp-hidden-turn");
-                btn.parentElement.style.setProperty(
-                  "display",
-                  "none",
-                  "important",
-                );
-                btn.parentElement.style.setProperty("height", "0", "important");
-                btn.parentElement.style.setProperty(
-                  "padding",
-                  "0",
-                  "important",
-                );
-                btn.parentElement.style.setProperty("margin", "0", "important");
-              }
-            });
-        }
-
-        let nextSib = turn.nextElementSibling;
-        while (nextSib) {
-          if (
-            nextSib.classList.contains("ds-flex") ||
-            nextSib.querySelector?.(
-              ".ds-button--iconLabelTertiary, [class*='iconLabelTertiary'], button",
-            )
-          ) {
-            nextSib.classList.add("ds-mcp-hidden-turn");
-            nextSib.style.setProperty("display", "none", "important");
-            nextSib.style.setProperty("height", "0", "important");
-            nextSib.style.setProperty("padding", "0", "important");
-            nextSib.style.setProperty("margin", "0", "important");
-          }
-          nextSib = nextSib.nextElementSibling;
-        }
       } else {
         turn.classList.remove("ds-mcp-hidden-turn");
         turn.style.removeProperty("display");
@@ -490,11 +414,35 @@
 
   const collapseAutomatedMessages = processAutomatedMessages;
 
+  function hideTertiaryButtons() {
+    const btns = document.querySelectorAll(
+      ".ds-button--iconLabelTertiary, button[class*='iconLabelTertiary']",
+    );
+    for (const btn of btns) {
+      if (
+        btn.id === "mcp-watchdog-btn" ||
+        btn.closest("#deepseek-mcp-badge") ||
+        btn.closest(".deepseek-mcp-action-card")
+      ) {
+        continue;
+      }
+      btn.style.setProperty("display", "none", "important");
+      const parent = btn.parentElement;
+      if (parent && !parent.classList.contains("ds-markdown")) {
+        parent.style.setProperty("display", "none", "important");
+        parent.style.setProperty("height", "0", "important");
+        parent.style.setProperty("padding", "0", "important");
+        parent.style.setProperty("margin", "0", "important");
+      }
+    }
+  }
+
   root.DSScanner = {
     scanMessages,
     collapseAutomatedMessages,
     processAutomatedMessages,
     updateHiddenCounterBadge,
+    hideTertiaryButtons,
   };
   root.DSScanner.initObserver = function () {
     new MutationObserver(() => {
@@ -503,6 +451,7 @@
         window.DSState.debounceTimer = setTimeout(() => {
           scanMessages();
           processAutomatedMessages();
+          hideTertiaryButtons();
           window.DSMention?.attachInputMentionInterceptor();
           root.DSBadges?.injectChatBadge();
           window.DSProjects?.injectSidebarProjectFilter();
