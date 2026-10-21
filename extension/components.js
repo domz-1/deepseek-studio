@@ -70,7 +70,7 @@
         <button class="ds-project-btn" id="mcp-undo-tool-btn" type="button" title="Undo last tool file modification">
           <span class="ds-ic" data-ic="arrowRight" style="transform:rotate(180deg);display:inline-block;"></span> Undo
         </button>
-        <button class="ds-project-btn ds-btn-icon" id="mcp-toggle-auto-msg" type="button" title="إخفاء/إظهار رسائل مخرجات الأدوات">
+        <button class="ds-project-btn ds-btn-icon" id="mcp-toggle-auto-msg" type="button" title="Toggle automated tool output messages">
           <span class="ds-ic" data-ic="eye-off"></span>
           <span id="mcp-toggle-auto-msg-label"></span>
         </button>

@@ -190,7 +190,7 @@
 
     let promptToSend = isToolOutput
       ? lastMsg
-      : `[MCP_AUTO_RESULT]\nContinue autonomously: Please proceed with the next step to complete the task.${arDiscussion}`;
+      : `[MCP_AUTO_RESULT]\nContinue autonomously: Please proceed with the next step towards the big goal. Do not stop until all remaining steps are complete.${arDiscussion}`;
 
     if (!promptToSend.startsWith("[MCP_AUTO_RESULT]")) {
       promptToSend = `[MCP_AUTO_RESULT]\n${promptToSend}`;
@@ -323,76 +323,61 @@
     ).toLowerCase();
 
     // 1. Check if there are active unexecuted tool cards waiting to run anywhere in the DOM
-    const hasPendingToolCards = Array.from(
+    const pendingToolCards = Array.from(
       document.querySelectorAll(
-        ".deepseek-mcp-action-card:not(.is-historical)",
+        ".deepseek-mcp-action-card:not(.is-historical):not(.is-executed)",
       ),
-    ).some(
-      (c) =>
-        c.querySelector(".mcp-approve-btn") ||
-        c.querySelector(".mcp-card-kill-btn"),
+    ).filter(
+      (c) => c.querySelector(".ok") || c.querySelector(".mcp-approve-btn"),
     );
+    const hasPendingToolCards = pendingToolCards.length > 0;
 
-    // 2. Check if the latest assistant turn called ANY tool (action card present, mcp attributes, code blocks, or raw text)
-    const hasCardInLatestTurn = Boolean(
-      latestTurn?.querySelector(".deepseek-mcp-action-card") ||
-      lastAssistantMd?.querySelector(".deepseek-mcp-action-card") ||
-      lastAssistantMd?.parentElement?.querySelector(
-        ".deepseek-mcp-action-card",
-      ),
-    );
+    // 2. If waiting on manual card approve
+    if (hasPendingToolCards && !root.DSState.autoApprove) {
+      updateWatchdogUI("waiting", "Waiting on Approval...");
+      return;
+    }
 
-    const hasAttachedInLatestTurn = Boolean(
-      latestTurn?.querySelector("[data-mcp-attached], [data-call-key]") ||
-      lastAssistantMd?.querySelector("[data-mcp-attached], [data-call-key]"),
-    );
+    // 3. If tools are currently running in background
+    if (root.DSState.runningTaskCount > 0) {
+      root.DSState.isTaskActive = true;
+      root.DSState.isTaskStopped = false;
+      root.DSState.setChatTaskStatus?.("active");
+      updateWatchdogUI(
+        "generating",
+        `Tools running (${root.DSState.runningTaskCount})...`,
+      );
+      return;
+    }
 
+    // 4. Check if the latest assistant turn has UNEXECUTED code blocks or pending calls being processed
     const codeBlocksInLatestTurn = Array.from(
       (latestTurn || lastAssistantMd)?.querySelectorAll(
         "div.md-code-block, pre, code",
       ) || [],
     );
-    const hasCodeBlockCall = codeBlocksInLatestTurn.some((b) => {
+    const hasUnexecutedCodeBlock = codeBlocksInLatestTurn.some((b) => {
+      if (b.getAttribute("data-mcp-executed") === "true") return false;
+      if (b.nextElementSibling?.classList?.contains("is-executed"))
+        return false;
       const t = b.textContent || "";
       return window.DSTools?.extractMcpCall
         ? Boolean(window.DSTools.extractMcpCall(t))
         : false;
     });
 
-    const hasRawTextCall =
-      lastAssistantMd && window.DSTools?.extractMcpCall
-        ? Boolean(
-            window.DSTools.extractMcpCall(lastAssistantMd.textContent || ""),
-          )
-        : false;
-
-    const hasToolCallInLatestTurn =
-      hasCardInLatestTurn ||
-      hasAttachedInLatestTurn ||
-      hasCodeBlockCall ||
-      hasRawTextCall;
-
-    // 3. CRITICAL: If a tool was invoked in the latest turn, or cards are pending,
-    // or tools are currently running, the task is actively progressing and CANNOT be complete!
-    // Even if DeepSeek mentions "[STATUS: COMPLETED]" while outlining upcoming steps.
     if (
-      hasToolCallInLatestTurn ||
-      hasPendingToolCards ||
-      root.DSState.runningTaskCount > 0
+      hasUnexecutedCodeBlock ||
+      (hasPendingToolCards && root.DSState.autoApprove)
     ) {
       root.DSState.isTaskActive = true;
       root.DSState.isTaskStopped = false;
       root.DSState.setChatTaskStatus?.("active");
-      updateWatchdogUI(
-        "generating",
-        root.DSState.runningTaskCount > 0
-          ? `Tools running (${root.DSState.runningTaskCount})...`
-          : "Processing tool call...",
-      );
+      updateWatchdogUI("generating", "Processing tool call...");
       return;
     }
 
-    // 4. Check if the chat ends with a user message (user input or automated tool result)
+    // 5. Check if the chat ends with a user message (user input or automated tool result)
     // that DeepSeek has not responded to yet. If so, DeepSeek owes a reply!
     let isWaitingOnAssistantResponse = false;
     if (latestTurn && latestTurn.parentElement) {
@@ -410,53 +395,72 @@
       }
     }
 
-    // If waiting for DeepSeek to respond to a user/auto message, do NOT mark finished
-    if (isWaitingOnAssistantResponse) {
-      // Chat is waiting on DeepSeek response, fall through to countdown/retry
-    } else {
-      // 5. Check if task is explicitly finished via keywords (not inside a list of remaining steps)
-      // OR if the assistant response concluded with ZERO tools called in an active task!
-      const isStepList =
-        lastText.includes("اللي باقي") ||
-        lastText.includes("الخطوات القادمة") ||
-        lastText.includes("todo:") ||
-        /\d+[\.\)]\s*\[?status:\s*complete/i.test(lastText);
+    // 6. Check for remaining work towards the Big Goal:
+    const hasRemainingWork =
+      lastText.includes("اللي باقي") ||
+      lastText.includes("الخطوات القادمة") ||
+      lastText.includes("متبقي") ||
+      lastText.includes("لسه باقي") ||
+      lastText.includes("فاضل") ||
+      lastText.includes("الخطوة التالية") ||
+      lastText.includes("الخطوة القادمة") ||
+      lastText.includes("سأقوم بـ") ||
+      lastText.includes("سأفعل") ||
+      lastText.includes("سأبدأ") ||
+      lastText.includes("سأنفذ") ||
+      lastText.includes("سأنتظر") ||
+      lastText.includes("ننتظر") ||
+      lastText.includes("قيد التشغيل") ||
+      lastText.includes("لسه شغال") ||
+      lastText.includes("remaining") ||
+      lastText.includes("next step") ||
+      lastText.includes("next steps") ||
+      lastText.includes("in progress") ||
+      lastText.includes("todo:") ||
+      lastText.includes("will now") ||
+      lastText.includes("pending") ||
+      lastText.includes("waiting for");
 
-      const isTaskFinished =
-        !isStepList &&
-        (lastText.includes("[status: completed]") ||
-          lastText.includes("status: completed") ||
-          lastText.includes("[status: complete]") ||
-          lastText.includes("status: complete") ||
-          lastText.includes("[task_completed]") ||
-          lastText.includes("تم إنجاز المهمة") ||
-          lastText.includes("تم الانتهاء بنجاح") ||
-          lastText.includes("المهمة اكتملت") ||
-          lastText.includes("كل شيء جاهز") ||
-          lastText.includes("انتهيت من تنفيذ") ||
-          lastText.includes("task complete") ||
-          lastText.includes("task is done") ||
-          lastText.includes("all tasks completed") ||
-          lastText.includes("all done!") ||
-          lastText.includes("implementation complete"));
+    // 7. Check if the Big Goal is explicitly complete:
+    const isBigGoalCompleted =
+      !hasRemainingWork &&
+      (lastText.includes("[task_completed]") ||
+        lastText.includes("[status: completed]") ||
+        lastText.includes("task complete") ||
+        lastText.includes("all tasks completed") ||
+        lastText.includes("goal achieved") ||
+        lastText.includes("big goal completed") ||
+        lastText.includes("everything is complete") ||
+        lastText.includes("all done") ||
+        lastText.includes("implementation complete") ||
+        lastText.includes("تم إنجاز المهمة بالكامل") ||
+        lastText.includes("تم الانتهاء من جميع المهام") ||
+        lastText.includes("المهمة اكتملت بالكامل") ||
+        lastText.includes("انتهيت من كامل المطلوب") ||
+        lastText.includes("التقرير النهائي:"));
 
-      const chatStatus = root.DSState.getChatTaskStatus?.();
-      const isCurrentActive =
-        chatStatus === "active" || root.DSState.isTaskActive;
+    const chatStatus = root.DSState.getChatTaskStatus?.();
+    const isCurrentActive =
+      chatStatus === "active" || root.DSState.isTaskActive;
 
-      if (
-        chatStatus === "completed" ||
-        isTaskFinished ||
-        (isCurrentActive &&
-          !hasToolCallInLatestTurn &&
-          !hasPendingToolCards &&
-          root.DSState.runningTaskCount === 0)
-      ) {
-        root.DSState.isTaskActive = false;
-        root.DSState.setChatTaskStatus?.("completed");
-        updateWatchdogUI("done", "✅ Done");
-        return;
-      }
+    if (hasRemainingWork) {
+      // The assistant divided the job into parts / sub-tasks and still has work to do!
+      // Keep task actively progressing towards the Big Goal!
+      root.DSState.isTaskActive = true;
+      root.DSState.isTaskStopped = false;
+      root.DSState.setChatTaskStatus?.("active");
+    } else if (
+      chatStatus === "completed" ||
+      isBigGoalCompleted ||
+      (isCurrentActive &&
+        !isWaitingOnAssistantResponse &&
+        !hasPendingToolCards &&
+        root.DSState.runningTaskCount === 0)
+    ) {
+      root.DSState.isTaskActive = false;
+      root.DSState.setChatTaskStatus?.("completed");
+      updateWatchdogUI("done", "✅ Done");
+      return;
     }
 
     // If no active task has been registered yet, stay in Ready state
@@ -465,7 +469,7 @@
       return;
     }
 
-    // Chat is idle and task is NOT done! Start countdown:
+    // Chat is idle and Big Goal is NOT done! Start countdown & auto-continue:
     const idleTime = Date.now() - root.DSState.lastActivityTime;
     const remainingMs = Math.max(
       0,
@@ -476,7 +480,7 @@
       updateWatchdogUI("countdown", null, remainingMs);
     } else {
       console.log(
-        `[DeepSeek Studio] Chat stalled while task is incomplete (${Math.round(idleTime / 1000)}s). Auto-continuing now...`,
+        `[DeepSeek Studio] Sub-task paused while big goal has remaining work (${Math.round(idleTime / 1000)}s). Auto-continuing now...`,
       );
       triggerManualContinue();
     }

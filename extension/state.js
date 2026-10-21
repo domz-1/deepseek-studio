@@ -74,7 +74,7 @@
   function getCallSignature(calls, indexHint = 0) {
     try {
       const chatPath = window.location.pathname || "root";
-      const raw = JSON.stringify(calls);
+      const raw = JSON.stringify(calls) + `_idx_${indexHint}`;
       let hash = 2166136261;
       for (let i = 0; i < raw.length; i++) {
         hash ^= raw.charCodeAt(i);
@@ -82,7 +82,7 @@
       }
       return `mcp_${chatPath}_${(hash >>> 0).toString(36)}`;
     } catch (_) {
-      return `mcp_call`;
+      return `mcp_call_${indexHint}`;
     }
   }
 

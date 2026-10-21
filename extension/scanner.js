@@ -104,10 +104,10 @@
             }
           } catch (_) {}
 
-          const isElementExecuted =
-            !isLatestTurn ||
-            el.getAttribute("data-mcp-executed") === "true" ||
-            Boolean(window.DSState?.hasExecutedCall?.(callKey));
+          const isElementExecuted = !isLatestTurn
+            ? el.getAttribute("data-mcp-executed") === "true" ||
+              Boolean(window.DSState?.hasExecutedCall?.(callKey))
+            : el.getAttribute("data-mcp-executed") === "true";
 
           root.DSCards?.renderGrillQuestionCard(
             el,
@@ -136,10 +136,11 @@
       if (allCalls && allCalls.length > 0) {
         el.setAttribute("data-mcp-attached", "true");
 
-        // Deterministic fingerprint so the same call in a chat is recognized across reloads
+        // Deterministic fingerprint incorporating turn index so repeated calls (e.g. CI checks) in new turns stay unique
+        const turnIndex = allMarkdownContainers.indexOf(parentMd || el);
         const callSignature = window.DSState?.getCallSignature
-          ? window.DSState.getCallSignature(allCalls)
-          : `mcp_${JSON.stringify(allCalls).slice(0, 120)}`;
+          ? window.DSState.getCallSignature(allCalls, `${turnIndex}_${idx}`)
+          : `mcp_${JSON.stringify(allCalls).slice(0, 100)}_${turnIndex}_${idx}`;
 
         if (!el.dataset.mcpId) {
           el.dataset.mcpId = callSignature;
@@ -160,10 +161,10 @@
           }
         } catch (_) {}
 
-        const isElementExecuted =
-          !isLatestTurn ||
-          el.getAttribute("data-mcp-executed") === "true" ||
-          Boolean(window.DSState?.hasExecutedCall?.(callKey));
+        const isElementExecuted = !isLatestTurn
+          ? el.getAttribute("data-mcp-executed") === "true" ||
+            Boolean(window.DSState?.hasExecutedCall?.(callKey))
+          : el.getAttribute("data-mcp-executed") === "true";
 
         if (allCalls.length === 1) {
           const payload = allCalls[0];
@@ -274,18 +275,18 @@
     if (el.hasAttribute("data-mcp-auto-styled")) return;
     el.setAttribute("data-mcp-auto-styled", "true");
 
-    let summary = "تم إرسال مخرجات الأداة في الخلفية (Background Tool Data)";
+    let summary = "Tool output sent in background";
     if (text.includes("Batch Results")) {
       const m = text.match(/Batch Results for (\d+) parallel calls/);
-      summary = `تم إرسال نتائج حزمة أدوات (${m ? m[1] : ""} أدوات) لديب سيك في الخلفية`;
+      summary = `Batch results (${m ? m[1] : ""} tools) sent to DeepSeek`;
     } else if (text.includes("Output of ")) {
       const m = text.match(/Output of ([\w\.-]+)/);
-      summary = `مخرجات أداة: ${m ? m[1] : ""}`;
+      summary = `Tool output: ${m ? m[1] : ""}`;
     } else if (text.includes("Tool ") && text.includes("completed")) {
       const m = text.match(/Tool ([\w\.-]+) completed/);
-      summary = `تم إرسال نتيجة الأداة: ${m ? m[1] : ""}`;
+      summary = `Tool result: ${m ? m[1] : ""}`;
     } else if (text.includes("Continue autonomously")) {
-      summary = `أمر متابعة تلقائي للأجنت في الخلفية (Autonomous Nudge)`;
+      summary = `Autonomous continue trigger sent`;
     }
 
     const pill = document.createElement("div");
@@ -294,7 +295,7 @@
       <div class="ds-auto-pill-bar">
         <span class="ds-ic" data-ic="zap" style="color:var(--ds-accent,#4f46e5);margin-right:6px;"></span>
         <span class="ds-auto-pill-title">${summary}</span>
-        <button class="ds-auto-pill-btn" type="button">عرض الداتا ▼</button>
+        <button class="ds-auto-pill-btn" type="button">Show Data ▼</button>
       </div>
       <div class="ds-auto-pill-body" style="display:none;margin-top:8px;"></div>
     `;
@@ -306,7 +307,7 @@
       e.stopPropagation();
       const isHidden = body.style.display === "none";
       body.style.display = isHidden ? "block" : "none";
-      btn.textContent = isHidden ? "إخفاء الداتا ▲" : "عرض الداتا ▼";
+      btn.textContent = isHidden ? "Hide Data ▲" : "Show Data ▼";
     };
 
     while (el.firstChild) {
@@ -334,8 +335,8 @@
       icEl.setAttribute("data-ic", shouldHide ? "eye-off" : "globe");
     }
     toggleBtn.title = shouldHide
-      ? `مخرجات الأدوات: مخفية (${count}) — انقر للإظهار`
-      : `مخرجات الأدوات: ظاهرة (${count}) — انقر للإخفاء`;
+      ? `Tool outputs: hidden (${count}) — click to show`
+      : `Tool outputs: visible (${count}) — click to hide`;
   }
 
   function processAutomatedMessages() {

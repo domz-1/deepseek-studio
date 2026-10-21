@@ -74,10 +74,12 @@
       } catch (_) {}
     }
     if (
-      targetEl?.querySelector?.(".deepseek-mcp-action-card") ||
-      targetEl?.nextElementSibling?.classList.contains(
+      (targetEl?.tagName === "PRE" ||
+        targetEl?.classList?.contains("md-code-block")) &&
+      targetEl.nextElementSibling?.classList?.contains(
         "deepseek-mcp-action-card",
-      )
+      ) &&
+      targetEl.nextElementSibling.getAttribute("data-call-key") === callKey
     ) {
       targetEl.setAttribute("data-mcp-attached", "true");
       return;
