@@ -154,9 +154,13 @@
           .join("\n\n") +
         arDiscussion;
 
-      if (window.DSState.isPaused || window.DSState.isTaskStopped) {
+      const isExplicitlyStopped =
+        window.DSState.isPaused ||
+        (window.DSState.isTaskStopped &&
+          window.DSState.getChatTaskStatus?.() === "stopped");
+      if (isExplicitlyStopped) {
         console.log(
-          "[DS Studio] Batch completed while paused or stopped. Skipping auto-dispatch.",
+          "[DS Studio] Batch completed while paused or stopped by user. Skipping auto-dispatch.",
         );
         return;
       }
@@ -167,7 +171,11 @@
       if (cardStatusEl) {
         cardStatusEl.innerHTML = window.DSComponents.status.error(err.message);
       }
-      if (window.DSState.isPaused || window.DSState.isTaskStopped) {
+      if (
+        window.DSState.isPaused ||
+        (window.DSState.isTaskStopped &&
+          window.DSState.getChatTaskStatus?.() === "stopped")
+      ) {
         return;
       }
       window.DSState.isTaskActive = true;
@@ -312,9 +320,13 @@
         message += arabicNote;
       }
 
-      if (window.DSState.isPaused || window.DSState.isTaskStopped) {
+      const isExplicitlyStopped =
+        window.DSState.isPaused ||
+        (window.DSState.isTaskStopped &&
+          window.DSState.getChatTaskStatus?.() === "stopped");
+      if (isExplicitlyStopped) {
         console.log(
-          "[DS Studio] Tool completed while paused or stopped. Skipping auto-dispatch.",
+          "[DS Studio] Tool completed while paused or stopped by user. Skipping auto-dispatch.",
         );
         return;
       }
@@ -326,7 +338,11 @@
       if (cardStatusEl) {
         cardStatusEl.innerHTML = window.DSComponents.status.error(err.message);
       }
-      if (window.DSState.isPaused || window.DSState.isTaskStopped) {
+      if (
+        window.DSState.isPaused ||
+        (window.DSState.isTaskStopped &&
+          window.DSState.getChatTaskStatus?.() === "stopped")
+      ) {
         return;
       }
       window.DSState.isTaskActive = true;

@@ -315,11 +315,16 @@
       document.querySelectorAll("div.ds-markdown"),
     );
     const lastAssistantMd = allMarkdown[allMarkdown.length - 1];
+    const latestTurn = lastAssistantMd
+      ? lastAssistantMd.closest(
+          "[data-virtual-list-item-key], div[class*='message'], div[class*='chat-item'], div.ds-message",
+        ) || lastAssistantMd.parentElement
+      : null;
     const lastText = (
       lastAssistantMd ? lastAssistantMd.textContent || "" : ""
     ).toLowerCase();
 
-    // 1. Check if there are active unexecuted tool cards waiting to run
+    // 1. Check if there are active unexecuted tool cards waiting to run anywhere in the DOM
     const hasPendingToolCards = Array.from(
       document.querySelectorAll(
         ".deepseek-mcp-action-card:not(.is-historical)",
@@ -330,17 +335,48 @@
         c.querySelector(".mcp-card-kill-btn"),
     );
 
-    // 2. Check if the AI called ANY tool in the latest message
-    const hasToolCallInLatestTurn =
+    // 2. Check if the latest assistant turn called ANY tool (action card present, mcp attributes, code blocks, or raw text)
+    const hasCardInLatestTurn = Boolean(
+      latestTurn?.querySelector(".deepseek-mcp-action-card") ||
+      lastAssistantMd?.querySelector(".deepseek-mcp-action-card") ||
+      lastAssistantMd?.parentElement?.querySelector(
+        ".deepseek-mcp-action-card",
+      ),
+    );
+
+    const hasAttachedInLatestTurn = Boolean(
+      latestTurn?.querySelector("[data-mcp-attached], [data-call-key]") ||
+      lastAssistantMd?.querySelector("[data-mcp-attached], [data-call-key]"),
+    );
+
+    const codeBlocksInLatestTurn = Array.from(
+      (latestTurn || lastAssistantMd)?.querySelectorAll(
+        "div.md-code-block, pre, code",
+      ) || [],
+    );
+    const hasCodeBlockCall = codeBlocksInLatestTurn.some((b) => {
+      const t = b.textContent || "";
+      return window.DSTools?.extractMcpCall
+        ? Boolean(window.DSTools.extractMcpCall(t))
+        : false;
+    });
+
+    const hasRawTextCall =
       lastAssistantMd && window.DSTools?.extractMcpCall
         ? Boolean(
             window.DSTools.extractMcpCall(lastAssistantMd.textContent || ""),
           )
         : false;
 
+    const hasToolCallInLatestTurn =
+      hasCardInLatestTurn ||
+      hasAttachedInLatestTurn ||
+      hasCodeBlockCall ||
+      hasRawTextCall;
+
     // 3. CRITICAL: If a tool was invoked in the latest turn, or cards are pending,
     // or tools are currently running, the task is actively progressing and CANNOT be complete!
-    // Even if DeepSeek mentions "[STATUS: COMPLETED]" while explaining what it will do at the end.
+    // Even if DeepSeek mentions "[STATUS: COMPLETED]" while outlining upcoming steps.
     if (
       hasToolCallInLatestTurn ||
       hasPendingToolCards ||
@@ -357,42 +393,70 @@
       return;
     }
 
-    // 4. Check if task is explicitly finished via keywords OR if the turn ended with ZERO tools called!
-    // In autonomous agent loops, when the assistant delivers a response without calling any tools,
-    // it has finished all actions and returned its final report to the user.
-    const isTaskFinished =
-      lastText.includes("[status: completed]") ||
-      lastText.includes("status: completed") ||
-      lastText.includes("[status: complete]") ||
-      lastText.includes("status: complete") ||
-      lastText.includes("[task_completed]") ||
-      lastText.includes("تم إنجاز المهمة") ||
-      lastText.includes("تم الانتهاء بنجاح") ||
-      lastText.includes("المهمة اكتملت") ||
-      lastText.includes("كل شيء جاهز") ||
-      lastText.includes("انتهيت من تنفيذ") ||
-      lastText.includes("task complete") ||
-      lastText.includes("task is done") ||
-      lastText.includes("all tasks completed") ||
-      lastText.includes("all done!") ||
-      lastText.includes("implementation complete");
+    // 4. Check if the chat ends with a user message (user input or automated tool result)
+    // that DeepSeek has not responded to yet. If so, DeepSeek owes a reply!
+    let isWaitingOnAssistantResponse = false;
+    if (latestTurn && latestTurn.parentElement) {
+      let nextSib = latestTurn.nextElementSibling;
+      while (nextSib) {
+        if (
+          !nextSib.classList.contains("ds-markdown") &&
+          !nextSib.querySelector("div.ds-markdown") &&
+          !nextSib.querySelector(".deepseek-mcp-action-card")
+        ) {
+          isWaitingOnAssistantResponse = true;
+          break;
+        }
+        nextSib = nextSib.nextElementSibling;
+      }
+    }
 
-    const chatStatus = root.DSState.getChatTaskStatus?.();
-    const isCurrentActive =
-      chatStatus === "active" || root.DSState.isTaskActive;
+    // If waiting for DeepSeek to respond to a user/auto message, do NOT mark finished
+    if (isWaitingOnAssistantResponse) {
+      // Chat is waiting on DeepSeek response, fall through to countdown/retry
+    } else {
+      // 5. Check if task is explicitly finished via keywords (not inside a list of remaining steps)
+      // OR if the assistant response concluded with ZERO tools called in an active task!
+      const isStepList =
+        lastText.includes("اللي باقي") ||
+        lastText.includes("الخطوات القادمة") ||
+        lastText.includes("todo:") ||
+        /\d+[\.\)]\s*\[?status:\s*complete/i.test(lastText);
 
-    if (
-      isTaskFinished ||
-      (isCurrentActive &&
-        !hasToolCallInLatestTurn &&
-        !hasPendingToolCards &&
-        root.DSState.runningTaskCount === 0)
-    ) {
-      root.DSState.isTaskActive = false;
-      root.DSState.isTaskStopped = true;
-      root.DSState.setChatTaskStatus?.("completed");
-      updateWatchdogUI("done", "✅ Done");
-      return;
+      const isTaskFinished =
+        !isStepList &&
+        (lastText.includes("[status: completed]") ||
+          lastText.includes("status: completed") ||
+          lastText.includes("[status: complete]") ||
+          lastText.includes("status: complete") ||
+          lastText.includes("[task_completed]") ||
+          lastText.includes("تم إنجاز المهمة") ||
+          lastText.includes("تم الانتهاء بنجاح") ||
+          lastText.includes("المهمة اكتملت") ||
+          lastText.includes("كل شيء جاهز") ||
+          lastText.includes("انتهيت من تنفيذ") ||
+          lastText.includes("task complete") ||
+          lastText.includes("task is done") ||
+          lastText.includes("all tasks completed") ||
+          lastText.includes("all done!") ||
+          lastText.includes("implementation complete"));
+
+      const chatStatus = root.DSState.getChatTaskStatus?.();
+      const isCurrentActive =
+        chatStatus === "active" || root.DSState.isTaskActive;
+
+      if (
+        isTaskFinished ||
+        (isCurrentActive &&
+          !hasToolCallInLatestTurn &&
+          !hasPendingToolCards &&
+          root.DSState.runningTaskCount === 0)
+      ) {
+        root.DSState.isTaskActive = false;
+        root.DSState.setChatTaskStatus?.("completed");
+        updateWatchdogUI("done", "✅ Done");
+        return;
+      }
     }
 
     // If no active task has been registered yet, stay in Ready state
