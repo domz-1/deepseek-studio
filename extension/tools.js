@@ -163,14 +163,14 @@ Turbo Mode Guidelines:
       (tools && tools.length > 0 && tools.every((t) => t.server === "chrome"));
 
     if (isChromeMention) {
-      return CHROME_PROMPT_TEMPLATE(list, projectPath);
+      return `[MCP_SYSTEM_PROMPT]\n${CHROME_PROMPT_TEMPLATE(list, projectPath)}`;
     }
 
     const template =
       SYSTEM_PROMPT_STYLES[
         Math.floor(Math.random() * SYSTEM_PROMPT_STYLES.length)
       ];
-    return template(list, projectPath, skeleton);
+    return `[MCP_SYSTEM_PROMPT]\n${template(list, projectPath, skeleton)}`;
   }
 
   function filterToolsByMention(mention, tools) {

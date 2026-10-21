@@ -192,13 +192,20 @@
     const t = text.trim();
     return (
       t.includes("[MCP_AUTO_RESULT]") ||
+      t.includes("[MCP_SYSTEM_PROMPT]") ||
       t.startsWith("Output of ") ||
       t.startsWith("Results for ") ||
       t.startsWith("Batch Results for ") ||
       (t.startsWith("Tool ") && t.includes("completed")) ||
       t.startsWith("Continue autonomously:") ||
       t.includes("🚨 [Ralph Loop Alert]:") ||
-      t.startsWith("Execution notice on ")
+      t.startsWith("Execution notice on ") ||
+      t.includes(
+        "You are an expert AI autonomous software engineering agent",
+      ) ||
+      t.includes("You are an expert AI workstation assistant") ||
+      t.includes("You are an expert web development and QA testing AI agent") ||
+      t.includes("CRITICAL OPERATIONAL RULES & AGENT WORKFLOW:")
     );
   }
 
@@ -359,6 +366,17 @@
 
       const text = el.textContent || "";
       if (!isAutomatedMessageText(text)) continue;
+
+      // If user typed actual text along with the mention / system prompt:
+      if (text.includes("[USER_PROMPT]")) {
+        const parts = text.split("[USER_PROMPT]");
+        const cleanUserText = (parts[1] || "").trim();
+        if (cleanUserText && !el.hasAttribute("data-mcp-sys-cleaned")) {
+          el.setAttribute("data-mcp-sys-cleaned", "true");
+          el.textContent = cleanUserText;
+        }
+        continue;
+      }
 
       const turn = findMessageTurnContainer(el);
       if (!turn || isAssistantTurn(turn)) continue;

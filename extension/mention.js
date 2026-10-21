@@ -223,7 +223,7 @@
             const skeleton = await getProjectSkeleton(
               root.DSState.selectedProject,
             );
-            prompt = `${window.DSTools.buildSysPrompt(selectedTools, root.DSState.selectedProject, skeleton, targetServer || activeMention)}\n${prompt}`;
+            prompt = `${window.DSTools.buildSysPrompt(selectedTools, root.DSState.selectedProject, skeleton, targetServer || activeMention)}\n\n[USER_PROMPT]\n${prompt}`;
           }
 
           root.DSState.lastSentMessage = prompt;
@@ -262,7 +262,9 @@
           skeleton,
           activeMention,
         );
-        const combined = userText ? `${sysPrompt}\n\n${userText}` : sysPrompt;
+        const combined = userText
+          ? `${sysPrompt}\n\n[USER_PROMPT]\n${userText}`
+          : sysPrompt;
         root.DSState.lastSentMessage = combined;
         root.DSState.recordActivity();
         root.DSState.isTaskActive = true;
