@@ -118,14 +118,7 @@ export function useMessageTurns() {
           txt.includes("<tool_result>");
 
         if (isToolSnippet) {
-          const stripped = stripToolCalls(txt)
-            .replace(/<\/?[a-zA-Z0-9_:-]+>/g, "")
-            .trim();
-          if (stripped === "") {
-            (el as HTMLElement).style.display = "none";
-          } else {
-            el.innerHTML = stripToolCalls(el.innerHTML);
-          }
+          (el as HTMLElement).style.display = "none";
         }
       });
 

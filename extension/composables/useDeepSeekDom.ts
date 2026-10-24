@@ -139,6 +139,27 @@ export function useDeepSeekDom() {
       } else {
         btn.dispatchEvent(new MouseEvent("click", opts));
       }
+
+      // Also trigger React synthetic onClick if present
+      const reactPropKey = Object.keys(btn).find((k) =>
+        k.startsWith("__reactProps"),
+      );
+      if (
+        reactPropKey &&
+        (btn as any)[reactPropKey] &&
+        typeof (btn as any)[reactPropKey].onClick === "function"
+      ) {
+        try {
+          (btn as any)[reactPropKey].onClick({
+            stopPropagation: () => {},
+            preventDefault: () => {},
+            nativeEvent: new MouseEvent("click", opts),
+            currentTarget: btn,
+            target: btn,
+          });
+        } catch (_) {}
+      }
+
       return true;
     } catch (_) {
       try {
@@ -164,9 +185,9 @@ export function useDeepSeekDom() {
       return true;
     }
 
-    // 1. Detect Stop button via aria, title, class, or text
+    // 1. Detect Stop button via aria, title, class, or DeepSeek circular stop icon
     const stopButton = document.querySelector(
-      'button[aria-label*="Stop" i], button[title*="Stop" i], .ds-stop-button, .ds-button--stop, [class*="stop-button" i], [class*="StopButton" i]',
+      'button[aria-label*="Stop" i], button[title*="Stop" i], .ds-stop-button, .ds-button--stop, [class*="stop-button" i], [class*="StopButton" i], div.ds-button--circle svg path[d*="4.88"], div.ds-button--circle svg path[d*="11.12V4.88Z"]',
     );
     if (stopButton && (stopButton as HTMLElement).offsetParent !== null) {
       lastChangeTime = Date.now();
