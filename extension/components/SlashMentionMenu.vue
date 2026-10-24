@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useSkills } from "../composables/useSkills";
 import { useStudioState } from "../composables/useStudioState";
 import {
@@ -15,6 +15,7 @@ import {
 const props = defineProps<{
   query: string;
   mode: "slash" | "mention";
+  coords?: { bottom: string; left: string; width: string };
 }>();
 
 const emit = defineEmits<{
@@ -42,27 +43,39 @@ const filteredItems = computed(() => {
     return skills.value.filter(
       (s) =>
         s.name.toLowerCase().includes(q) ||
-        (s.description || "").toLowerCase().includes(q),
+        (s.description || "").toLowerCase().includes(q) ||
+        (s.triggers || []).some((t) => t.toLowerCase().includes(q)),
     );
   } else {
-    // Mode mention: servers & tools
     const toolItems = tools.value.map((t) => ({
       name: t.name,
-      description: t.description,
+      description: t.description || `Tool from ${t.server || "hub"}`,
       type: "tool",
     }));
     const serverItems = servers.value.map((s) => ({
       name: s.name,
-      description: `${s.toolCount || 0} tools`,
+      description: `${s.toolCount || 0} tools active`,
       type: "server",
     }));
-    return [...serverItems, ...toolItems].filter(
+    const allItem = {
+      name: "all",
+      description: `Include all active MCP tools (${tools.value.length} tools)`,
+      type: "server",
+    };
+    return [allItem, ...serverItems, ...toolItems].filter(
       (item) =>
         item.name.toLowerCase().includes(q) ||
-        item.description.toLowerCase().includes(q),
+        (item.description || "").toLowerCase().includes(q),
     );
   }
 });
+
+watch(
+  () => props.query,
+  () => {
+    selectedIndex.value = 0;
+  },
+);
 
 function selectItem(item: any) {
   if (props.mode === "slash") {
@@ -71,131 +84,100 @@ function selectItem(item: any) {
     emit("select", `@${item.name} `);
   }
 }
+
+function handleKeydown(e: KeyboardEvent) {
+  const len = filteredItems.value.length;
+  if (len === 0) return;
+
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    selectedIndex.value = (selectedIndex.value + 1) % len;
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    selectedIndex.value = (selectedIndex.value - 1 + len) % len;
+  } else if (e.key === "Enter" || e.key === "Tab") {
+    if (filteredItems.value[selectedIndex.value]) {
+      e.preventDefault();
+      selectItem(filteredItems.value[selectedIndex.value]);
+    }
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    emit("close");
+  }
+}
+
+onMounted(() => {
+  window.addEventListener("keydown", handleKeydown, true);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", handleKeydown, true);
+});
 </script>
 
 <template>
   <div
     v-if="filteredItems.length > 0"
-    class="ds-slash-menu glass glass--strong"
+    :style="
+      coords
+        ? {
+            position: 'fixed',
+            bottom: coords.bottom,
+            left: coords.left,
+            width: coords.width,
+            zIndex: 99999999,
+          }
+        : {}
+    "
+    class="glass glass--strong w-96 max-w-[92vw] rounded-2xl overflow-hidden select-none border border-white/10 shadow-2xl backdrop-blur-xl bg-slate-900/90 text-slate-100 font-sans"
+    :class="[!coords && 'absolute bottom-full left-0 mb-2']"
   >
-    <div class="menu-header">
+    <div
+      class="flex items-center gap-2 px-3.5 py-2.5 border-b border-white/10 text-xs font-semibold text-slate-400 bg-white/5"
+    >
       <component
         :is="mode === 'slash' ? Zap : Sparkles"
-        :size="13"
-        class="header-icon"
+        :size="14"
+        class="text-indigo-400 shrink-0"
       />
-      <span class="header-title">{{
+      <span class="flex-1 text-slate-200 tracking-tight">{{
         mode === "slash" ? "Skills & Commands" : "Tools & Servers"
       }}</span>
-      <span class="header-count">{{ filteredItems.length }}</span>
+      <span
+        class="bg-white/10 text-slate-300 text-[10.5px] px-2 py-0.5 rounded-full font-mono font-medium"
+      >
+        {{ filteredItems.length }}
+      </span>
     </div>
 
-    <div class="menu-list">
+    <div class="max-h-60 overflow-y-auto p-1.5 flex flex-col gap-1">
       <div
         v-for="(item, idx) in filteredItems"
         :key="item.name"
-        class="menu-item"
-        :class="{ active: idx === selectedIndex }"
+        class="px-3 py-2 rounded-xl cursor-pointer transition-all flex flex-col gap-0.5"
+        :class="[
+          idx === selectedIndex
+            ? 'bg-indigo-500/25 border border-indigo-400/30 shadow-sm'
+            : 'hover:bg-white/5 border border-transparent',
+        ]"
         @click="selectItem(item)"
         @mouseenter="selectedIndex = idx"
       >
-        <div class="item-title">
+        <div class="flex items-center gap-2 text-xs font-medium text-slate-100">
           <component
             :is="mode === 'slash' ? Zap : getItemIcon(item.name)"
             :size="13"
-            class="item-type-icon"
+            class="text-indigo-400 shrink-0"
           />
-          <span class="item-prefix">{{ mode === "slash" ? "/" : "@" }}</span>
-          <strong>{{ item.name }}</strong>
+          <span class="text-indigo-400 font-bold font-mono">{{
+            mode === "slash" ? "/" : "@"
+          }}</span>
+          <span class="font-semibold text-white">{{ item.name }}</span>
         </div>
-        <div class="item-desc">{{ item.description }}</div>
+        <div class="text-[11px] text-slate-400 pl-5 truncate">
+          {{ item.description }}
+        </div>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.ds-slash-menu {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  margin-bottom: 8px;
-  width: 380px;
-  max-width: 90vw;
-  border-radius: var(--r-md, 16px);
-  z-index: 9999999;
-  font-family: inherit;
-  overflow: hidden;
-  user-select: none;
-}
-
-.menu-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 11.5px;
-  color: var(--text-muted, #9aa1bc);
-  font-weight: 600;
-}
-
-.header-icon {
-  color: var(--ds-blue-400, #7c93ff);
-}
-
-.header-count {
-  margin-left: auto;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 1px 7px;
-  border-radius: var(--r-pill, 9999px);
-  font-size: 10.5px;
-  color: var(--text, #edeff7);
-}
-
-.menu-list {
-  max-height: 220px;
-  overflow-y: auto;
-  padding: 6px;
-}
-
-.menu-item {
-  padding: 8px 12px;
-  border-radius: var(--r-sm, 10px);
-  cursor: pointer;
-  transition: all 150ms var(--ease, ease-out);
-}
-
-.menu-item:hover,
-.menu-item.active {
-  background: rgba(77, 107, 254, 0.18);
-}
-
-.item-title {
-  font-size: 13px;
-  color: var(--text, #edeff7);
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.item-type-icon {
-  color: var(--ds-blue-400, #7c93ff);
-}
-
-.item-prefix {
-  color: var(--ds-blue-500, #4d6bfe);
-  font-weight: bold;
-}
-
-.item-desc {
-  font-size: 11px;
-  color: var(--text-muted, #9aa1bc);
-  margin-top: 2px;
-  margin-left: 18px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-</style>

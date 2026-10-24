@@ -4,6 +4,8 @@ import { Cpu, Activity, Pause } from "lucide-vue-next";
 import { useStudioState } from "../../composables/useStudioState";
 import { useBridgeWs } from "../../composables/useBridgeWs";
 import { useWatchdog } from "../../composables/useWatchdog";
+import { useSkills } from "../../composables/useSkills";
+import { useProjects } from "../../composables/useProjects";
 import { useToolParser } from "../../composables/useToolParser";
 import { useActionCards } from "../../composables/useActionCards";
 import { useDeepSeekDom } from "../../composables/useDeepSeekDom";
@@ -23,6 +25,8 @@ const {
 } = useStudioState();
 const { connect } = useBridgeWs();
 const { startWatchdog, stopWatchdog } = useWatchdog();
+const { loadSkills } = useSkills();
+const { loadProjects } = useProjects();
 const { parseToolCallsFromText } = useToolParser();
 const { registerActions } = useActionCards();
 const { getChatInput } = useDeepSeekDom();
@@ -52,17 +56,17 @@ function checkDomMounts() {
   // 1. Chat input badge anchor
   const input = getChatInput();
   if (input) {
-    showInputBadge.value = true;
     const parent =
-      input.closest("div.ds-textarea-wrapper") || input.parentElement;
-    const mountContainer = document.getElementById(
-      "ds-chat-input-badge-anchor",
-    );
-    if (parent && !mountContainer) {
-      const anchor = document.createElement("div");
+      input.closest("div.ds-textarea-wrapper") ||
+      input.closest("div[class*='textarea' i]") ||
+      input.parentElement;
+    let anchor = document.getElementById("ds-chat-input-badge-anchor");
+    if (!anchor && parent?.parentElement) {
+      anchor = document.createElement("div");
       anchor.id = "ds-chat-input-badge-anchor";
-      parent.parentElement?.insertBefore(anchor, parent);
+      parent.parentElement.insertBefore(anchor, parent);
     }
+    showInputBadge.value = !!anchor;
   } else {
     showInputBadge.value = false;
   }
@@ -76,19 +80,27 @@ function checkDomMounts() {
     return text.includes("new chat") || aria.includes("new chat");
   });
 
-  const sidebarAnchor = document.getElementById("ds-sidebar-project-anchor");
-  if (newChatBtn && !sidebarAnchor) {
-    showSidebarDropdown.value = true;
-    const anchor = document.createElement("div");
-    anchor.id = "ds-sidebar-project-anchor";
-    const targetParent =
-      newChatBtn.parentElement?.parentElement || newChatBtn.parentElement;
-    targetParent?.parentElement?.insertBefore(anchor, targetParent.nextSibling);
+  if (newChatBtn) {
+    let anchor = document.getElementById("ds-sidebar-project-anchor");
+    if (!anchor) {
+      anchor = document.createElement("div");
+      anchor.id = "ds-sidebar-project-anchor";
+      const container =
+        newChatBtn.closest(
+          "div[class*='newChat' i], div[class*='new-chat' i]",
+        ) || newChatBtn.parentElement;
+      container?.insertAdjacentElement("afterend", anchor);
+    }
+    showSidebarDropdown.value = !!anchor;
+  } else {
+    showSidebarDropdown.value = false;
   }
 }
 
 onMounted(async () => {
   await loadSettings();
+  await loadSkills();
+  await loadProjects();
   connect();
   startWatchdog();
   scannerInterval = setInterval(scanMessagesForTools, 1200);
@@ -103,7 +115,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="ds-studio-root">
+  <div class="fixed bottom-4 right-4 z-[999999] font-sans pointer-events-none">
     <!-- SVG Displacement filter for liquid refraction -->
     <svg
       style="position: absolute; width: 0; height: 0; pointer-events: none"
@@ -139,30 +151,41 @@ onUnmounted(() => {
     </Teleport>
 
     <!-- Bottom-Right Floating Bar -->
-    <div class="ds-studio-bar glass glass--strong glass--liquid">
-      <div class="bar-left">
+    <div
+      class="glass glass--strong glass--liquid flex items-center justify-between gap-3 rounded-full px-3.5 py-1.5 pointer-events-auto border border-white/10 shadow-2xl text-xs select-none"
+    >
+      <div class="flex items-center gap-2">
         <div
-          class="bridge-status"
-          :class="{ online: bridgeConnected, stopped: isServerStopped }"
+          class="flex items-center gap-1.5 pr-2 border-r border-white/10 text-[11.5px] font-semibold"
+          :class="[
+            bridgeConnected
+              ? 'text-emerald-400'
+              : isServerStopped
+                ? 'text-amber-400'
+                : 'text-slate-400',
+          ]"
         >
           <component
             :is="bridgeConnected ? Activity : isServerStopped ? Pause : Cpu"
             :size="13"
-            class="status-icon"
-            :class="{ 'pulse-active': bridgeConnected }"
+            class="shrink-0"
+            :class="{ 'animate-pulse': bridgeConnected }"
           />
-          <span class="status-label">Studio {{ bridgeStatusText }}</span>
+          <span>Studio {{ bridgeStatusText }}</span>
         </div>
         <ServerPills />
       </div>
 
-      <div class="bar-right">
+      <div class="flex items-center gap-2">
         <WatchdogBadge />
       </div>
     </div>
 
     <!-- Interactive MCP Action Cards in Chat -->
-    <div v-if="activeActions.length > 0" class="ds-cards-container">
+    <div
+      v-if="activeActions.length > 0"
+      class="fixed bottom-16 right-4 w-96 max-w-[calc(100vw-32px)] flex flex-col gap-2 pointer-events-auto z-[999999]"
+    >
       <ActionCard
         v-for="act in activeActions.slice(-3)"
         :key="act.id"
@@ -171,94 +194,3 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.ds-studio-root {
-  position: fixed;
-  bottom: 16px;
-  right: 16px;
-  z-index: 999999;
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
-  pointer-events: none;
-}
-
-.ds-studio-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border-radius: var(--r-pill, 9999px);
-  padding: 6px 14px;
-  pointer-events: auto;
-}
-
-.bar-left,
-.bar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.bridge-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--text-muted, #94a3b8);
-  padding-right: 8px;
-  border-right: 1px solid var(--border, rgba(255, 255, 255, 0.1));
-}
-
-.bridge-status.online {
-  color: #4ade80;
-}
-
-.bridge-status.stopped {
-  color: #fbbf24;
-}
-
-.status-icon {
-  flex-shrink: 0;
-}
-
-.bridge-status.online .status-icon {
-  color: #4ade80;
-  filter: drop-shadow(0 0 4px rgba(74, 222, 128, 0.5));
-}
-
-.bridge-status.stopped .status-icon {
-  color: #fbbf24;
-  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.5));
-}
-
-.pulse-active {
-  animation: pulse-glow 2s infinite ease-in-out;
-}
-
-@keyframes pulse-glow {
-  0%,
-  100% {
-    opacity: 0.8;
-    transform: scale(0.95);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
-}
-
-.ds-cards-container {
-  position: fixed;
-  bottom: 70px;
-  right: 16px;
-  width: 380px;
-  max-width: calc(100vw - 32px);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  pointer-events: auto;
-}
-</style>

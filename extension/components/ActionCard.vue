@@ -19,9 +19,17 @@ const { approveAction, rejectAction } = useActionCards();
 </script>
 
 <template>
-  <div class="ds-action-card glass glass--strong" :class="action.status">
-    <div class="card-header">
-      <div class="tool-info">
+  <div
+    class="glass glass--strong rounded-2xl p-3.5 my-1.5 font-sans text-slate-100 border border-white/10 shadow-xl backdrop-blur-xl"
+    :class="[
+      action.status === 'pending' && 'border-indigo-500/30',
+      action.status === 'running' && 'border-amber-500/30',
+      action.status === 'completed' && 'border-emerald-500/30',
+      action.status === 'error' && 'border-rose-500/30',
+    ]"
+  >
+    <div class="flex justify-between items-center mb-2">
+      <div class="flex items-center gap-2">
         <component
           :is="
             action.name.includes('shell') || action.name.includes('bash')
@@ -29,31 +37,45 @@ const { approveAction, rejectAction } = useActionCards();
               : Wrench
           "
           :size="14"
-          class="tool-icon"
+          class="text-indigo-400 shrink-0"
         />
-        <span class="tool-name">{{ action.name }}</span>
-        <span class="status-badge" :class="action.status">{{
-          action.status
+        <span class="font-semibold text-white text-sm tracking-tight">{{
+          action.name
         }}</span>
+        <span
+          class="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold uppercase tracking-wider"
+          :class="[
+            action.status === 'pending' &&
+              'bg-blue-500/15 border border-blue-500/30 text-blue-300',
+            action.status === 'running' &&
+              'bg-amber-500/15 border border-amber-500/30 text-amber-300',
+            action.status === 'completed' &&
+              'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300',
+            action.status === 'error' &&
+              'bg-rose-500/15 border border-rose-500/30 text-rose-300',
+          ]"
+        >
+          {{ action.status }}
+        </span>
       </div>
     </div>
 
-    <div class="card-body">
-      <pre class="args-view">{{
-        JSON.stringify(action.arguments, null, 2)
-      }}</pre>
+    <div class="my-1.5">
+      <pre
+        class="bg-slate-950/80 border border-white/10 rounded-xl p-2.5 text-[11.5px] font-mono text-slate-200 max-h-32 overflow-y-auto"
+        >{{ JSON.stringify(action.arguments, null, 2) }}</pre>
     </div>
 
-    <div v-if="action.status === 'pending'" class="card-actions">
+    <div v-if="action.status === 'pending'" class="flex gap-2 mt-2.5">
       <button
-        class="btn approve-btn glass glass--accent glass-interactive"
+        class="glass glass--accent glass-interactive inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-white shadow-md cursor-pointer border border-white/20 transition-all"
         @click="approveAction(action)"
       >
         <Play :size="12" />
         <span>Run Tool</span>
       </button>
       <button
-        class="btn reject-btn glass glass--subtle glass-interactive"
+        class="glass glass--subtle glass-interactive inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-slate-300 hover:text-rose-300 hover:bg-rose-500/15 border border-white/10 hover:border-rose-500/30 cursor-pointer transition-all"
         @click="rejectAction(action)"
       >
         <X :size="12" />
@@ -61,181 +83,36 @@ const { approveAction, rejectAction } = useActionCards();
       </button>
     </div>
 
-    <div v-else-if="action.status === 'running'" class="card-status-running">
-      <Loader2 :size="13" class="spinner" />
+    <div
+      v-else-if="action.status === 'running'"
+      class="flex items-center gap-2 text-amber-300 text-xs mt-2"
+    >
+      <Loader2 :size="13" class="animate-spin shrink-0" />
       <span>Executing tool on local bridge...</span>
     </div>
 
-    <div v-else-if="action.status === 'completed'" class="card-result">
-      <div class="result-title">
-        <CheckCircle2 :size="12" class="completed-icon" />
+    <div v-else-if="action.status === 'completed'" class="mt-2">
+      <div
+        class="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 mb-1"
+      >
+        <CheckCircle2 :size="12" />
         <span>Result:</span>
       </div>
-      <pre class="result-body">{{
-        typeof action.result === "object"
-          ? JSON.stringify(action.result, null, 2)
-          : action.result
-      }}</pre>
+      <pre
+        class="bg-slate-950/80 border border-white/10 rounded-xl p-2.5 text-[11.5px] font-mono text-slate-200 max-h-32 overflow-y-auto"
+        >{{
+          typeof action.result === "object"
+            ? JSON.stringify(action.result, null, 2)
+            : action.result
+        }}</pre>
     </div>
 
-    <div v-else-if="action.status === 'error'" class="card-error">
-      <AlertCircle :size="12" />
+    <div
+      v-else-if="action.status === 'error'"
+      class="flex items-center gap-1.5 text-rose-400 text-xs mt-2"
+    >
+      <AlertCircle :size="13" class="shrink-0" />
       <span>Error: {{ action.error }}</span>
     </div>
   </div>
 </template>
-
-<style scoped>
-.ds-action-card {
-  border-radius: var(--r-md, 16px);
-  padding: 12px 14px;
-  margin: 8px 0;
-  font-family: inherit;
-  color: var(--text, #edeff7);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.tool-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tool-icon {
-  color: var(--ds-blue-400, #7c93ff);
-}
-
-.tool-name {
-  font-weight: 600;
-  color: #ffffff;
-  font-size: 13.5px;
-  letter-spacing: -0.01em;
-}
-
-.status-badge {
-  font-size: 10px;
-  padding: 2px 7px;
-  border-radius: var(--r-pill, 9999px);
-  text-transform: uppercase;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.status-badge.pending {
-  color: #60a5fa;
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-.status-badge.running {
-  color: #facc15;
-  background: rgba(234, 179, 8, 0.15);
-  border: 1px solid rgba(234, 179, 8, 0.3);
-}
-.status-badge.completed {
-  color: #4ade80;
-  background: rgba(34, 197, 94, 0.15);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-.status-badge.error {
-  color: #f87171;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.card-body pre,
-.card-result pre {
-  background: #0e1220;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--r-sm, 10px);
-  padding: 8px 10px;
-  font-size: 11.5px;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  max-height: 130px;
-  overflow-y: auto;
-  color: var(--text, #edeff7);
-}
-
-.card-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border-radius: var(--r-pill, 9999px);
-  padding: 6px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid transparent;
-  cursor: pointer;
-}
-
-.approve-btn {
-  background: linear-gradient(
-    135deg,
-    rgba(77, 107, 254, 0.9),
-    rgba(58, 87, 232, 0.8)
-  );
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.25);
-}
-
-.reject-btn {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-muted, #9aa1bc);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-.reject-btn:hover {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #f87171;
-}
-
-.card-status-running {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #facc15;
-  font-size: 12px;
-  margin-top: 8px;
-}
-
-.spinner {
-  animation: spin 1s linear infinite;
-}
-
-.result-title {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #4ade80;
-  margin-bottom: 4px;
-}
-
-.card-error {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #f87171;
-  font-size: 12px;
-  margin-top: 8px;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-</style>

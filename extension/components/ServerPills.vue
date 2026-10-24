@@ -16,99 +16,36 @@ function getServerIcon(name: string) {
 </script>
 
 <template>
-  <div class="ds-server-pills">
+  <div class="flex flex-wrap items-center gap-1.5 font-sans">
     <div
       v-for="server in servers"
       :key="server.name"
-      class="server-pill glass glass--subtle glass-interactive"
-      :class="server.status"
+      class="glass glass--subtle glass-interactive inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs text-slate-200 border border-white/10 hover:border-indigo-400/40 hover:shadow-md transition-all cursor-default"
+      :class="{
+        'border-indigo-400/30 bg-indigo-500/10': server.status === 'online',
+      }"
       :title="`${server.name}: ${server.status} (${server.toolCount || 0} tools)`"
     >
       <component
         :is="getServerIcon(server.name)"
         :size="12"
-        class="server-icon"
+        class="text-indigo-400 shrink-0"
       />
-      <span class="server-name">{{ server.name }}</span>
-      <span v-if="server.toolCount" class="tool-count">{{
-        server.toolCount
-      }}</span>
+      <span class="font-medium tracking-tight">{{ server.name }}</span>
+      <span
+        v-if="server.toolCount"
+        class="bg-white/10 text-slate-300 text-[9.5px] px-1.5 py-0.2 rounded-md font-mono font-semibold"
+      >
+        {{ server.toolCount }}
+      </span>
     </div>
 
-    <div v-if="servers.length === 0" class="no-servers">
-      <Radio :size="12" class="pulse-icon" />
+    <div
+      v-if="servers.length === 0"
+      class="inline-flex items-center gap-1.5 text-xs text-slate-400 px-1.5 py-0.5"
+    >
+      <Radio :size="12" class="text-rose-400 animate-pulse shrink-0" />
       <span>No active MCP servers</span>
     </div>
   </div>
 </template>
-
-<style scoped>
-.ds-server-pills {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
-.server-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  border-radius: var(--r-pill, 9999px);
-  font-size: 11.5px;
-  font-family: inherit;
-  color: var(--text, #edeff7);
-  transition: all 250ms var(--ease, ease-out);
-}
-
-.server-pill:hover {
-  border-color: rgba(124, 147, 255, 0.45);
-  box-shadow: 0 4px 16px rgba(77, 107, 254, 0.2);
-}
-
-.server-icon {
-  color: var(--ds-blue-400, #7c93ff);
-}
-
-.server-pill.online {
-  border-color: rgba(77, 107, 254, 0.3);
-}
-
-.server-name {
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-
-.tool-count {
-  background: rgba(255, 255, 255, 0.08);
-  padding: 1px 6px;
-  border-radius: 8px;
-  font-size: 10px;
-  color: var(--text-muted, #9aa1bc);
-  font-weight: 600;
-}
-
-.no-servers {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  color: var(--text-muted, #9aa1bc);
-  padding: 2px 6px;
-}
-
-.pulse-icon {
-  color: #ef4444;
-  animation: pulse 1.5s infinite alternate;
-}
-
-@keyframes pulse {
-  0% {
-    opacity: 0.4;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-</style>

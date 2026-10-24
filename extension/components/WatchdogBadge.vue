@@ -8,66 +8,24 @@ const { isPending, countdown, actionType, forceTrigger } = useWatchdog();
 <template>
   <div
     v-if="isPending"
-    class="ds-watchdog-badge glass glass--accent glass-interactive"
+    class="glass glass--accent glass-interactive inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-sans text-white cursor-pointer select-none border border-white/20 shadow-lg"
     :title="`Click to immediately trigger ${actionType}`"
     @click="forceTrigger"
   >
     <component
       :is="actionType === 'Retry' ? RotateCw : Clock"
       :size="13"
-      class="pulse-icon"
+      class="animate-pulse text-indigo-200 shrink-0"
     />
-    <span class="badge-text">
-      Auto-{{ actionType }} in <strong>{{ countdown }}s</strong>
+    <span>
+      Auto-{{ actionType }} in
+      <strong class="font-bold underline">{{ countdown }}s</strong>
     </span>
-    <span class="force-click">
-      <CornerDownLeft :size="11" />
+    <span
+      class="inline-flex items-center gap-0.5 text-[10.5px] text-white/80 border-l border-white/20 pl-2 ml-1"
+    >
+      <CornerDownLeft :size="10" />
       <span>Click</span>
     </span>
   </div>
 </template>
-
-<style scoped>
-.ds-watchdog-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  border-radius: var(--r-pill, 9999px);
-  font-size: 12.5px;
-  font-family: inherit;
-  cursor: pointer;
-  user-select: none;
-}
-
-.pulse-icon {
-  display: inline-block;
-  animation: pulse 1.2s infinite alternate;
-}
-
-.badge-text strong {
-  font-weight: 700;
-  text-decoration: underline;
-}
-
-.force-click {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.8);
-  border-left: 1px solid rgba(255, 255, 255, 0.25);
-  padding-left: 8px;
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(0.92);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(1.08);
-    opacity: 1;
-  }
-}
-</style>

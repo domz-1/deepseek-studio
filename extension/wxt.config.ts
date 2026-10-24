@@ -1,7 +1,11 @@
 import { defineConfig } from "wxt";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   modules: ["@wxt-dev/module-vue"],
+  vite: () => ({
+    plugins: [tailwindcss()],
+  }),
   manifest: {
     name: "DeepSeek Studio - Local MCP & AI Agent Platform",
     short_name: "DeepSeek Studio",

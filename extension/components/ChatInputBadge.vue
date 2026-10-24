@@ -5,6 +5,7 @@ import { useBridgeWs } from "../composables/useBridgeWs";
 import { useDeepSeekDom } from "../composables/useDeepSeekDom";
 import { usePromptExecution } from "../composables/usePromptExecution";
 import SlashMentionMenu from "./SlashMentionMenu.vue";
+import ChatProjectSelector from "./ChatProjectSelector.vue";
 import {
   Cpu,
   Globe,
@@ -23,6 +24,11 @@ const { typeHumanizedText } = usePromptExecution();
 
 const menuMode = ref<"slash" | "mention" | null>(null);
 const menuQuery = ref("");
+const menuCoords = ref<{ bottom: string; left: string; width: string }>({
+  bottom: "80px",
+  left: "24px",
+  width: "380px",
+});
 
 function getServerIcon(name: string) {
   const n = name.toLowerCase();
@@ -34,20 +40,47 @@ function getServerIcon(name: string) {
   return Wrench;
 }
 
-function onInputChange() {
-  const input = getChatInput();
-  if (!input) return;
-  const val = input.value || "";
+function updateMenuCoords(input: HTMLTextAreaElement) {
+  const rect = input.getBoundingClientRect();
+  const width = Math.min(400, window.innerWidth - 32);
+  const left = Math.max(
+    16,
+    Math.min(rect.left, window.innerWidth - width - 16),
+  );
+  menuCoords.value = {
+    bottom: `${window.innerHeight - rect.top + 8}px`,
+    left: `${left}px`,
+    width: `${width}px`,
+  };
+}
 
-  const slashMatch = val.match(/\/([\w-]*)$/);
-  const mentionMatch = val.match(/@([^\s@]*)$/);
+function checkInputState(e?: Event) {
+  const target = (e?.target as HTMLElement) || getChatInput();
+  const isInput =
+    target instanceof HTMLTextAreaElement || target?.tagName === "TEXTAREA";
+  if (!isInput) {
+    if (e?.type === "click" && !target?.closest(".ds-slash-menu")) {
+      menuMode.value = null;
+    }
+    return;
+  }
+
+  const input = target as HTMLTextAreaElement;
+  const val = input.value || "";
+  const cursor = input.selectionStart ?? val.length;
+  const textBefore = val.slice(0, cursor);
+
+  const slashMatch = textBefore.match(/(?:^|\s)\/([a-zA-Z0-9_-]*)$/);
+  const mentionMatch = textBefore.match(/(?:^|\s)@([^\s@]*)$/);
 
   if (slashMatch) {
     menuMode.value = "slash";
     menuQuery.value = slashMatch[1] || "";
+    updateMenuCoords(input);
   } else if (mentionMatch) {
     menuMode.value = "mention";
     menuQuery.value = mentionMatch[1] || "";
+    updateMenuCoords(input);
   } else {
     menuMode.value = null;
   }
@@ -57,8 +90,20 @@ function handleMenuSelect(insertedText: string) {
   const input = getChatInput();
   if (!input) return;
   const current = input.value || "";
-  const pattern = menuMode.value === "slash" ? /\/([\w-]*)$/ : /@([^\s@]*)$/;
-  typeHumanizedText(input, current.replace(pattern, insertedText));
+  const cursor = input.selectionStart ?? current.length;
+  const textBefore = current.slice(0, cursor);
+  const textAfter = current.slice(cursor);
+
+  const pattern =
+    menuMode.value === "slash"
+      ? /(?:^|\s)\/[a-zA-Z0-9_-]*$/
+      : /(?:^|\s)@[^\s@]*$/;
+
+  const replacedBefore = textBefore.replace(pattern, (match) => {
+    return match.startsWith(" ") ? ` ${insertedText}` : insertedText;
+  });
+
+  typeHumanizedText(input, `${replacedBefore}${textAfter}`);
   menuMode.value = null;
 }
 
@@ -73,226 +118,112 @@ function addMention(mentionText: string) {
   }
 }
 
-let inputWatcher: any = null;
-
 onMounted(() => {
-  const input = getChatInput();
-  if (input) {
-    input.addEventListener("input", onInputChange);
-  }
-  inputWatcher = setInterval(() => {
-    const el = getChatInput();
-    if (el && !(el as any).__dsInputWatched) {
-      (el as any).__dsInputWatched = true;
-      el.addEventListener("input", onInputChange);
-    }
-  }, 1000);
+  window.addEventListener("input", checkInputState, true);
+  window.addEventListener("keyup", checkInputState, true);
+  window.addEventListener("click", checkInputState, true);
 });
 
 onUnmounted(() => {
-  if (inputWatcher) clearInterval(inputWatcher);
+  window.removeEventListener("input", checkInputState, true);
+  window.removeEventListener("keyup", checkInputState, true);
+  window.removeEventListener("click", checkInputState, true);
 });
 </script>
 
 <template>
-  <div class="ds-chat-input-wrapper">
-    <!-- Slash & Mention Popup Menu -->
-    <SlashMentionMenu
-      v-if="menuMode"
-      :query="menuQuery"
-      :mode="menuMode"
-      @select="handleMenuSelect"
-      @close="menuMode = null"
-    />
+  <div class="relative w-full mb-1.5 font-sans select-none">
+    <!-- Teleported Floating Slash & Mention Popup -->
+    <Teleport to="body">
+      <SlashMentionMenu
+        v-if="menuMode"
+        :query="menuQuery"
+        :mode="menuMode"
+        :coords="menuCoords"
+        @select="handleMenuSelect"
+        @close="menuMode = null"
+      />
+    </Teleport>
 
     <!-- Liquid Glass MCP Bar -->
-    <div class="ds-chat-input-badge glass glass--subtle glass--liquid">
-      <div
-        class="badge-status-pill glass-interactive"
-        :class="{ online: bridgeConnected, stopped: isServerStopped }"
-        :title="
+    <div
+      class="glass glass--subtle glass--liquid flex items-center flex-wrap gap-1.5 px-2.5 py-1.5 rounded-xl border border-white/10 text-xs text-slate-200"
+    >
+      <!-- Bridge Status Pill -->
+      <button
+        type="button"
+        class="glass-interactive inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[11px] font-medium transition-all"
+        :class="[
           bridgeConnected
-            ? 'MCP Bridge connected and active'
-            : 'Click to retry connecting to Bridge'
-        "
+            ? 'bg-indigo-500/15 border-indigo-400/40 text-indigo-300'
+            : isServerStopped
+              ? 'bg-amber-500/15 border-amber-400/40 text-amber-300'
+              : 'bg-white/5 border-white/10 text-slate-400',
+        ]"
+        :title="bridgeConnected ? 'MCP Bridge connected' : 'Click to connect'"
         @click="connect"
       >
         <span
-          class="status-pulse-dot"
-          :class="{ online: bridgeConnected, stopped: isServerStopped }"
+          class="w-1.5 h-1.5 rounded-full shrink-0"
+          :class="[
+            bridgeConnected
+              ? 'bg-emerald-400 shadow-[0_0_6px_#34d399] animate-pulse'
+              : isServerStopped
+                ? 'bg-amber-400 shadow-[0_0_6px_#fbbf24]'
+                : 'bg-slate-500',
+          ]"
         ></span>
         <component
           :is="bridgeConnected ? Activity : Cpu"
-          :size="12"
-          class="status-icon"
+          :size="11"
+          class="shrink-0"
         />
-        <span class="status-text">{{
+        <span>{{
           bridgeConnected
             ? "MCP Active"
             : isServerStopped
               ? "Paused"
-              : "Bridge Offline"
+              : "Offline"
         }}</span>
-      </div>
+      </button>
 
-      <div class="server-chips">
+      <!-- Workspace Project Selector Pill with Dropdown -->
+      <ChatProjectSelector />
+
+      <!-- Server Chips -->
+      <div class="flex items-center flex-wrap gap-1">
         <button
           v-for="server in servers"
           :key="server.name"
           type="button"
-          class="chip-item glass-interactive"
-          :class="{ active: server.status === 'online' }"
+          class="glass-interactive inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 hover:bg-indigo-500/20 border border-white/10 text-[11px] text-slate-300 hover:text-white transition-all"
           :title="`Insert @${server.name} (${server.toolCount} tools)`"
           @click.prevent="addMention(`@${server.name}`)"
         >
           <component
             :is="getServerIcon(server.name)"
-            :size="12"
-            class="chip-icon"
+            :size="11"
+            class="text-indigo-400"
           />
-          <span class="chip-name">@{{ server.name }}</span>
-          <span v-if="server.toolCount" class="chip-count">{{
-            server.toolCount
-          }}</span>
+          <span>@{{ server.name }}</span>
+          <span
+            v-if="server.toolCount"
+            class="text-[9.5px] bg-white/10 px-1 rounded font-mono text-slate-400"
+          >
+            {{ server.toolCount }}
+          </span>
         </button>
 
         <button
           type="button"
-          class="chip-item all-chip glass-interactive"
+          class="glass-interactive inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-400/40 text-[11px] font-semibold text-white shadow-sm transition-all"
           title="Insert @all tools into prompt"
           @click.prevent="addMention('@all')"
         >
-          <Sparkles :size="12" class="all-icon" />
+          <Sparkles :size="11" class="text-indigo-300" />
           <span>@all</span>
         </button>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.ds-chat-input-wrapper {
-  position: relative;
-  width: 100%;
-  margin-bottom: 6px;
-}
-
-.ds-chat-input-badge {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 5px 10px;
-  border-radius: var(--r-sm, 10px);
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 11.5px;
-  color: var(--text, #edeff7);
-}
-
-.badge-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  border-radius: var(--r-pill, 9999px);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text-muted, #9aa1bc);
-  font-weight: 500;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 200ms var(--ease, ease);
-}
-
-.badge-status-pill.online {
-  background: rgba(77, 107, 254, 0.12);
-  border-color: rgba(77, 107, 254, 0.35);
-  color: var(--ds-blue-400, #7c93ff);
-}
-.badge-status-pill.stopped {
-  background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.35);
-  color: #fbbf24;
-}
-
-.status-pulse-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #94a3b8;
-  flex-shrink: 0;
-}
-.status-pulse-dot.online {
-  background: #22c55e;
-  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
-  animation: pulse 1.6s infinite alternate;
-}
-.status-pulse-dot.stopped {
-  background: #f59e0b;
-  box-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
-}
-
-.server-chips {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-.chip-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--text-muted, #9aa1bc);
-  padding: 3px 8px;
-  border-radius: var(--r-pill, 9999px);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 200ms var(--ease, ease-out);
-  outline: none;
-}
-.chip-item:hover {
-  background: rgba(77, 107, 254, 0.15);
-  border-color: rgba(124, 147, 255, 0.45);
-  color: #ffffff;
-  transform: translateY(-1px);
-}
-.chip-icon {
-  color: var(--ds-blue-400, #7c93ff);
-}
-.chip-count {
-  font-size: 9.5px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-muted, #9aa1bc);
-  padding: 0 4px;
-  border-radius: 6px;
-  font-weight: 600;
-}
-
-.all-chip {
-  background: linear-gradient(
-    135deg,
-    rgba(77, 107, 254, 0.28),
-    rgba(58, 87, 232, 0.18)
-  );
-  border-color: rgba(124, 147, 255, 0.45);
-  color: #ffffff;
-  font-weight: 600;
-}
-.all-icon {
-  color: var(--ds-blue-400, #7c93ff);
-}
-
-@keyframes pulse {
-  0% {
-    opacity: 0.5;
-    transform: scale(0.9);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1.15);
-  }
-}
-</style>
