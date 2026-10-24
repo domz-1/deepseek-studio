@@ -1,10 +1,8 @@
-import { ref } from "vue";
 import {
   bridgeConnected,
   bridgeStatusText,
   servers,
   tools,
-  settings,
 } from "./useStudioState";
 import type { McpServer, McpTool } from "../types";
 
@@ -12,23 +10,27 @@ export function useBridgeWs() {
   let pollTimer: any = null;
 
   async function fetchBridgeStatus() {
-    const port = settings.bridgePort || 43210;
-    const url = `http://127.0.0.1:${port}/mcp`;
-
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const response = await new Promise<any>((resolve) => {
+        chrome.runtime.sendMessage({ type: "GET_MCP" }, (res) => {
+          if (chrome.runtime.lastError) resolve(null);
+          else resolve(res);
+        });
+      });
 
-      bridgeConnected.value = true;
-      bridgeStatusText.value = "Connected";
+      if (response && response.ok && response.data) {
+        bridgeConnected.value = true;
+        bridgeStatusText.value = "Connected";
 
-      // Parse tools and group them into servers
-      if (Array.isArray(data)) {
-        tools.value = data;
+        // Response structure: response.data.tools or array
+        const rawTools: McpTool[] = Array.isArray(response.data)
+          ? response.data
+          : response.data.tools || [];
+
+        tools.value = rawTools;
         const serverMap = new Map<string, McpTool[]>();
-        data.forEach((t: McpTool) => {
-          const sName = t.server || "default";
+        rawTools.forEach((t: McpTool) => {
+          const sName = t.server || (t as any).serverName || "tools";
           if (!serverMap.has(sName)) serverMap.set(sName, []);
           serverMap.get(sName)!.push(t);
         });
@@ -43,6 +45,9 @@ export function useBridgeWs() {
           });
         });
         servers.value = newServers;
+      } else {
+        bridgeConnected.value = false;
+        bridgeStatusText.value = "Offline";
       }
     } catch (_) {
       bridgeConnected.value = false;
@@ -60,25 +65,28 @@ export function useBridgeWs() {
     toolName: string,
     args: Record<string, any>,
   ): Promise<any> {
-    const port = settings.bridgePort || 43210;
-    const url = `http://127.0.0.1:${port}/call`;
-
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tool: toolName,
-        arguments: args,
-      }),
+    const res = await new Promise<any>((resolve, reject) => {
+      chrome.runtime.sendMessage(
+        {
+          type: "CALL",
+          payload: {
+            tool: toolName,
+            arguments: args,
+          },
+        },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (!response || !response.ok) {
+            reject(new Error(response?.error || "Tool execution failed"));
+          } else {
+            resolve(response.data);
+          }
+        },
+      );
     });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(errText || `Tool call failed: HTTP ${res.status}`);
-    }
-
-    const data = await res.json();
-    return data.result || data.output || data;
+    return res?.result || res?.output || res;
   }
 
   return {
