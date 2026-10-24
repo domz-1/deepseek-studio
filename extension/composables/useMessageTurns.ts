@@ -105,10 +105,6 @@ export function useMessageTurns() {
             .trim();
           if (stripped === "") {
             (el as HTMLElement).style.display = "none";
-          } else {
-            el.innerHTML = el.innerHTML
-              .replace(/&lt;tool_call&gt;[\s\S]*?&lt;\/tool_call&gt;/gi, "")
-              .replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "");
           }
         }
       });

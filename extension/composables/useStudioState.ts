@@ -10,7 +10,7 @@ import type {
 
 export const settings = reactive<StudioSettings>({
   bridgePort: 43210,
-  autoApprove: false,
+  autoApprove: true,
   autoContinue: true,
   autoContinueDelay: 5,
   humanSpeed: "natural",
@@ -61,6 +61,7 @@ export function useStudioState() {
       else settings.bridgePort = 43210;
       if (stored.autoApprove !== undefined)
         settings.autoApprove = Boolean(stored.autoApprove);
+      else settings.autoApprove = true;
       if (stored.autoContinue !== undefined)
         settings.autoContinue = Boolean(stored.autoContinue);
       if (stored.autoContinueDelay)
