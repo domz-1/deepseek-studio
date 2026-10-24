@@ -50,7 +50,10 @@ export function useProjects() {
           }
         }
 
-        projects.value = Array.from(map.values());
+        projects.value = Array.from(map.values()).map((p) => ({
+          ...p,
+          name: (p.name || "").replace(/^[⭐📁✨\s]+/, "").trim(),
+        }));
         await chrome.storage.local.set({ projects: projects.value });
 
         if (!settings.activeProject && projects.value.length > 0) {
@@ -102,7 +105,7 @@ export function useProjects() {
       cleanPath.split("/").filter(Boolean).pop() ||
       cleanPath;
     const newProj: ProjectWorkspace = {
-      name: `⭐ ${name}`,
+      name,
       path: cleanPath,
       custom: true,
       addedAt: Date.now(),

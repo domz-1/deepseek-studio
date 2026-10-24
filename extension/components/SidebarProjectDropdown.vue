@@ -12,6 +12,8 @@ import {
   Search,
   Plus,
   Filter,
+  Star,
+  MessageSquare,
 } from "lucide-vue-next";
 
 const {
@@ -24,6 +26,8 @@ const {
 const {
   filterByActiveProject,
   activeProjectChatCount,
+  activeProjectChats,
+  getCurrentChatId,
   setFilterByProject,
   applySidebarFilter,
 } = useChatProjects();
@@ -36,57 +40,59 @@ const triggerRef = ref<HTMLElement | null>(null);
 const dropdownCoords = ref<{ top: string; left: string; width: string }>({
   top: "0px",
   left: "0px",
-  width: "260px",
+  width: "270px",
 });
 
-function updateDropdownCoords() {
+function cleanName(raw: string) {
+  return (raw || "").replace(/^[⭐📁✨\s]+/, "").trim();
+}
+
+function updateCoords() {
   if (!triggerRef.value) return;
   const rect = triggerRef.value.getBoundingClientRect();
-  const width = Math.max(270, rect.width);
   dropdownCoords.value = {
     top: `${rect.bottom + 6}px`,
     left: `${Math.max(8, rect.left)}px`,
-    width: `${width}px`,
+    width: `${Math.max(270, rect.width)}px`,
   };
 }
 
 onMounted(async () => {
   await loadProjects();
-  window.addEventListener("click", handleClickOutside, true);
-  window.addEventListener("resize", updateDropdownCoords);
+  window.addEventListener(
+    "click",
+    (e) => {
+      const t = e.target as HTMLElement;
+      if (
+        !t.closest(".ds-sidebar-project-container") &&
+        !t.closest(".ds-sidebar-project-menu")
+      ) {
+        isOpen.value = false;
+        showAddInput.value = false;
+      }
+    },
+    true,
+  );
+  window.addEventListener("resize", updateCoords);
 });
 
 onUnmounted(() => {
-  window.removeEventListener("click", handleClickOutside, true);
-  window.removeEventListener("resize", updateDropdownCoords);
+  window.removeEventListener("resize", updateCoords);
 });
-
-function handleClickOutside(e: MouseEvent) {
-  const t = e.target as HTMLElement;
-  if (
-    !t.closest(".ds-sidebar-project-container") &&
-    !t.closest(".ds-sidebar-project-menu")
-  ) {
-    isOpen.value = false;
-    showAddInput.value = false;
-  }
-}
 
 const filteredProjects = computed(() => {
   const q = searchQuery.value.toLowerCase().trim();
   if (!q) return projects.value;
   return projects.value.filter(
     (p) =>
-      p.name.toLowerCase().includes(q) ||
+      cleanName(p.name).toLowerCase().includes(q) ||
       (p.path && p.path.toLowerCase().includes(q)),
   );
 });
 
 function toggleDropdown() {
   isOpen.value = !isOpen.value;
-  if (isOpen.value) {
-    nextTick(updateDropdownCoords);
-  }
+  if (isOpen.value) nextTick(updateCoords);
 }
 
 async function chooseProject(path: string) {
@@ -130,11 +136,11 @@ async function handleAddProject() {
           />
           <div class="flex flex-col min-w-0">
             <span
-              class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold"
+              class="text-[9.5px] text-slate-400 uppercase tracking-wider font-semibold"
               >Active Project</span
             >
             <span class="truncate font-semibold text-slate-100 text-xs">{{
-              activeProjectName
+              cleanName(activeProjectName)
             }}</span>
           </div>
         </div>
@@ -145,7 +151,7 @@ async function handleAddProject() {
         />
       </div>
 
-      <!-- Project Filter Toggle Pill -->
+      <!-- Filter Toggle & Count -->
       <div
         class="flex items-center justify-between pt-1 border-t border-white/10 text-[10px]"
       >
@@ -157,32 +163,51 @@ async function handleAddProject() {
               ? 'bg-indigo-500/25 border-indigo-400/50 text-indigo-300 font-semibold'
               : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200',
           ]"
-          :title="
-            filterByActiveProject
-              ? 'Viewing chats in this project only'
-              : 'Click to filter sidebar chats by this project'
-          "
           @click="setFilterByProject(!filterByActiveProject)"
         >
           <Filter :size="10" />
           <span>{{
-            filterByActiveProject ? "Project Chats" : "All Chats"
+            filterByActiveProject ? "Filtered to Project" : "All Chats"
           }}</span>
-          <span
-            v-if="filterByActiveProject && settings.activeProject"
-            class="bg-indigo-400/30 text-indigo-200 px-1.5 rounded-full text-[9px] font-mono"
-          >
-            {{ activeProjectChatCount }}
-          </span>
         </button>
+        <span class="text-slate-400 text-[10px]"
+          >{{ activeProjectChatCount }} chats in project</span
+        >
+      </div>
 
-        <span class="text-slate-400 text-[10px]">
-          {{ projects.length }} available
-        </span>
+      <!-- Grouped Project Chats List -->
+      <div
+        v-if="settings.activeProject && activeProjectChats.length > 0"
+        class="mt-1 pt-1 border-t border-white/10 flex flex-col gap-0.5"
+      >
+        <div
+          class="text-[9px] uppercase font-bold text-indigo-300 tracking-wider px-1 flex items-center justify-between"
+        >
+          <span>Project Group Chats</span>
+          <span
+            class="bg-indigo-400/20 text-indigo-200 px-1.5 rounded-full text-[8.5px] font-mono"
+            >{{ activeProjectChats.length }}</span
+          >
+        </div>
+        <div class="max-h-28 overflow-y-auto flex flex-col gap-0.5 pr-0.5">
+          <a
+            v-for="c in activeProjectChats"
+            :key="c.id"
+            :href="c.url"
+            class="px-2 py-1 rounded-lg text-xs text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 transition-all truncate"
+            :class="{
+              'bg-indigo-500/20 text-indigo-200 font-medium':
+                getCurrentChatId() === c.id,
+            }"
+          >
+            <MessageSquare :size="10" class="text-indigo-400 shrink-0" />
+            <span class="truncate text-[10.5px]">{{ c.title }}</span>
+          </a>
+        </div>
       </div>
     </div>
 
-    <!-- Teleported Floating Dropdown Menu with Search & Add -->
+    <!-- Teleported Floating Dropdown Menu -->
     <Teleport to="body">
       <div
         v-if="isOpen"
@@ -208,7 +233,7 @@ async function handleAddProject() {
           />
         </div>
 
-        <!-- Add Custom Project Option -->
+        <!-- Add Custom Project -->
         <div
           v-if="!showAddInput"
           class="px-1 py-1 mb-1 border-b border-white/10"
@@ -243,9 +268,8 @@ async function handleAddProject() {
           </button>
         </div>
 
-        <!-- Scrollable Project list -->
+        <!-- Project List with Lucide Icons (No Emojis) -->
         <div class="overflow-y-auto max-h-56 flex flex-col gap-0.5 p-0.5">
-          <!-- All workspaces option -->
           <div
             class="flex items-center justify-between px-2.5 py-1.5 rounded-xl cursor-pointer text-xs transition-all"
             :class="[
@@ -266,7 +290,6 @@ async function handleAddProject() {
             />
           </div>
 
-          <!-- Individual projects -->
           <div
             v-for="p in filteredProjects"
             :key="p.path || p.name"
@@ -279,15 +302,16 @@ async function handleAddProject() {
             @click="chooseProject(p.path)"
           >
             <div class="flex items-center gap-2 overflow-hidden min-w-0">
-              <component
-                :is="p.custom ? Folder : FolderGit2"
+              <Star
+                v-if="p.custom"
                 :size="13"
-                class="text-indigo-400 shrink-0"
+                class="text-amber-400 fill-amber-400/20 shrink-0"
               />
+              <FolderGit2 v-else :size="13" class="text-indigo-400 shrink-0" />
               <div class="flex flex-col min-w-0">
                 <span
                   class="truncate font-medium text-slate-100 text-[11.5px]"
-                  >{{ p.name }}</span
+                  >{{ cleanName(p.name) }}</span
                 >
                 <span class="truncate text-[10px] text-slate-400 opacity-80">{{
                   p.path

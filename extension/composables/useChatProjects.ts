@@ -1,7 +1,8 @@
 import { ref, computed } from "vue";
-import { settings } from "./useStudioState";
+import { settings, projects } from "./useStudioState";
 
 export const chatProjectMap = ref<Record<string, string>>({});
+export const chatTitles = ref<Record<string, string>>({});
 export const filterByActiveProject = ref<boolean>(false);
 
 export function useChatProjects() {
@@ -9,10 +10,14 @@ export function useChatProjects() {
     try {
       const stored = await chrome.storage.local.get([
         "ds_chat_projects",
+        "ds_chat_titles",
         "ds_filter_by_project",
       ]);
       if (stored.ds_chat_projects) {
         chatProjectMap.value = stored.ds_chat_projects;
+      }
+      if (stored.ds_chat_titles) {
+        chatTitles.value = stored.ds_chat_titles;
       }
       if (typeof stored.ds_filter_by_project === "boolean") {
         filterByActiveProject.value = stored.ds_filter_by_project;
@@ -24,6 +29,7 @@ export function useChatProjects() {
     try {
       await chrome.storage.local.set({
         ds_chat_projects: chatProjectMap.value,
+        ds_chat_titles: chatTitles.value,
         ds_filter_by_project: filterByActiveProject.value,
       });
     } catch (_) {}
@@ -67,6 +73,22 @@ export function useChatProjects() {
     return getProjectChatCount(settings.activeProject);
   });
 
+  const activeProjectChats = computed(() => {
+    const currentProject = settings.activeProject;
+    if (!currentProject) return [];
+    const list: { id: string; title: string; url: string }[] = [];
+    for (const [id, path] of Object.entries(chatProjectMap.value)) {
+      if (path === currentProject || path.endsWith(currentProject)) {
+        list.push({
+          id,
+          title: chatTitles.value[id] || `Chat ${id.slice(0, 8)}`,
+          url: `/a/chat/s/${id}`,
+        });
+      }
+    }
+    return list;
+  });
+
   function applySidebarFilter() {
     const chatLinks = Array.from(
       document.querySelectorAll<HTMLAnchorElement>("a[href*='/a/chat/s/']"),
@@ -75,11 +97,21 @@ export function useChatProjects() {
 
     const currentProject = settings.activeProject;
     const isFiltering = filterByActiveProject.value && !!currentProject;
+    let titlesChanged = false;
 
     for (const link of chatLinks) {
       const href = link.getAttribute("href") || "";
       const match = href.match(/\/a\/chat\/s\/([a-zA-Z0-9-]+)/);
       const chatId = match ? match[1] : null;
+      if (!chatId) continue;
+
+      // Cache title
+      const titleEl = link.querySelector("div.c08e6e93") || link;
+      const titleText = (titleEl.textContent || "").trim();
+      if (titleText && chatTitles.value[chatId] !== titleText) {
+        chatTitles.value[chatId] = titleText;
+        titlesChanged = true;
+      }
 
       if (!isFiltering) {
         link.style.display = "";
@@ -87,7 +119,7 @@ export function useChatProjects() {
         continue;
       }
 
-      const assignedProject = chatId ? chatProjectMap.value[chatId] : null;
+      const assignedProject = chatProjectMap.value[chatId];
       const belongs = assignedProject === currentProject;
 
       if (belongs) {
@@ -96,6 +128,10 @@ export function useChatProjects() {
       } else {
         link.style.display = "none";
       }
+    }
+
+    if (titlesChanged) {
+      saveChatProjects();
     }
 
     const groups = Array.from(document.querySelectorAll("div._3098d02"));
@@ -114,8 +150,10 @@ export function useChatProjects() {
 
   return {
     chatProjectMap,
+    chatTitles,
     filterByActiveProject,
     activeProjectChatCount,
+    activeProjectChats,
     loadChatProjects,
     saveChatProjects,
     getCurrentChatId,

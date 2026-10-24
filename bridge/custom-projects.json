@@ -1,12 +1,12 @@
 [
   {
-    "name": "⭐ home",
+    "name": "home",
     "path": "/home",
     "custom": true,
     "addedAt": 1792788273571
   },
   {
-    "name": "⭐ bokd",
+    "name": "bokd",
     "path": "/home/adham/projects/adham/padel-apps/bokd",
     "custom": true,
     "addedAt": 1792445197335

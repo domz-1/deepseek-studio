@@ -13,17 +13,17 @@ const isHovered = ref(false);
 
 <template>
   <div
-    class="fixed top-3 right-6 z-[999999] font-sans pointer-events-auto select-none"
+    class="fixed top-3 right-6 z-[999999] font-sans pointer-events-auto select-none flex items-center"
     @mouseenter="isHovered = true"
     @mouseleave="isHovered = false"
   >
-    <!-- Smooth Liquid Glass Morphing Pill Container -->
+    <!-- Strictly Compact Liquid Glass Morphing Pill Container (Fixed h-8) -->
     <div
-      class="glass glass--subtle glass--liquid flex items-center rounded-full border border-white/15 shadow-2xl backdrop-blur-2xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden cursor-pointer"
+      class="glass glass--subtle glass--liquid h-8 max-h-8 flex items-center flex-nowrap whitespace-nowrap rounded-full border border-white/15 shadow-xl backdrop-blur-2xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden cursor-pointer"
       :class="[
         isHovered
-          ? 'max-w-[640px] px-3.5 py-1.5 bg-slate-900/90'
-          : 'max-w-[110px] px-2.5 py-1 bg-slate-900/70 hover:scale-105',
+          ? 'max-w-[640px] px-3.5 bg-slate-900/95 border-indigo-400/40 shadow-indigo-500/10'
+          : 'max-w-[105px] px-2.5 bg-slate-900/80 hover:scale-105',
       ]"
       :title="`DeepSeek Studio (${bridgeStatusText}) - Hover to expand controls`"
     >
@@ -45,44 +45,51 @@ const isHovered = ref(false);
         >
       </div>
 
-      <!-- Animated Reveal Panel on Hover -->
-      <div
-        class="flex items-center gap-2.5 pl-3 border-l border-white/10 shrink-0 transition-all duration-200"
-        :class="[
-          isHovered
-            ? 'opacity-100 translate-x-0 ml-2.5 pointer-events-auto'
-            : 'opacity-0 translate-x-4 pointer-events-none w-0 overflow-hidden m-0 p-0 border-transparent',
-        ]"
+      <!-- Animated Reveal Panel on Hover (Only rendered on hover to prevent height stretching) -->
+      <Transition
+        enter-active-class="transition-all duration-200 ease-out"
+        enter-from-class="opacity-0 translate-x-2"
+        enter-to-class="opacity-100 translate-x-0"
+        leave-active-class="transition-all duration-150 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
       >
-        <!-- Reconnect & Status Trigger -->
-        <button
-          type="button"
-          class="flex items-center gap-1.5 text-[11px] font-medium cursor-pointer hover:opacity-80 transition-opacity"
-          :class="[
-            bridgeConnected
-              ? 'text-emerald-400'
-              : isServerStopped
-                ? 'text-amber-400'
-                : 'text-slate-400',
-          ]"
-          :title="bridgeConnected ? 'MCP Bridge active' : 'Click to reconnect'"
-          @click="connect"
+        <div
+          v-if="isHovered"
+          class="flex items-center flex-nowrap whitespace-nowrap gap-2.5 pl-3 ml-2.5 border-l border-white/10 shrink-0 h-full"
         >
-          <component
-            :is="bridgeConnected ? Activity : isServerStopped ? Pause : Cpu"
-            :size="12"
-            class="shrink-0"
-            :class="{ 'animate-pulse': bridgeConnected }"
-          />
-          <span class="whitespace-nowrap">{{ bridgeStatusText }}</span>
-        </button>
+          <!-- Reconnect & Status Trigger -->
+          <button
+            type="button"
+            class="flex items-center gap-1.5 text-[11px] font-medium cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap shrink-0"
+            :class="[
+              bridgeConnected
+                ? 'text-emerald-400'
+                : isServerStopped
+                  ? 'text-amber-400'
+                  : 'text-slate-400',
+            ]"
+            :title="
+              bridgeConnected ? 'MCP Bridge active' : 'Click to reconnect'
+            "
+            @click="connect"
+          >
+            <component
+              :is="bridgeConnected ? Activity : isServerStopped ? Pause : Cpu"
+              :size="12"
+              class="shrink-0"
+              :class="{ 'animate-pulse': bridgeConnected }"
+            />
+            <span class="whitespace-nowrap">{{ bridgeStatusText }}</span>
+          </button>
 
-        <!-- Server Pills -->
-        <ServerPills />
+          <!-- Server Pills -->
+          <ServerPills />
 
-        <!-- Watchdog Countdown Badge -->
-        <WatchdogBadge />
-      </div>
+          <!-- Watchdog Countdown Badge -->
+          <WatchdogBadge />
+        </div>
+      </Transition>
     </div>
   </div>
 </template>

@@ -66,10 +66,67 @@ ${toolCatalog || "- bash: run shell commands\n- filesystem: read/write/list file
     return rawText;
   }
 
+  function injectIntoTextarea(input: HTMLTextAreaElement) {
+    if (!input || !input.value || !input.value.trim()) return;
+    if (input.value.includes("<agent_system_instructions>")) return;
+
+    if (isFirstMessageInChat()) {
+      const full = `${buildFableSystemPrompt()}\n\n${input.value}`;
+      const proto = Object.getPrototypeOf(input);
+      const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+      if (nativeSetter) {
+        nativeSetter.call(input, full);
+      } else {
+        input.value = full;
+      }
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      sessionPromptInjected = true;
+    }
+  }
+
+  function initPromptAutoInjection(
+    getChatInput: () => HTMLTextAreaElement | null,
+    getSendButton: () => HTMLElement | null,
+  ) {
+    // Intercept Enter key press on chat textarea
+    window.addEventListener(
+      "keydown",
+      (e) => {
+        if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+          const input = getChatInput();
+          if (
+            input &&
+            (document.activeElement === input || e.target === input)
+          ) {
+            injectIntoTextarea(input);
+          }
+        }
+      },
+      true,
+    );
+
+    // Intercept Send button click/pointerdown
+    const onSendClick = (e: Event) => {
+      const target = e.target as HTMLElement;
+      const sendBtn = getSendButton();
+      if (sendBtn && (target === sendBtn || sendBtn.contains(target))) {
+        const input = getChatInput();
+        if (input) {
+          injectIntoTextarea(input);
+        }
+      }
+    };
+
+    window.addEventListener("pointerdown", onSendClick, true);
+    window.addEventListener("click", onSendClick, true);
+  }
+
   return {
     isFirstMessageInChat,
     resetSession,
     buildFableSystemPrompt,
     preparePromptForSubmission,
+    injectIntoTextarea,
+    initPromptAutoInjection,
   };
 }

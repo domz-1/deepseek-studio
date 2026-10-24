@@ -866,7 +866,7 @@ app.post("/projects", (req, res) => {
     const existingIdx = customs.findIndex((c) => c.path === targetPath);
 
     const projectObj = {
-      name: `⭐ ${shortName.replace(/^⭐\s*/, "")}`,
+      name: shortName.replace(/^[⭐📁✨\s]+/, "") || targetPath,
       path: targetPath,
       custom: true,
       addedAt: Date.now(),

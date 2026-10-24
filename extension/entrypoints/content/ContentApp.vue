@@ -9,6 +9,7 @@ import { useChatProjects } from "../../composables/useChatProjects";
 import { useToolParser } from "../../composables/useToolParser";
 import { useActionCards } from "../../composables/useActionCards";
 import { useDeepSeekDom } from "../../composables/useDeepSeekDom";
+import { useAgentSystemPrompt } from "../../composables/useAgentSystemPrompt";
 
 import ActionCard from "../../components/ActionCard.vue";
 import ChatInputBadge from "../../components/ChatInputBadge.vue";
@@ -22,9 +23,10 @@ const { loadSkills } = useSkills();
 const { loadProjects } = useProjects();
 const { loadChatProjects, tagCurrentChat, applySidebarFilter } =
   useChatProjects();
+const { initPromptAutoInjection } = useAgentSystemPrompt();
 const { parseToolCallsFromText } = useToolParser();
 const { registerActions } = useActionCards();
-const { getChatInput } = useDeepSeekDom();
+const { getChatInput, getSendButton } = useDeepSeekDom();
 
 const showInputBadge = ref(false);
 const showSidebarDropdown = ref(false);
@@ -114,6 +116,9 @@ onMounted(async () => {
   // Initial tag and filter
   tagCurrentChat();
   applySidebarFilter();
+
+  // Initialize Claude Fable System Prompt auto-injection on first message
+  initPromptAutoInjection(getChatInput, getSendButton);
 
   window.addEventListener("popstate", () => {
     tagCurrentChat();

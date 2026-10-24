@@ -5,11 +5,13 @@ import { useBridgeWs } from "../composables/useBridgeWs";
 import { useProjects } from "../composables/useProjects";
 import { useDeepSeekDom } from "../composables/useDeepSeekDom";
 import { usePromptExecution } from "../composables/usePromptExecution";
+import { useAgentSystemPrompt } from "../composables/useAgentSystemPrompt";
 import SlashMentionMenu from "./SlashMentionMenu.vue";
-import { Cpu, Activity, FolderGit2 } from "lucide-vue-next";
+import { Cpu, Activity, FolderGit2, Sparkles } from "lucide-vue-next";
 
 const { bridgeConnected, isServerStopped } = useStudioState();
 const { activeProjectName } = useProjects();
+const { isFirstMessageInChat } = useAgentSystemPrompt();
 const { connect } = useBridgeWs();
 const { getChatInput } = useDeepSeekDom();
 const { typeHumanizedText } = usePromptExecution();
@@ -185,6 +187,16 @@ onUnmounted(() => {
         <span class="truncate text-slate-300 font-medium">{{
           activeProjectName
         }}</span>
+      </div>
+
+      <!-- Fable Agent Prompt Indicator for new chat sessions -->
+      <div
+        v-if="isFirstMessageInChat()"
+        class="flex items-center gap-1 text-[10px] text-indigo-300 bg-indigo-500/15 border border-indigo-400/30 px-2 py-0.5 rounded-full shrink-0 font-mono"
+        title="Agent system instructions will automatically be injected when you send the first message"
+      >
+        <Sparkles :size="10" class="text-indigo-400 shrink-0" />
+        <span>Agent Ready</span>
       </div>
     </div>
   </div>

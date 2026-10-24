@@ -16,7 +16,9 @@ function getServerIcon(name: string) {
 </script>
 
 <template>
-  <div class="flex flex-wrap items-center gap-1.5 font-sans">
+  <div
+    class="flex items-center flex-nowrap whitespace-nowrap gap-1.5 font-sans"
+  >
     <div
       v-for="server in servers"
       :key="server.name"
