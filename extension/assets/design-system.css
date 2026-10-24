@@ -183,3 +183,11 @@
   background: rgba(124, 147, 255, 0.5);
   box-shadow: 0 0 8px rgba(77, 107, 254, 0.4);
 }
+
+/* Hide raw tool call XML elements from chat view */
+tool_call,
+tool_name,
+parameters,
+arguments {
+  display: none !important;
+}

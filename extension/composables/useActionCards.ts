@@ -9,6 +9,72 @@ export function useActionCards() {
   const { sendPrompt } = usePromptExecution();
   const { markChatDone } = useChatProjects();
 
+  let batchTimer: any = null;
+  let isFlushingBatch = false;
+
+  async function checkAndFlushBatch() {
+    if (isFlushingBatch) return;
+
+    // Check if any actions are still pending or executing
+    const hasRunning = activeActions.value.some(
+      (a) => a.status === "running" || a.status === "pending",
+    );
+    if (hasRunning) return;
+
+    // Gather all unsent completed or errored actions
+    const unsentActions = activeActions.value.filter(
+      (a) =>
+        (a.status === "completed" || a.status === "error") && !(a as any).sent,
+    );
+
+    if (unsentActions.length === 0) return;
+
+    // Check if task_done was called
+    const taskDoneAction = unsentActions.find(
+      (a) =>
+        a.name === "task_done" ||
+        a.name === "bridge_task_done" ||
+        a.name === "complete_task" ||
+        a.result?.task_done,
+    );
+
+    if (taskDoneAction) {
+      unsentActions.forEach((a) => ((a as any).sent = true));
+      const summary =
+        taskDoneAction.arguments?.summary ||
+        taskDoneAction.result?.summary ||
+        "Task successfully completed";
+      await markChatDone(undefined, summary);
+      return;
+    }
+
+    isFlushingBatch = true;
+    try {
+      const blocks = unsentActions.map((act) => {
+        (act as any).sent = true;
+        if (act.status === "completed") {
+          const formatted =
+            typeof act.result === "object"
+              ? JSON.stringify(act.result, null, 2)
+              : String(act.result);
+          return `<tool_result>\n<tool_name>${act.name}</tool_name>\n<result>\n${formatted}\n</result>\n</tool_result>`;
+        } else {
+          return `<tool_result>\n<tool_name>${act.name}</tool_name>\n<error>\n${act.error || "Execution failed"}\n</error>\n</tool_result>`;
+        }
+      });
+
+      const combinedPrompt = `${blocks.join("\n\n")}\n\nPlease review these results and continue autonomously until you call task_done.`;
+      await sendPrompt(combinedPrompt);
+    } finally {
+      isFlushingBatch = false;
+    }
+  }
+
+  function scheduleBatchCheck(delay = 400) {
+    if (batchTimer) clearTimeout(batchTimer);
+    batchTimer = setTimeout(checkAndFlushBatch, delay);
+  }
+
   async function approveAction(action: ToolCallAction) {
     if (action.status !== "pending") return;
     action.status = "running";
@@ -17,56 +83,32 @@ export function useActionCards() {
       const result = await executeToolCall(action.name, action.arguments);
       action.status = "completed";
       action.result = result;
-
-      // Check if this tool invocation signals task completion
-      const isTaskDone =
-        action.name === "task_done" ||
-        action.name === "bridge_task_done" ||
-        action.name === "complete_task" ||
-        result?.task_done;
-
-      if (isTaskDone) {
-        const summary =
-          action.arguments?.summary ||
-          result?.summary ||
-          "Task successfully completed";
-        await markChatDone(undefined, summary);
-        // Do not continue auto-prompting; task is done!
-        return;
-      }
-
-      // Format autonomous tool result back into DeepSeek chat
-      const formattedResult =
-        typeof result === "object"
-          ? JSON.stringify(result, null, 2)
-          : String(result);
-      const followUp = `<tool_result>\n<tool_name>${action.name}</tool_name>\n<result>\n${formattedResult}\n</result>\n</tool_result>\n\nPlease review this result and continue autonomously until you call task_done.`;
-      await sendPrompt(followUp);
     } catch (err: any) {
       action.status = "error";
       action.error = err.message || "Execution failed";
-
-      const errorMsg = `<tool_result>\n<tool_name>${action.name}</tool_name>\n<error>\n${action.error}\n</error>\n</tool_result>\n\nPlease adjust your approach or try another command.`;
-      await sendPrompt(errorMsg);
+    } finally {
+      scheduleBatchCheck();
     }
   }
 
   function rejectAction(action: ToolCallAction) {
     if (action.status !== "pending") return;
     action.status = "rejected";
+    (action as any).sent = true;
 
-    const rejectionMsg = `[Tool Action Rejected by User for ${action.name}]. Please explain next steps or continue without this tool.`;
+    const rejectionMsg = `[Tool Action Skipped for ${action.name}]. Please explain next steps or continue without this tool.`;
     sendPrompt(rejectionMsg);
   }
 
   function registerActions(newActions: ToolCallAction[]) {
     for (const act of newActions) {
-      const exists = activeActions.value.some(
+      const isCurrentlyActive = activeActions.value.some(
         (a) =>
+          (a.status === "pending" || a.status === "running") &&
           a.name === act.name &&
           JSON.stringify(a.arguments) === JSON.stringify(act.arguments),
       );
-      if (!exists) {
+      if (!isCurrentlyActive) {
         activeActions.value.push(act);
         if (settings.autoApprove) {
           approveAction(act);

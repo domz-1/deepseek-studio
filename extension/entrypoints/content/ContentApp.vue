@@ -59,6 +59,37 @@ function scanMessagesForTools() {
     if (detected.length > 0) {
       registerActions(detected);
     }
+
+    // Clean up raw <tool_call> tags from DOM so user isn't distracted
+    if (
+      block.innerHTML.includes("tool_call") ||
+      (block.textContent && block.textContent.includes("<tool_call>"))
+    ) {
+      block
+        .querySelectorAll(
+          "tool_call, [class*='tool_call' i], tool_name, parameters, arguments",
+        )
+        .forEach((el) => {
+          (el as HTMLElement).style.display = "none";
+        });
+
+      block.querySelectorAll("p, pre, code").forEach((el) => {
+        const txt = el.textContent || "";
+        if (txt.includes("<tool_call>") || txt.includes("tool_call>")) {
+          const stripped = txt
+            .replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "")
+            .replace(/<\/?[a-zA-Z0-9_:-]+>/g, "")
+            .trim();
+          if (stripped === "") {
+            (el as HTMLElement).style.display = "none";
+          } else {
+            el.innerHTML = el.innerHTML
+              .replace(/&lt;tool_call&gt;[\s\S]*?&lt;\/tool_call&gt;/gi, "")
+              .replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "");
+          }
+        }
+      });
+    }
   }
 }
 
