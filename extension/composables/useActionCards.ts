@@ -2,18 +2,26 @@ import { activeActions, settings } from "./useStudioState";
 import { useBridgeWs } from "./useBridgeWs";
 import { usePromptExecution } from "./usePromptExecution";
 import { useChatProjects } from "./useChatProjects";
+import { useDeepSeekDom } from "./useDeepSeekDom";
 import type { ToolCallAction } from "../types";
 
 export function useActionCards() {
   const { executeToolCall } = useBridgeWs();
   const { sendPrompt } = usePromptExecution();
   const { markChatDone } = useChatProjects();
+  const { isGenerating } = useDeepSeekDom();
 
   let batchTimer: any = null;
   let isFlushingBatch = false;
 
   async function checkAndFlushBatch() {
     if (isFlushingBatch) return;
+
+    // If DeepSeek is still generating tokens/text, wait for completion
+    if (isGenerating()) {
+      scheduleBatchCheck(600);
+      return;
+    }
 
     // Check if any actions are still pending or executing
     const hasRunning = activeActions.value.some(
@@ -63,7 +71,7 @@ export function useActionCards() {
         }
       });
 
-      const combinedPrompt = `${blocks.join("\n\n")}\n\nPlease review these results and continue autonomously until you call task_done.`;
+      const combinedPrompt = `[MCP_AUTO_RESULT]\n${blocks.join("\n\n")}\n\nPlease review these results and continue autonomously until you call task_done.`;
       await sendPrompt(combinedPrompt);
     } finally {
       isFlushingBatch = false;

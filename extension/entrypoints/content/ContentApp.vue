@@ -9,6 +9,7 @@ import { useChatProjects } from "../../composables/useChatProjects";
 import { useAgentSystemPrompt } from "../../composables/useAgentSystemPrompt";
 import { useDeepSeekDom } from "../../composables/useDeepSeekDom";
 import { useMessageTurns } from "../../composables/useMessageTurns";
+import { useMessageHider } from "../../composables/useMessageHider";
 
 import InlineToolExecution from "../../components/InlineToolExecution.vue";
 import ChatInputBadge from "../../components/ChatInputBadge.vue";
@@ -20,16 +21,22 @@ const { connect } = useBridgeWs();
 const { startWatchdog, stopWatchdog } = useWatchdog();
 const { loadSkills } = useSkills();
 const { loadProjects } = useProjects();
-const { loadChatProjects, tagCurrentChat, applySidebarFilter } =
-  useChatProjects();
+const {
+  loadChatProjects,
+  tagCurrentChat,
+  applySidebarFilter,
+  getCurrentChatId,
+} = useChatProjects();
 const { initPromptAutoInjection } = useAgentSystemPrompt();
 const { getChatInput, getSendButton } = useDeepSeekDom();
 const { messageTurns, scanMessagesForTools, resetTurns } = useMessageTurns();
+const { processAutomatedMessages } = useMessageHider();
 
 const showSidebarDropdown = ref(false);
 let scannerInterval: any = null;
 let domDetector: any = null;
 let lastKnownPath = "";
+let lastChatId: string | null = null;
 
 function checkDomMounts() {
   // Clean up any legacy badge anchor
@@ -69,12 +76,27 @@ function checkDomMounts() {
 
   // 2. Track URL route change for chat-to-project tagging and filtering
   const currentPath = window.location.pathname;
+  const currentChatId = getCurrentChatId();
   if (currentPath !== lastKnownPath) {
+    const isRealChatSwitch =
+      (lastChatId !== null &&
+        currentChatId !== null &&
+        lastChatId !== currentChatId) ||
+      (lastChatId !== null && currentChatId === null);
+
+    if (isRealChatSwitch) {
+      resetTurns();
+    }
+    lastChatId = currentChatId;
     lastKnownPath = currentPath;
-    resetTurns();
     tagCurrentChat();
     applySidebarFilter();
   }
+}
+
+function tickScanner() {
+  scanMessagesForTools();
+  processAutomatedMessages();
 }
 
 onMounted(async () => {
@@ -85,6 +107,9 @@ onMounted(async () => {
   connect();
   startWatchdog();
 
+  lastChatId = getCurrentChatId();
+  lastKnownPath = window.location.pathname;
+
   // Initial tag and filter
   tagCurrentChat();
   applySidebarFilter();
@@ -93,12 +118,17 @@ onMounted(async () => {
   initPromptAutoInjection(getChatInput, getSendButton);
 
   window.addEventListener("popstate", () => {
-    resetTurns();
+    const currentChatId = getCurrentChatId();
+    if (lastChatId !== currentChatId) {
+      resetTurns();
+    }
+    lastChatId = currentChatId;
+    lastKnownPath = window.location.pathname;
     tagCurrentChat();
     applySidebarFilter();
   });
 
-  scannerInterval = setInterval(scanMessagesForTools, 800);
+  scannerInterval = setInterval(tickScanner, 700);
   domDetector = setInterval(checkDomMounts, 1000);
 });
 

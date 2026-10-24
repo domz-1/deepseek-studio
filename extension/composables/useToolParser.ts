@@ -1,3 +1,4 @@
+import { reactive } from "vue";
 import type { ToolCallAction } from "../types";
 
 export function useToolParser() {
@@ -124,7 +125,7 @@ export function useToolParser() {
     if (!cleanArgs.command && cleanArgs.cmd) cleanArgs.command = cleanArgs.cmd;
     if (typeof cleanArgs === "string") cleanArgs.command = cleanArgs;
 
-    return {
+    return reactive({
       id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       callId: `call_${Date.now()}`,
       name: cleanName,
@@ -132,7 +133,7 @@ export function useToolParser() {
       rawBlock,
       status: "pending",
       timestamp: Date.now(),
-    };
+    });
   }
 
   function stripToolCalls(text: string): string {

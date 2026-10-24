@@ -193,3 +193,12 @@ arguments,
 tool_result {
   display: none !important;
 }
+
+/* Hidden automated tool output message turns and copy buttons */
+.ds-mcp-hidden-turn {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}

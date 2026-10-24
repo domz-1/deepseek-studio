@@ -203,7 +203,7 @@ ${toolCatalog}
     const isNew = isFirstMessageInChat() && !sessionPromptInjected;
     if (isNew) {
       sessionPromptInjected = true;
-      return `${buildFableSystemPrompt()}\n\n${expanded}`;
+      return `${buildFableSystemPrompt()}\n\n[USER_PROMPT]\n${expanded}`;
     }
     return expanded;
   }
@@ -215,7 +215,7 @@ ${toolCatalog}
     let modified = expandMentionsAndSkills(input.value);
 
     if (isFirstMessageInChat()) {
-      modified = `${buildFableSystemPrompt()}\n\n${modified}`;
+      modified = `${buildFableSystemPrompt()}\n\n[USER_PROMPT]\n${modified}`;
       sessionPromptInjected = true;
     }
 

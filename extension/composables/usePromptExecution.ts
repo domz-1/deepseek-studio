@@ -3,7 +3,7 @@ import { settings } from "./useStudioState";
 import { useAgentSystemPrompt } from "./useAgentSystemPrompt";
 
 export function usePromptExecution() {
-  const { getChatInput, getSendButton } = useDeepSeekDom();
+  const { getChatInput, getSendButton, clickButton } = useDeepSeekDom();
   const { preparePromptForSubmission } = useAgentSystemPrompt();
 
   async function typeHumanizedText(el: HTMLTextAreaElement, text: string) {
@@ -54,17 +54,7 @@ export function usePromptExecution() {
     // 4. Click Send
     const sendBtn = getSendButton();
     if (sendBtn) {
-      try {
-        sendBtn.dispatchEvent(
-          new PointerEvent("pointerdown", { bubbles: true }),
-        );
-        sendBtn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-        sendBtn.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
-        sendBtn.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
-        sendBtn.click();
-      } catch (_) {
-        sendBtn.click?.();
-      }
+      clickButton(sendBtn);
     }
 
     // 5. Fallback Enter key if input is still populated
