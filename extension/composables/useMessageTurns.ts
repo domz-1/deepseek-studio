@@ -26,6 +26,20 @@ export function useMessageTurns() {
 
     if (mdBlocks.length === 0) return;
 
+    // Sweep all existing mounts to ensure any newly appended siblings stay hidden
+    document.querySelectorAll(".ds-inline-tool-mount").forEach((anchor) => {
+      let sib = anchor.nextElementSibling;
+      while (sib) {
+        if (
+          !sib.classList.contains("ds-inline-tool-mount") &&
+          (sib as HTMLElement).style.display !== "none"
+        ) {
+          (sib as HTMLElement).style.display = "none";
+        }
+        sib = sib.nextElementSibling;
+      }
+    });
+
     const generating = isGenerating();
 
     for (let i = 0; i < mdBlocks.length; i++) {
@@ -96,7 +110,16 @@ export function useMessageTurns() {
         block.appendChild(anchor);
       }
 
-      // Hide raw tool call tags from DOM
+      // 1. Hide all raw tool call siblings after anchor (parameters, code, HTML snippets, closing tags)
+      let sib = anchor.nextElementSibling;
+      while (sib) {
+        if (!sib.classList.contains("ds-inline-tool-mount")) {
+          (sib as HTMLElement).style.display = "none";
+        }
+        sib = sib.nextElementSibling;
+      }
+
+      // 2. Hide raw tool call tags from DOM
       block
         .querySelectorAll(
           "tool_call, [class*='tool_call' i], tool_name, parameters, parameter, arguments, tool_result, invoke, [class*='dsml' i]",
@@ -105,7 +128,9 @@ export function useMessageTurns() {
           (el as HTMLElement).style.display = "none";
         });
 
-      block.querySelectorAll("p, pre, code").forEach((el) => {
+      // 3. Hide any snippet elements containing tool syntax
+      block.querySelectorAll("p, pre, code, span, div").forEach((el) => {
+        if (el.closest(".ds-inline-tool-mount")) return;
         const txt = el.textContent || "";
         const isToolSnippet =
           txt.includes("<tool_call>") ||

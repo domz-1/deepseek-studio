@@ -4,6 +4,7 @@ import { useStudioState } from "../composables/useStudioState";
 import { useBridgeWs } from "../composables/useBridgeWs";
 import ServerPills from "./ServerPills.vue";
 import WatchdogBadge from "./WatchdogBadge.vue";
+import ChatExportMenu from "./ChatExportMenu.vue";
 import { Activity, Cpu, Pause, Sparkles, GitBranch } from "lucide-vue-next";
 import { useWorkspaceDrawer } from "../composables/useWorkspaceDrawer";
 
@@ -21,11 +22,11 @@ const isHovered = ref(false);
   >
     <!-- Strictly Compact Liquid Glass Morphing Pill Container (Fixed h-8) -->
     <div
-      class="glass glass--subtle glass--liquid h-8 max-h-8 flex items-center flex-nowrap whitespace-nowrap rounded-full border border-white/15 shadow-xl backdrop-blur-2xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden cursor-pointer"
+      class="glass glass--subtle glass--liquid h-8 max-h-8 flex items-center flex-nowrap whitespace-nowrap rounded-full border border-white/15 shadow-xl backdrop-blur-2xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer"
       :class="[
         isHovered
-          ? 'max-w-[640px] px-3.5 bg-slate-900/95 border-indigo-400/40 shadow-indigo-500/10'
-          : 'max-w-[105px] px-2.5 bg-slate-900/80 hover:scale-105',
+          ? 'max-w-[900px] overflow-visible px-3.5 bg-slate-900/95 border-indigo-400/40 shadow-indigo-500/10'
+          : 'max-w-[105px] overflow-hidden px-2.5 bg-slate-900/80 hover:scale-105',
       ]"
       :title="`DeepSeek Studio (${bridgeStatusText}) - Hover to expand controls`"
     >
@@ -58,7 +59,7 @@ const isHovered = ref(false);
       >
         <div
           v-if="isHovered"
-          class="flex items-center flex-nowrap whitespace-nowrap gap-2.5 pl-3 ml-2.5 border-l border-white/10 shrink-0 h-full"
+          class="flex items-center flex-nowrap whitespace-nowrap gap-2.5 pl-3 ml-2.5 border-l border-white/10 shrink-0 h-full overflow-visible"
         >
           <!-- Reconnect & Status Trigger -->
           <button
@@ -85,9 +86,6 @@ const isHovered = ref(false);
             <span class="whitespace-nowrap">{{ bridgeStatusText }}</span>
           </button>
 
-          <!-- Server Pills -->
-          <ServerPills />
-
           <!-- Workspace Drawer Trigger -->
           <button
             type="button"
@@ -105,8 +103,14 @@ const isHovered = ref(false);
             </span>
           </button>
 
+          <!-- Export Chat Dropdown -->
+          <ChatExportMenu />
+
           <!-- Watchdog Countdown Badge -->
           <WatchdogBadge />
+
+          <!-- Server Pills -->
+          <ServerPills />
         </div>
       </Transition>
     </div>
