@@ -97,9 +97,15 @@ export function useWatchdog() {
       countdown.value = remaining;
 
       if (remaining === 0) {
-        if (Date.now() - lastAttemptTime > 1500) {
+        if (Date.now() - lastAttemptTime > 2000) {
           lastAttemptTime = Date.now();
           clickButton(el);
+          setTimeout(async () => {
+            const stillThere = findContinueOrRetryButton();
+            if (stillThere) {
+              await sendPrompt("continue");
+            }
+          }, 500);
         }
       }
       return;
@@ -130,6 +136,12 @@ export function useWatchdog() {
     const match = findContinueOrRetryButton();
     if (match) {
       clickButton(match.el);
+      setTimeout(async () => {
+        const still = findContinueOrRetryButton();
+        if (still) {
+          await sendPrompt("continue");
+        }
+      }, 500);
     }
   }
 
