@@ -960,6 +960,106 @@ app.get("/fs-index", (req, res) => {
   }
 });
 
+function scanSkillsFromFilesystem() {
+  const skills = [];
+  const searchDirs = [
+    path.join(os.homedir(), ".agents", "skills"),
+    path.join(os.homedir(), ".gemini", "antigravity", "builtin", "skills"),
+  ];
+
+  for (const baseDir of searchDirs) {
+    if (!fs.existsSync(baseDir)) continue;
+    try {
+      const entries = fs.readdirSync(baseDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
+        const skillDir = path.join(baseDir, entry.name);
+        try {
+          const stat = fs.statSync(skillDir);
+          if (!stat.isDirectory()) continue;
+
+          const candidates = ["SKILL.md", "skill.md", "README.md"];
+          let skillFile = null;
+          for (const cand of candidates) {
+            const p = path.join(skillDir, cand);
+            if (fs.existsSync(p)) {
+              skillFile = p;
+              break;
+            }
+          }
+
+          if (skillFile) {
+            const raw = fs.readFileSync(skillFile, "utf8");
+            let name = entry.name;
+            let description = "";
+            let content = raw;
+
+            const fmMatch = raw.match(
+              /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/,
+            );
+            if (fmMatch) {
+              const frontmatter = fmMatch[1];
+              content = fmMatch[2].trim();
+              const nameMatch = frontmatter.match(/^name:\s*(.+)$/m);
+              const descMatch = frontmatter.match(/^description:\s*(.+)$/m);
+              if (nameMatch)
+                name = nameMatch[1].trim().replace(/^['"]|['"]$/g, "");
+              if (descMatch)
+                description = descMatch[1].trim().replace(/^['"]|['"]$/g, "");
+            } else {
+              const headingMatch = raw.match(/^#\s+(.+)$/m);
+              if (headingMatch) description = headingMatch[1].trim();
+            }
+
+            let files = [];
+            try {
+              files = fs
+                .readdirSync(skillDir)
+                .filter((f) => f !== "SKILL.md" && f !== ".git");
+            } catch (_) {}
+
+            skills.push({
+              id: name,
+              name,
+              description: description || `Skill package: ${name}`,
+              content,
+              path: skillDir,
+              files,
+              triggers: [`/${name}`, `@${name}`],
+            });
+          }
+        } catch (e) {
+          console.warn(
+            `[Bridge] Error reading skill ${entry.name}:`,
+            e.message,
+          );
+        }
+      }
+    } catch (e) {
+      console.warn(`[Bridge] Error reading skills dir ${baseDir}:`, e.message);
+    }
+  }
+
+  const seen = new Set();
+  const unique = [];
+  for (const s of skills) {
+    if (!seen.has(s.name)) {
+      seen.add(s.name);
+      unique.push(s);
+    }
+  }
+  return unique;
+}
+
+app.get("/skills", (req, res) => {
+  try {
+    const skills = scanSkillsFromFilesystem();
+    res.json({ ok: true, skills });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 3. Fast Project Tree Skeleton (Generates instant compact map of workspace in ~20ms)
 app.get("/project-skeleton", (req, res) => {
   try {

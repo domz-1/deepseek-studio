@@ -1,8 +1,10 @@
 import { useDeepSeekDom } from "./useDeepSeekDom";
 import { settings } from "./useStudioState";
+import { useAgentSystemPrompt } from "./useAgentSystemPrompt";
 
 export function usePromptExecution() {
   const { getChatInput, getSendButton } = useDeepSeekDom();
+  const { preparePromptForSubmission } = useAgentSystemPrompt();
 
   async function typeHumanizedText(el: HTMLTextAreaElement, text: string) {
     el.focus();
@@ -18,18 +20,6 @@ export function usePromptExecution() {
         }
       }
     } else {
-      // Natural typing start
-      const preview = text.slice(0, 15);
-      const remaining = text.slice(15);
-      for (let i = 0; i < preview.length; i++) {
-        el.value = (el.value || "") + preview[i];
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-        if (isNatural) {
-          await new Promise((r) => setTimeout(r, 15 + Math.random() * 15));
-        }
-      }
-
-      // Native setter injection for bulk
       const proto = Object.getPrototypeOf(el);
       const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
       if (nativeSetter) {
@@ -41,9 +31,11 @@ export function usePromptExecution() {
     }
   }
 
-  async function sendPrompt(promptText: string): Promise<boolean> {
+  async function sendPrompt(rawPromptText: string): Promise<boolean> {
     const input = getChatInput();
     if (!input) return false;
+
+    const promptText = preparePromptForSubmission(rawPromptText);
 
     // 1. Natural pre-input focus delay
     if (settings.humanSpeed === "natural") {

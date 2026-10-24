@@ -6,18 +6,9 @@ import { useDeepSeekDom } from "../composables/useDeepSeekDom";
 import { usePromptExecution } from "../composables/usePromptExecution";
 import SlashMentionMenu from "./SlashMentionMenu.vue";
 import ChatProjectSelector from "./ChatProjectSelector.vue";
-import {
-  Cpu,
-  Globe,
-  Folder,
-  Terminal,
-  Brain,
-  Wrench,
-  Sparkles,
-  Activity,
-} from "lucide-vue-next";
+import { Cpu, Activity } from "lucide-vue-next";
 
-const { bridgeConnected, isServerStopped, servers } = useStudioState();
+const { bridgeConnected, isServerStopped } = useStudioState();
 const { connect } = useBridgeWs();
 const { getChatInput } = useDeepSeekDom();
 const { typeHumanizedText } = usePromptExecution();
@@ -29,16 +20,6 @@ const menuCoords = ref<{ bottom: string; left: string; width: string }>({
   left: "24px",
   width: "380px",
 });
-
-function getServerIcon(name: string) {
-  const n = name.toLowerCase();
-  if (n.includes("chrome") || n.includes("web")) return Globe;
-  if (n.includes("file") || n.includes("fs")) return Folder;
-  if (n.includes("bash") || n.includes("shell") || n.includes("cmd"))
-    return Terminal;
-  if (n.includes("memory") || n.includes("knowledge")) return Brain;
-  return Wrench;
-}
 
 function updateMenuCoords(input: HTMLTextAreaElement) {
   const rect = input.getBoundingClientRect();
@@ -189,41 +170,6 @@ onUnmounted(() => {
 
       <!-- Workspace Project Selector Pill with Dropdown -->
       <ChatProjectSelector />
-
-      <!-- Server Chips -->
-      <div class="flex items-center flex-wrap gap-1">
-        <button
-          v-for="server in servers"
-          :key="server.name"
-          type="button"
-          class="glass-interactive inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 hover:bg-indigo-500/20 border border-white/10 text-[11px] text-slate-300 hover:text-white transition-all"
-          :title="`Insert @${server.name} (${server.toolCount} tools)`"
-          @click.prevent="addMention(`@${server.name}`)"
-        >
-          <component
-            :is="getServerIcon(server.name)"
-            :size="11"
-            class="text-indigo-400"
-          />
-          <span>@{{ server.name }}</span>
-          <span
-            v-if="server.toolCount"
-            class="text-[9.5px] bg-white/10 px-1 rounded font-mono text-slate-400"
-          >
-            {{ server.toolCount }}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          class="glass-interactive inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-400/40 text-[11px] font-semibold text-white shadow-sm transition-all"
-          title="Insert @all tools into prompt"
-          @click.prevent="addMention('@all')"
-        >
-          <Sparkles :size="11" class="text-indigo-300" />
-          <span>@all</span>
-        </button>
-      </div>
     </div>
   </div>
 </template>

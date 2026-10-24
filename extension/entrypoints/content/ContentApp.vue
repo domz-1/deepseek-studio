@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
-import { Cpu, Activity, Pause } from "lucide-vue-next";
 import { useStudioState } from "../../composables/useStudioState";
 import { useBridgeWs } from "../../composables/useBridgeWs";
 import { useWatchdog } from "../../composables/useWatchdog";
@@ -10,19 +9,12 @@ import { useToolParser } from "../../composables/useToolParser";
 import { useActionCards } from "../../composables/useActionCards";
 import { useDeepSeekDom } from "../../composables/useDeepSeekDom";
 
-import ServerPills from "../../components/ServerPills.vue";
-import WatchdogBadge from "../../components/WatchdogBadge.vue";
 import ActionCard from "../../components/ActionCard.vue";
 import ChatInputBadge from "../../components/ChatInputBadge.vue";
 import SidebarProjectDropdown from "../../components/SidebarProjectDropdown.vue";
+import TopFloatingBar from "../../components/TopFloatingBar.vue";
 
-const {
-  bridgeConnected,
-  bridgeStatusText,
-  isServerStopped,
-  activeActions,
-  loadSettings,
-} = useStudioState();
+const { activeActions, loadSettings } = useStudioState();
 const { connect } = useBridgeWs();
 const { startWatchdog, stopWatchdog } = useWatchdog();
 const { loadSkills } = useSkills();
@@ -115,7 +107,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="fixed bottom-4 right-4 z-[999999] font-sans pointer-events-none">
+  <div class="font-sans pointer-events-none">
     <!-- SVG Displacement filter for liquid refraction -->
     <svg
       style="position: absolute; width: 0; height: 0; pointer-events: none"
@@ -140,6 +132,9 @@ onUnmounted(() => {
       </defs>
     </svg>
 
+    <!-- Top-Right Hover-Expanded Floating Studio Dot/Bar -->
+    <TopFloatingBar />
+
     <!-- Teleported Chat Input Badge into chat.deepseek.com input area -->
     <Teleport v-if="showInputBadge" to="#ds-chat-input-badge-anchor">
       <ChatInputBadge />
@@ -149,37 +144,6 @@ onUnmounted(() => {
     <Teleport v-if="showSidebarDropdown" to="#ds-sidebar-project-anchor">
       <SidebarProjectDropdown />
     </Teleport>
-
-    <!-- Bottom-Right Floating Bar -->
-    <div
-      class="glass glass--strong glass--liquid flex items-center justify-between gap-3 rounded-full px-3.5 py-1.5 pointer-events-auto border border-white/10 shadow-2xl text-xs select-none"
-    >
-      <div class="flex items-center gap-2">
-        <div
-          class="flex items-center gap-1.5 pr-2 border-r border-white/10 text-[11.5px] font-semibold"
-          :class="[
-            bridgeConnected
-              ? 'text-emerald-400'
-              : isServerStopped
-                ? 'text-amber-400'
-                : 'text-slate-400',
-          ]"
-        >
-          <component
-            :is="bridgeConnected ? Activity : isServerStopped ? Pause : Cpu"
-            :size="13"
-            class="shrink-0"
-            :class="{ 'animate-pulse': bridgeConnected }"
-          />
-          <span>Studio {{ bridgeStatusText }}</span>
-        </div>
-        <ServerPills />
-      </div>
-
-      <div class="flex items-center gap-2">
-        <WatchdogBadge />
-      </div>
-    </div>
 
     <!-- Interactive MCP Action Cards in Chat -->
     <div

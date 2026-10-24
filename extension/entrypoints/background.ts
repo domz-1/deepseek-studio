@@ -49,6 +49,7 @@ export default defineBackground(() => {
         });
       }
       if (msg.type === "GET_PROJECTS") return await bridgeFetch("/projects");
+      if (msg.type === "GET_SKILLS") return await bridgeFetch("/skills");
       if (msg.type === "GET_TOKEN") return { token: await getToken() };
       if (msg.type === "SERVER_START") {
         return await bridgeFetch("/server/start", { method: "POST" });
