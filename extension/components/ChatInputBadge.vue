@@ -17,12 +17,12 @@ const menuCoords = ref<{
 }>({
   bottom: "80px",
   left: "24px",
-  width: "420px",
+  width: "310px",
 });
 
 function updateMenuCoords(input: HTMLTextAreaElement) {
   const rect = input.getBoundingClientRect();
-  const width = Math.min(420, window.innerWidth - 32);
+  const width = Math.min(310, window.innerWidth - 32);
   const left = Math.max(
     16,
     Math.min(rect.left, window.innerWidth - width - 16),

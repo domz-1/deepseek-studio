@@ -14,6 +14,7 @@ import {
   Sparkles,
   Play,
   PowerOff,
+  RotateCw,
   Loader2,
 } from "lucide-vue-next";
 
@@ -29,7 +30,7 @@ const {
   saveSettings,
 } = useStudioState();
 
-const { connect, startServer, stopServer } = useBridgeWs();
+const { connect, startServer, stopServer, restartServer } = useBridgeWs();
 
 onMounted(async () => {
   await loadSettings();
@@ -109,7 +110,7 @@ function updateDelay(e: Event) {
         </div>
       </div>
 
-      <div class="control-actions">
+      <div class="control-actions flex items-center gap-1.5">
         <button
           v-if="bridgeConnected"
           type="button"
@@ -134,6 +135,19 @@ function updateDelay(e: Event) {
           <Loader2 v-if="isTogglingServer" :size="13" class="spin-icon" />
           <Play v-else :size="13" />
           <span>Start</span>
+        </button>
+
+        <button
+          type="button"
+          class="btn-control glass-interactive p-1.5 rounded-xl border border-white/10 hover:border-indigo-400/30 text-slate-400 hover:text-white"
+          :disabled="isTogglingServer"
+          title="Restart MCP servers"
+          @click="restartServer"
+        >
+          <RotateCw
+            :size="13"
+            :class="{ 'spin-icon animate-spin': isTogglingServer }"
+          />
         </button>
       </div>
     </div>

@@ -103,6 +103,24 @@ export function useBridgeWs() {
     }
   }
 
+  async function restartServer(): Promise<boolean> {
+    isTogglingServer.value = true;
+    try {
+      const res = await new Promise<any>((resolve) => {
+        chrome.runtime.sendMessage({ type: "SERVER_RESTART" }, (r) => {
+          if (chrome.runtime.lastError) resolve(null);
+          else resolve(r);
+        });
+      });
+      await fetchBridgeStatus();
+      return !!res?.ok;
+    } catch {
+      return false;
+    } finally {
+      isTogglingServer.value = false;
+    }
+  }
+
   function connect() {
     fetchBridgeStatus();
     if (pollTimer) clearInterval(pollTimer);
@@ -143,5 +161,6 @@ export function useBridgeWs() {
     fetchBridgeStatus,
     startServer,
     stopServer,
+    restartServer,
   };
 }

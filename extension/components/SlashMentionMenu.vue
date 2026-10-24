@@ -138,39 +138,39 @@ onUnmounted(() => {
             bottom: coords.bottom !== 'auto' ? coords.bottom : undefined,
             top: coords.top !== 'auto' ? coords.top : undefined,
             left: coords.left,
-            width: coords.width,
+            width: coords.width || '310px',
             zIndex: 99999999,
           }
         : {}
     "
-    class="glass glass--strong w-[420px] max-w-[94vw] rounded-3xl overflow-hidden select-none border border-white/15 shadow-[0_16px_40px_rgba(0,0,0,0.45)] backdrop-blur-2xl bg-slate-900/95 text-slate-100 font-sans animate-in fade-in zoom-in-95 duration-150"
+    class="glass glass--strong w-[310px] max-w-[92vw] rounded-2xl overflow-hidden select-none border border-white/15 shadow-[0_12px_32px_rgba(0,0,0,0.5)] backdrop-blur-2xl bg-slate-900/95 text-slate-100 font-sans animate-in fade-in zoom-in-95 duration-150"
     :class="[!coords && 'absolute bottom-full left-0 mb-2']"
   >
-    <!-- Rounded Header -->
+    <!-- Compact Rounded Header -->
     <div
-      class="flex items-center gap-2 px-4 py-2.5 border-b border-white/10 text-[11px] font-semibold text-slate-300 bg-white/[0.04]"
+      class="flex items-center gap-1.5 px-3 py-1.5 border-b border-white/10 text-[10px] font-semibold text-slate-300 bg-white/[0.04]"
     >
       <component
         :is="mode === 'slash' ? Zap : Sparkles"
-        :size="14"
+        :size="12"
         class="text-indigo-400 shrink-0"
       />
       <span class="flex-1 text-slate-200 tracking-tight">{{
         mode === "slash" ? "Agent Skills" : "Active MCP Servers"
       }}</span>
       <span
-        class="bg-indigo-500/20 text-indigo-300 text-[10px] px-2.5 py-0.5 rounded-full font-mono font-medium border border-indigo-400/30"
+        class="bg-indigo-500/20 text-indigo-300 text-[9px] px-1.5 py-0.2 rounded-full font-mono font-medium border border-indigo-400/30"
       >
         {{ filteredItems.length }}
       </span>
     </div>
 
-    <!-- Scrollable Items List -->
-    <div class="max-h-72 overflow-y-auto p-2 flex flex-col gap-1">
+    <!-- Compact Scrollable Items List -->
+    <div class="max-h-56 overflow-y-auto p-1 flex flex-col gap-0.5">
       <div
         v-for="(item, idx) in filteredItems"
         :key="item.name"
-        class="px-3.5 py-2 rounded-2xl cursor-pointer transition-all flex flex-col gap-0.5"
+        class="px-2.5 py-1.5 rounded-xl cursor-pointer transition-all flex flex-col gap-0.5"
         :class="[
           idx === selectedIndex
             ? 'bg-indigo-500/25 border border-indigo-400/40 shadow-sm ds-slash-item-active'
@@ -179,20 +179,24 @@ onUnmounted(() => {
         @click="selectItem(item)"
         @mouseenter="selectedIndex = idx"
       >
-        <div class="flex items-center gap-2 text-xs font-medium text-slate-100">
+        <div
+          class="flex items-center gap-1.5 text-[11px] font-medium text-slate-100"
+        >
           <component
             :is="mode === 'slash' ? Zap : getItemIcon(item.name)"
-            :size="13"
+            :size="11"
             class="text-indigo-400 shrink-0"
           />
-          <span class="text-indigo-400 font-bold font-mono text-[11px]">{{
+          <span class="text-indigo-400 font-bold font-mono text-[10px]">{{
             mode === "slash" ? "/" : "@"
           }}</span>
-          <span class="font-semibold text-white tracking-tight">{{
+          <span class="font-semibold text-white tracking-tight truncate">{{
             item.name
           }}</span>
         </div>
-        <div class="text-[11px] text-slate-400 pl-5 truncate opacity-90">
+        <div
+          class="text-[9.5px] text-slate-400 pl-4 truncate opacity-85 leading-tight"
+        >
           {{ item.description }}
         </div>
       </div>

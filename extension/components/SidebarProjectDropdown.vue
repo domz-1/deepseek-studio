@@ -12,6 +12,7 @@ import {
   Check,
   Trash2,
   FolderGit2,
+  Pin,
 } from "lucide-vue-next";
 
 const {
@@ -26,6 +27,7 @@ const {
   loadChatProjects,
   createNewChatInProject,
   openChat,
+  togglePinChat,
   applySidebarFilter,
 } = useChatProjects();
 
@@ -41,11 +43,9 @@ onMounted(async () => {
   applySidebarFilter();
 
   // Expand active project by default, or the first project
-  if (settings.activeProject) {
-    openFolders.value[settings.activeProject] = true;
-  } else if (projects.value.length > 0) {
+  if (settings.activeProject) openFolders.value[settings.activeProject] = true;
+  else if (projects.value.length > 0)
     openFolders.value[projects.value[0].path] = true;
-  }
 
   window.addEventListener("click", () => {
     activeMenuPath.value = null;
@@ -63,7 +63,7 @@ function toggleShowAll(path: string) {
 
 function getVisibleChats(proj: any) {
   if (showAllChats.value[proj.path]) return proj.chats;
-  return proj.chats.slice(0, 4);
+  return proj.chats.slice(0, 8);
 }
 
 async function handleAddProject() {
@@ -235,10 +235,16 @@ function toggleMenu(path: string, e: MouseEvent) {
             ]"
             @click="openChat(chat.id)"
           >
-            <!-- Title & Status -->
+            <!-- Title, Status & Pin -->
             <div class="flex items-center gap-1.5 truncate min-w-0 mr-1.5">
+              <Pin
+                v-if="chat.isPinned"
+                :size="10"
+                class="text-amber-400 fill-amber-400 rotate-45 shrink-0"
+                title="Pinned chat"
+              />
               <Check
-                v-if="chat.isDone"
+                v-else-if="chat.isDone"
                 :size="11"
                 class="text-emerald-400 shrink-0"
                 title="Completed task"
@@ -253,15 +259,28 @@ function toggleMenu(path: string, e: MouseEvent) {
               <span class="truncate text-[11px]">{{ chat.title }}</span>
             </div>
 
-            <!-- Relative Time (e.g. 18h, 2d) -->
-            <span class="text-[9.5px] text-slate-500 shrink-0 font-mono">
-              {{ chat.timeAgo }}
-            </span>
+            <!-- Right: Pin action on hover + Relative Time -->
+            <div class="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                class="p-0.5 rounded hover:bg-white/10 text-slate-400 hover:text-amber-300 opacity-0 group-hover/chat:opacity-100 transition-opacity"
+                :title="chat.isPinned ? 'Unpin chat' : 'Pin chat'"
+                @click.stop="togglePinChat(chat.id)"
+              >
+                <Pin
+                  :size="10"
+                  :class="{ 'fill-amber-400 text-amber-400': chat.isPinned }"
+                />
+              </button>
+              <span class="text-[9.5px] text-slate-500 font-mono">
+                {{ chat.timeAgo }}
+              </span>
+            </div>
           </div>
 
           <!-- See all (X) Toggle -->
           <button
-            v-if="proj.chats.length > 4"
+            v-if="proj.chats.length > 8"
             type="button"
             class="text-[10px] text-indigo-400/80 hover:text-indigo-300 px-2 py-0.5 text-left transition-colors"
             @click.stop="toggleShowAll(proj.path)"

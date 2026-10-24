@@ -10,6 +10,7 @@ export interface ChatStatusInfo {
 export const chatProjectMap = ref<Record<string, string>>({});
 export const chatTitles = ref<Record<string, string>>({});
 export const chatStatusMap = ref<Record<string, ChatStatusInfo>>({});
+export const pinnedChats = ref<Record<string, boolean>>({});
 export const filterByActiveProject = ref<boolean>(false);
 
 export function useChatProjects() {
@@ -19,12 +20,14 @@ export function useChatProjects() {
         "ds_chat_projects",
         "ds_chat_titles",
         "ds_chat_status",
+        "ds_pinned_chats",
         "ds_filter_by_project",
       ]);
       if (stored.ds_chat_projects)
         chatProjectMap.value = stored.ds_chat_projects;
       if (stored.ds_chat_titles) chatTitles.value = stored.ds_chat_titles;
       if (stored.ds_chat_status) chatStatusMap.value = stored.ds_chat_status;
+      if (stored.ds_pinned_chats) pinnedChats.value = stored.ds_pinned_chats;
       if (typeof stored.ds_filter_by_project === "boolean") {
         filterByActiveProject.value = stored.ds_filter_by_project;
       }
@@ -37,9 +40,16 @@ export function useChatProjects() {
         ds_chat_projects: chatProjectMap.value,
         ds_chat_titles: chatTitles.value,
         ds_chat_status: chatStatusMap.value,
+        ds_pinned_chats: pinnedChats.value,
         ds_filter_by_project: filterByActiveProject.value,
       });
     } catch (_) {}
+  }
+
+  async function togglePinChat(chatId: string) {
+    if (!chatId) return;
+    pinnedChats.value[chatId] = !pinnedChats.value[chatId];
+    await saveChatProjects();
   }
 
   function getCurrentChatId(): string | null {
@@ -145,13 +155,16 @@ export function useChatProjects() {
             url: `/a/chat/s/${id}`,
             timeAgo: formatTimeAgo(statusInfo?.timestamp),
             isDone: statusInfo?.status === "done",
+            isPinned: !!pinnedChats.value[id],
             isActive: currentId === id,
           });
         }
       }
 
-      // Sort chats with most recently updated first
+      // Sort chats: pinned first, then most recently updated
       matchingChats.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
         const timeA = chatStatusMap.value[a.id]?.timestamp || 0;
         const timeB = chatStatusMap.value[b.id]?.timestamp || 0;
         return timeB - timeA;
@@ -166,20 +179,36 @@ export function useChatProjects() {
     });
   });
 
-  function createNewChatInProject(projectPath: string) {
+  async function createNewChatInProject(projectPath: string) {
     settings.activeProject = projectPath;
-    saveSettings();
+    await saveSettings({ activeProject: projectPath });
 
-    // Trigger click on DeepSeek's 'New chat' button
-    const newChatBtn =
-      document.querySelector<HTMLElement>("div._7b40dad") ||
-      Array.from(document.querySelectorAll<HTMLElement>("div, button, a")).find(
-        (el) => (el.textContent || "").trim().toLowerCase() === "new chat",
-      );
-    if (newChatBtn) {
-      newChatBtn.click();
-    } else {
-      window.location.href = "/";
+    // Look for DeepSeek's native New Chat action
+    const candidates = [
+      document.querySelector<HTMLElement>("div._7b40dad button"),
+      document.querySelector<HTMLElement>("div._7b40dad div[role='button']"),
+      document.querySelector<HTMLElement>("div._7b40dad a"),
+      document.querySelector<HTMLElement>("div._7b40dad"),
+      document.querySelector<HTMLElement>("button[aria-label*='New chat' i]"),
+      document.querySelector<HTMLElement>("a[href='/']"),
+    ];
+
+    for (const c of candidates) {
+      if (c) {
+        c.click();
+        c.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true }),
+        );
+        break;
+      }
+    }
+
+    if (window.location.pathname.startsWith("/a/chat/s/")) {
+      setTimeout(() => {
+        if (window.location.pathname.startsWith("/a/chat/s/")) {
+          window.location.href = "/";
+        }
+      }, 150);
     }
   }
 
@@ -195,6 +224,14 @@ export function useChatProjects() {
   }
 
   function applySidebarFilter() {
+    if (!document.getElementById("ds-hide-native-new-chat-style")) {
+      const s = document.createElement("style");
+      s.id = "ds-hide-native-new-chat-style";
+      s.textContent =
+        "div._7b40dad, div[class*='newChat' i], button[class*='newChat' i] { display: none !important; }";
+      document.head.appendChild(s);
+    }
+
     const chatLinks = Array.from(
       document.querySelectorAll<HTMLAnchorElement>("a[href*='/a/chat/s/']"),
     );
@@ -237,6 +274,7 @@ export function useChatProjects() {
     chatProjectMap,
     chatTitles,
     chatStatusMap,
+    pinnedChats,
     filterByActiveProject,
     activeProjectChatCount,
     projectTree,
@@ -246,6 +284,7 @@ export function useChatProjects() {
     tagCurrentChat,
     markChatDone,
     markChatInProgress,
+    togglePinChat,
     formatTimeAgo,
     createNewChatInProject,
     openChat,
