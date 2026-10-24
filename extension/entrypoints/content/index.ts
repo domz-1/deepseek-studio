@@ -1,26 +1,29 @@
-import { createApp } from 'vue';
-import ContentApp from './ContentApp.vue';
+import { createApp } from "vue";
+import ContentApp from "./ContentApp.vue";
 
 export default defineContentScript({
-  matches: ['*://chat.deepseek.com/*'],
-  cssInjectionMode: 'ui',
+  matches: ["*://chat.deepseek.com/*"],
+  runAt: "document_idle",
 
-  async main(ctx) {
-    const ui = await createShadowRootUi(ctx, {
-      name: 'deepseek-studio-root',
-      position: 'overlay',
-      alignment: 'bottom-right',
-      append: 'body',
-      onMount: (container) => {
-        const app = createApp(ContentApp);
-        app.mount(container);
-        return app;
-      },
-      onRemove: (app) => {
-        app?.unmount();
-      },
-    });
+  main() {
+    console.log("[DeepSeek Studio Vue] Initializing Content Script...");
 
-    ui.mount();
+    function ensureMounted() {
+      if (document.getElementById("deepseek-studio-mount")) return;
+
+      const mountPoint = document.createElement("div");
+      mountPoint.id = "deepseek-studio-mount";
+      document.body.appendChild(mountPoint);
+
+      const app = createApp(ContentApp);
+      app.mount(mountPoint);
+      console.log("[DeepSeek Studio Vue] Mounted successfully to DOM.");
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", ensureMounted);
+    } else {
+      ensureMounted();
+    }
   },
 });

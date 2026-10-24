@@ -1,34 +1,61 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue';
-import { useStudioState } from '../../composables/useStudioState';
-import { useBridgeWs } from '../../composables/useBridgeWs';
-import { useWatchdog } from '../../composables/useWatchdog';
-import { useToolParser } from '../../composables/useToolParser';
-import { useActionCards } from '../../composables/useActionCards';
+import { ref, onMounted, onUnmounted } from "vue";
+import { useStudioState } from "../../composables/useStudioState";
+import { useBridgeWs } from "../../composables/useBridgeWs";
+import { useWatchdog } from "../../composables/useWatchdog";
+import { useToolParser } from "../../composables/useToolParser";
+import { useActionCards } from "../../composables/useActionCards";
+import { useDeepSeekDom } from "../../composables/useDeepSeekDom";
 
-import ServerPills from '../../components/ServerPills.vue';
-import WatchdogBadge from '../../components/WatchdogBadge.vue';
-import ActionCard from '../../components/ActionCard.vue';
+import ServerPills from "../../components/ServerPills.vue";
+import WatchdogBadge from "../../components/WatchdogBadge.vue";
+import ActionCard from "../../components/ActionCard.vue";
+import ChatInputBadge from "../../components/ChatInputBadge.vue";
 
-const { bridgeConnected, bridgeStatusText, activeActions, loadSettings } = useStudioState();
+const { bridgeConnected, bridgeStatusText, activeActions, loadSettings } =
+  useStudioState();
 const { connect } = useBridgeWs();
 const { startWatchdog, stopWatchdog } = useWatchdog();
 const { parseToolCallsFromText } = useToolParser();
 const { registerActions } = useActionCards();
+const { getChatInput } = useDeepSeekDom();
 
+const showInputBadge = ref(false);
 let scannerInterval: any = null;
+let inputDetector: any = null;
 
 function scanMessagesForTools() {
-  const mdBlocks = Array.from(document.querySelectorAll('div.ds-markdown')).filter(
-    (el) => !el.closest("div[class*='think' i], div[class*='thought' i]")
+  const mdBlocks = Array.from(
+    document.querySelectorAll("div.ds-markdown"),
+  ).filter(
+    (el) => !el.closest("div[class*='think' i], div[class*='thought' i]"),
   );
   if (mdBlocks.length === 0) return;
 
   const latest = mdBlocks[mdBlocks.length - 1];
-  const text = latest.textContent || '';
+  const text = latest.textContent || "";
   const detected = parseToolCallsFromText(text);
   if (detected.length > 0) {
     registerActions(detected);
+  }
+}
+
+function checkChatInputMount() {
+  const input = getChatInput();
+  if (input) {
+    showInputBadge.value = true;
+    const parent =
+      input.closest("div.ds-textarea-wrapper") || input.parentElement;
+    const mountContainer = document.getElementById(
+      "ds-chat-input-badge-anchor",
+    );
+    if (parent && !mountContainer) {
+      const anchor = document.createElement("div");
+      anchor.id = "ds-chat-input-badge-anchor";
+      parent.parentElement?.insertBefore(anchor, parent);
+    }
+  } else {
+    showInputBadge.value = false;
   }
 }
 
@@ -37,17 +64,24 @@ onMounted(async () => {
   connect();
   startWatchdog();
   scannerInterval = setInterval(scanMessagesForTools, 1200);
+  inputDetector = setInterval(checkChatInputMount, 1000);
 });
 
 onUnmounted(() => {
   stopWatchdog();
   if (scannerInterval) clearInterval(scannerInterval);
+  if (inputDetector) clearInterval(inputDetector);
 });
 </script>
 
 <template>
   <div class="ds-studio-root">
-    <!-- Top Floating Toolbar -->
+    <!-- Teleported Chat Input Badge into chat.deepseek.com input area -->
+    <Teleport v-if="showInputBadge" to="#ds-chat-input-badge-anchor">
+      <ChatInputBadge />
+    </Teleport>
+
+    <!-- Bottom-Right Floating Bar -->
     <div class="ds-studio-bar">
       <div class="bar-left">
         <div class="bridge-status" :class="{ online: bridgeConnected }">
@@ -62,7 +96,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Floating Action Cards Overlay -->
+    <!-- Interactive MCP Action Cards in Chat -->
     <div v-if="activeActions.length > 0" class="ds-cards-container">
       <ActionCard
         v-for="act in activeActions.slice(-3)"
@@ -79,7 +113,9 @@ onUnmounted(() => {
   bottom: 16px;
   right: 16px;
   z-index: 999999;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
   pointer-events: none;
 }
 
@@ -88,7 +124,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: rgba(15, 23, 42, 0.92);
+  background: rgba(15, 23, 42, 0.94);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 9999px;
   padding: 6px 14px;
@@ -97,7 +133,8 @@ onUnmounted(() => {
   pointer-events: auto;
 }
 
-.bar-left, .bar-right {
+.bar-left,
+.bar-right {
   display: flex;
   align-items: center;
   gap: 8px;

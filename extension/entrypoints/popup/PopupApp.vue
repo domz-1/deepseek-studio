@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
-import { useStudioState } from '../../composables/useStudioState';
+import { onMounted } from "vue";
+import { useStudioState } from "../../composables/useStudioState";
 
-const { settings, bridgeConnected, bridgeStatusText, onlineServerCount, totalToolCount, loadSettings, saveSettings } =
-  useStudioState();
+const {
+  settings,
+  bridgeConnected,
+  bridgeStatusText,
+  onlineServerCount,
+  totalToolCount,
+  loadSettings,
+  saveSettings,
+} = useStudioState();
 
 onMounted(async () => {
   await loadSettings();
@@ -59,9 +66,15 @@ function updateDelay(e: Event) {
       <div class="setting-item">
         <div class="setting-info">
           <label>Auto-Continue Watchdog</label>
-          <span class="desc">Automatically click Continue/Retry when generation halts</span>
+          <span class="desc"
+            >Automatically click Continue/Retry when generation halts</span
+          >
         </div>
-        <input type="checkbox" :checked="settings.autoContinue" @change="toggleAutoContinue" />
+        <input
+          type="checkbox"
+          :checked="settings.autoContinue"
+          @change="toggleAutoContinue"
+        />
       </div>
 
       <div class="setting-item">
@@ -82,15 +95,23 @@ function updateDelay(e: Event) {
       <div class="setting-item">
         <div class="setting-info">
           <label>Auto-Approve Tool Calls</label>
-          <span class="desc">Run MCP tools immediately without manual card approval</span>
+          <span class="desc"
+            >Run MCP tools immediately without manual card approval</span
+          >
         </div>
-        <input type="checkbox" :checked="settings.autoApprove" @change="toggleAutoApprove" />
+        <input
+          type="checkbox"
+          :checked="settings.autoApprove"
+          @change="toggleAutoApprove"
+        />
       </div>
 
       <div class="setting-item">
         <div class="setting-info">
           <label>Bridge Server Port</label>
-          <span class="desc">Local WebSocket bridge port (Default: 8080 / 8088)</span>
+          <span class="desc"
+            >Local WebSocket bridge port (Default: 8080 / 8088)</span
+          >
         </div>
         <input
           type="number"
@@ -112,7 +133,8 @@ function updateDelay(e: Event) {
   width: 340px;
   background: #0f172a;
   color: #f1f5f9;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   padding: 16px;
   user-select: none;
 }

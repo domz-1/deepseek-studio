@@ -9,7 +9,7 @@ import type {
 } from "../types";
 
 export const settings = reactive<StudioSettings>({
-  bridgePort: 8080,
+  bridgePort: 43210,
   autoApprove: false,
   autoContinue: true,
   autoContinueDelay: 5,
@@ -47,6 +47,7 @@ export function useStudioState() {
         "activeProject",
       ]);
       if (stored.bridgePort) settings.bridgePort = Number(stored.bridgePort);
+      else settings.bridgePort = 43210;
       if (stored.autoApprove !== undefined)
         settings.autoApprove = Boolean(stored.autoApprove);
       if (stored.autoContinue !== undefined)
