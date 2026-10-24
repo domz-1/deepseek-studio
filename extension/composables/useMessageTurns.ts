@@ -42,7 +42,7 @@ export function useMessageTurns() {
         continue;
       }
 
-      const rawText = block.textContent || "";
+      const rawText = block.innerText || block.textContent || "";
       let detected = parseToolCallsFromText(rawText);
 
       // Fallback if browser parsed custom XML tags as DOM elements
