@@ -1,5 +1,6 @@
 import { createApp } from "vue";
 import ContentApp from "./ContentApp.vue";
+import "../../assets/design-system.css";
 
 export default defineContentScript({
   matches: ["*://chat.deepseek.com/*"],

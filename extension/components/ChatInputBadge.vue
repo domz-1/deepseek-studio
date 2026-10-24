@@ -4,6 +4,16 @@ import { useStudioState } from "../composables/useStudioState";
 import { useDeepSeekDom } from "../composables/useDeepSeekDom";
 import { usePromptExecution } from "../composables/usePromptExecution";
 import SlashMentionMenu from "./SlashMentionMenu.vue";
+import {
+  Cpu,
+  Globe,
+  Folder,
+  Terminal,
+  Brain,
+  Wrench,
+  Sparkles,
+  Activity,
+} from "lucide-vue-next";
 
 const { bridgeConnected, servers } = useStudioState();
 const { getChatInput } = useDeepSeekDom();
@@ -11,6 +21,16 @@ const { typeHumanizedText } = usePromptExecution();
 
 const menuMode = ref<"slash" | "mention" | null>(null);
 const menuQuery = ref("");
+
+function getServerIcon(name: string) {
+  const n = name.toLowerCase();
+  if (n.includes("chrome") || n.includes("web")) return Globe;
+  if (n.includes("file") || n.includes("fs")) return Folder;
+  if (n.includes("bash") || n.includes("shell") || n.includes("cmd"))
+    return Terminal;
+  if (n.includes("memory") || n.includes("knowledge")) return Brain;
+  return Wrench;
+}
 
 function onInputChange() {
   const input = getChatInput();
@@ -89,12 +109,18 @@ onUnmounted(() => {
       @close="menuMode = null"
     />
 
-    <div class="ds-chat-input-badge">
+    <!-- Liquid Glass MCP Bar -->
+    <div class="ds-chat-input-badge glass glass--subtle glass--liquid">
       <div class="badge-status-pill" :class="{ online: bridgeConnected }">
-        <span class="status-indicator"></span>
+        <component
+          :is="bridgeConnected ? Cpu : Activity"
+          :size="13"
+          class="status-icon"
+        />
         <span class="status-text">{{
           bridgeConnected ? "MCP Active" : "Bridge Offline"
         }}</span>
+        <span class="live-pulse" v-if="bridgeConnected"></span>
       </div>
 
       <div class="server-chips">
@@ -102,20 +128,26 @@ onUnmounted(() => {
           v-for="server in servers"
           :key="server.name"
           type="button"
-          class="chip-item"
-          :title="`Click to insert @${server.name}`"
+          class="chip-item glass-interactive"
+          :class="server.status"
+          :title="`Insert @${server.name} (${server.toolCount} tools)`"
           @click.prevent="addMention(`@${server.name}`)"
         >
-          <span class="chip-dot" :class="server.status"></span>
+          <component
+            :is="getServerIcon(server.name)"
+            :size="12"
+            class="chip-icon"
+          />
           <span class="chip-name">@{{ server.name }}</span>
         </button>
 
         <button
           type="button"
-          class="chip-item all-chip"
+          class="chip-item all-chip glass-interactive"
           title="Insert @all tools"
           @click.prevent="addMention('@all')"
         >
+          <Sparkles :size="12" class="all-icon" />
           <span>@all</span>
         </button>
       </div>
@@ -127,6 +159,7 @@ onUnmounted(() => {
 .ds-chat-input-wrapper {
   position: relative;
   width: 100%;
+  margin-bottom: 8px;
 }
 
 .ds-chat-input-badge {
@@ -135,38 +168,40 @@ onUnmounted(() => {
   flex-wrap: wrap;
   gap: 8px;
   padding: 6px 12px;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  margin-bottom: 8px;
-  font-family: inherit;
+  border-radius: var(--r-md, 16px);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
   font-size: 12px;
-  color: #e2e8f0;
-  backdrop-filter: blur(8px);
+  color: var(--text, #edeff7);
 }
 
 .badge-status-pill {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 3px 9px;
+  border-radius: var(--r-pill, 9999px);
   background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
   color: #f87171;
   font-weight: 600;
   font-size: 11px;
+  letter-spacing: -0.01em;
 }
 
 .badge-status-pill.online {
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
+  background: rgba(77, 107, 254, 0.15);
+  border-color: rgba(77, 107, 254, 0.4);
+  color: #7c93ff;
 }
 
-.status-indicator {
-  width: 6px;
-  height: 6px;
+.live-pulse {
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-  background: currentColor;
+  background: #4d6bfe;
+  box-shadow: 0 0 8px #4d6bfe;
+  animation: pulse 1.6s infinite alternate;
 }
 
 .server-chips {
@@ -180,41 +215,51 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 11px;
+  color: var(--text-muted, #9aa1bc);
+  padding: 4px 10px;
+  border-radius: var(--r-pill, 9999px);
+  font-size: 11.5px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 200ms var(--ease, ease-out);
+  outline: none;
 }
 
 .chip-item:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.5);
-  color: #93c5fd;
+  background: rgba(77, 107, 254, 0.18);
+  border-color: rgba(124, 147, 255, 0.5);
+  color: #ffffff;
+  transform: translateY(-1px);
 }
 
-.chip-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #94a3b8;
-}
-
-.chip-dot.online {
-  background: #22c55e;
-}
-
-.chip-dot.offline {
-  background: #ef4444;
+.chip-icon {
+  color: #7c93ff;
 }
 
 .all-chip {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
-  color: #60a5fa;
+  background: linear-gradient(
+    135deg,
+    rgba(77, 107, 254, 0.25),
+    rgba(58, 87, 232, 0.15)
+  );
+  border-color: rgba(124, 147, 255, 0.4);
+  color: #ffffff;
   font-weight: 600;
+}
+
+.all-icon {
+  color: #7c93ff;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.5;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
 }
 </style>

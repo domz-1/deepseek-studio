@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
+import { Cpu, Activity } from "lucide-vue-next";
 import { useStudioState } from "../../composables/useStudioState";
 import { useBridgeWs } from "../../composables/useBridgeWs";
 import { useWatchdog } from "../../composables/useWatchdog";
@@ -98,6 +99,30 @@ onUnmounted(() => {
 
 <template>
   <div class="ds-studio-root">
+    <!-- SVG Displacement filter for liquid refraction -->
+    <svg
+      style="position: absolute; width: 0; height: 0; pointer-events: none"
+      aria-hidden="true"
+    >
+      <defs>
+        <filter id="liquid" x="-10%" y="-10%" width="120%" height="120%">
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.04"
+            numOctaves="3"
+            result="noise"
+          />
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="noise"
+            scale="4"
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
+      </defs>
+    </svg>
+
     <!-- Teleported Chat Input Badge into chat.deepseek.com input area -->
     <Teleport v-if="showInputBadge" to="#ds-chat-input-badge-anchor">
       <ChatInputBadge />
@@ -109,10 +134,15 @@ onUnmounted(() => {
     </Teleport>
 
     <!-- Bottom-Right Floating Bar -->
-    <div class="ds-studio-bar">
+    <div class="ds-studio-bar glass glass--strong glass--liquid">
       <div class="bar-left">
         <div class="bridge-status" :class="{ online: bridgeConnected }">
-          <span class="status-dot"></span>
+          <component
+            :is="bridgeConnected ? Activity : Cpu"
+            :size="13"
+            class="status-icon"
+            :class="{ 'pulse-active': bridgeConnected }"
+          />
           <span class="status-label">Studio {{ bridgeStatusText }}</span>
         </div>
         <ServerPills />
@@ -151,12 +181,8 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: rgba(15, 23, 42, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 9999px;
+  border-radius: var(--r-pill, 9999px);
   padding: 6px 14px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(12px);
   pointer-events: auto;
 }
 
@@ -173,25 +199,38 @@ onUnmounted(() => {
   gap: 6px;
   font-size: 11.5px;
   font-weight: 600;
-  color: #94a3b8;
-  padding-right: 6px;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted, #94a3b8);
+  padding-right: 8px;
+  border-right: 1px solid var(--border, rgba(255, 255, 255, 0.1));
 }
 
 .bridge-status.online {
   color: #4ade80;
 }
 
-.status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #ef4444;
+.status-icon {
+  flex-shrink: 0;
 }
 
-.bridge-status.online .status-dot {
-  background: #22c55e;
-  box-shadow: 0 0 6px #22c55e;
+.bridge-status.online .status-icon {
+  color: #4ade80;
+  filter: drop-shadow(0 0 4px rgba(74, 222, 128, 0.5));
+}
+
+.pulse-active {
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.8;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
 }
 
 .ds-cards-container {
