@@ -15,6 +15,8 @@ import InlineToolExecution from "../../components/InlineToolExecution.vue";
 import ChatInputBadge from "../../components/ChatInputBadge.vue";
 import SidebarProjectDropdown from "../../components/SidebarProjectDropdown.vue";
 import TopFloatingBar from "../../components/TopFloatingBar.vue";
+import WorkspaceDrawer from "../../components/WorkspaceDrawer.vue";
+import { useWorkspaceDrawer } from "../../composables/useWorkspaceDrawer";
 
 const { loadSettings } = useStudioState();
 const { connect } = useBridgeWs();
@@ -31,6 +33,25 @@ const { initPromptAutoInjection } = useAgentSystemPrompt();
 const { getChatInput, getSendButton } = useDeepSeekDom();
 const { messageTurns, scanMessagesForTools, resetTurns } = useMessageTurns();
 const { processAutomatedMessages } = useMessageHider();
+import { Check } from "lucide-vue-next";
+import { useChatInjection } from "../../composables/useChatInjection";
+
+const { toggleDrawer, selectedFile, fileContent, activeDiffFile, diffContent } =
+  useWorkspaceDrawer();
+const { addActiveSelectionToChat, chatInjectionToast } = useChatInjection();
+
+function handleGlobalKeydown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+    e.preventDefault();
+    toggleDrawer();
+  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "l") {
+    e.preventDefault();
+    addActiveSelectionToChat(
+      selectedFile.value || activeDiffFile.value,
+      fileContent.value || diffContent.value,
+    );
+  }
+}
 
 const showSidebarDropdown = ref(false);
 let scannerInterval: any = null;
@@ -130,12 +151,14 @@ onMounted(async () => {
 
   scannerInterval = setInterval(tickScanner, 700);
   domDetector = setInterval(checkDomMounts, 1000);
+  window.addEventListener("keydown", handleGlobalKeydown);
 });
 
 onUnmounted(() => {
   stopWatchdog();
   if (scannerInterval) clearInterval(scannerInterval);
   if (domDetector) clearInterval(domDetector);
+  window.removeEventListener("keydown", handleGlobalKeydown);
 });
 </script>
 
@@ -143,6 +166,11 @@ onUnmounted(() => {
   <div class="font-sans pointer-events-none">
     <!-- Top-Right Smooth Hover-Expanded Floating Studio Dot/Bar -->
     <TopFloatingBar />
+
+    <!-- Workspace Drawer Slide-out Workbench -->
+    <div class="pointer-events-auto">
+      <WorkspaceDrawer />
+    </div>
 
     <!-- Chat Slash & Mention Popups (teleported internally to body) -->
     <ChatInputBadge />
@@ -158,5 +186,23 @@ onUnmounted(() => {
         <InlineToolExecution :actions="turn.actions" />
       </Teleport>
     </template>
+
+    <!-- Floating Chat Injection Toast -->
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0 translate-y-2"
+      enter-to-class="opacity-100 translate-y-0"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="opacity-100 translate-y-0"
+      leave-to-class="opacity-0 translate-y-2"
+    >
+      <div
+        v-if="chatInjectionToast"
+        class="fixed bottom-24 right-8 z-[9999999] px-3.5 py-2 rounded-xl bg-indigo-600 text-white font-medium text-xs shadow-2xl flex items-center gap-2 border border-white/20 select-none pointer-events-none"
+      >
+        <Check :size="14" class="text-white" />
+        <span>{{ chatInjectionToast }}</span>
+      </div>
+    </Transition>
   </div>
 </template>

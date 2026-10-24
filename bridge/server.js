@@ -7,6 +7,7 @@ import { execSync, spawnSync } from "child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
+import { registerWorkspaceRoutes, appendCommandLog } from "./workspace.js";
 
 const app = express();
 
@@ -715,12 +716,40 @@ app.post("/call", async (req, res) => {
     });
     resolveDedup(result);
 
+    try {
+      appendCommandLog({
+        id: activeId,
+        name,
+        args,
+        project,
+        time: new Date().toISOString(),
+        duration: Date.now() - nowMs,
+        status: result?.isError ? "error" : "success",
+        output: Array.isArray(result?.content)
+          ? result.content.map((c) => c.text || "").join("\n")
+          : String(result?.content || ""),
+      });
+    } catch (_) {}
+
     console.log(`[Bridge] Success /call: ${name}`);
     res.json({ ...result, callId: activeId });
   } catch (err) {
     RECENT_CALL_DEDUP.delete(dedupKey);
     rejectDedup(err);
     console.error(`[Bridge] Error /call: ${name}`, err.message);
+
+    try {
+      appendCommandLog({
+        id: activeId,
+        name,
+        args,
+        project,
+        time: new Date().toISOString(),
+        duration: Date.now() - nowMs,
+        status: "error",
+        output: err.message,
+      });
+    } catch (_) {}
     if (abortController.signal.aborted) {
       res.status(499).json({
         error: `Task ${name} was cancelled by user`,
@@ -1246,6 +1275,9 @@ app.post("/read-file-content", (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Register Workspace & Git Diff endpoints
+registerWorkspaceRoutes(app);
 
 const PORT = 43210;
 app.listen(PORT, HOST, () => {

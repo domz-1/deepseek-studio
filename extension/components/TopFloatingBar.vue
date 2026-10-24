@@ -4,10 +4,12 @@ import { useStudioState } from "../composables/useStudioState";
 import { useBridgeWs } from "../composables/useBridgeWs";
 import ServerPills from "./ServerPills.vue";
 import WatchdogBadge from "./WatchdogBadge.vue";
-import { Activity, Cpu, Pause, Sparkles } from "lucide-vue-next";
+import { Activity, Cpu, Pause, Sparkles, GitBranch } from "lucide-vue-next";
+import { useWorkspaceDrawer } from "../composables/useWorkspaceDrawer";
 
 const { bridgeConnected, bridgeStatusText, isServerStopped } = useStudioState();
 const { connect } = useBridgeWs();
+const { toggleDrawer, gitStatus } = useWorkspaceDrawer();
 const isHovered = ref(false);
 </script>
 
@@ -85,6 +87,23 @@ const isHovered = ref(false);
 
           <!-- Server Pills -->
           <ServerPills />
+
+          <!-- Workspace Drawer Trigger -->
+          <button
+            type="button"
+            @click="toggleDrawer()"
+            class="flex items-center gap-1.5 text-[11px] font-medium text-slate-300 hover:text-indigo-300 transition-colors cursor-pointer px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10"
+            title="Toggle Workspace Drawer (Ctrl+B)"
+          >
+            <GitBranch :size="12" class="text-indigo-400 shrink-0" />
+            <span>Workspace</span>
+            <span
+              v-if="gitStatus.stats.total > 0"
+              class="w-3.5 h-3.5 rounded-full text-[9px] bg-indigo-500 text-white font-bold flex items-center justify-center ml-0.5"
+            >
+              {{ gitStatus.stats.total }}
+            </span>
+          </button>
 
           <!-- Watchdog Countdown Badge -->
           <WatchdogBadge />

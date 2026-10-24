@@ -63,6 +63,49 @@ export default defineBackground(() => {
       if (msg.type === "SERVER_STATE") {
         return await bridgeFetch("/server/state");
       }
+      if (msg.type === "WORKSPACE_GIT_STATUS") {
+        const p = msg.project
+          ? `?project=${encodeURIComponent(msg.project)}`
+          : "";
+        return await bridgeFetch(`/workspace/git-status${p}`);
+      }
+      if (msg.type === "WORKSPACE_GIT_DIFF") {
+        const params = new URLSearchParams();
+        if (msg.project) params.set("project", msg.project);
+        if (msg.file) params.set("file", msg.file);
+        const qs = params.toString() ? `?${params.toString()}` : "";
+        return await bridgeFetch(`/workspace/git-diff${qs}`);
+      }
+      if (msg.type === "WORKSPACE_GIT_REVERT") {
+        return await bridgeFetch("/workspace/git-revert", {
+          method: "POST",
+          body: JSON.stringify(msg.payload || {}),
+        });
+      }
+      if (msg.type === "WORKSPACE_GIT_COMMIT") {
+        return await bridgeFetch("/workspace/git-commit", {
+          method: "POST",
+          body: JSON.stringify(msg.payload || {}),
+        });
+      }
+      if (msg.type === "WORKSPACE_FILE_TREE") {
+        const p = msg.project
+          ? `?project=${encodeURIComponent(msg.project)}`
+          : "";
+        return await bridgeFetch(`/workspace/file-tree${p}`);
+      }
+      if (msg.type === "WORKSPACE_TERMINAL_LOGS") {
+        return await bridgeFetch("/workspace/terminal-logs");
+      }
+      if (msg.type === "WORKSPACE_CLEAR_LOGS") {
+        return await bridgeFetch("/workspace/clear-logs", { method: "POST" });
+      }
+      if (msg.type === "WORKSPACE_READ_FILE") {
+        return await bridgeFetch("/read-file-content", {
+          method: "POST",
+          body: JSON.stringify(msg.payload || {}),
+        });
+      }
       throw new Error(`unknown message: ${msg.type}`);
     };
 
