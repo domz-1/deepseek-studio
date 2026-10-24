@@ -121,9 +121,7 @@ export function useActionCards() {
       );
       if (!alreadyHandled) {
         activeActions.value.push(act);
-        if (settings.autoApprove) {
-          approveAction(act);
-        }
+        approveAction(act);
       }
     }
   }
