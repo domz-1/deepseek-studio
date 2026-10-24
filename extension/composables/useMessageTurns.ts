@@ -136,6 +136,9 @@ export function useMessageTurns() {
           actions: detected,
         });
       } else {
+        detected.forEach((a) => {
+          (a as any).turnId = turnId;
+        });
         messageTurns.value.push({
           id: turnId,
           anchorId,

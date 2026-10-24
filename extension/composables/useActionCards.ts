@@ -133,11 +133,9 @@ export function useActionCards() {
       const alreadyHandled = activeActions.value.some(
         (a) =>
           a.id === act.id ||
-          (a.name === act.name &&
-            JSON.stringify(a.arguments) === JSON.stringify(act.arguments) &&
-            (a.status === "pending" ||
-              a.status === "running" ||
-              (a as any).sent)),
+          ((a as any).turnId === (act as any).turnId &&
+            a.name === act.name &&
+            JSON.stringify(a.arguments) === JSON.stringify(act.arguments)),
       );
       if (!alreadyHandled) {
         activeActions.value.push(act);
