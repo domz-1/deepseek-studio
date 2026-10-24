@@ -13,7 +13,7 @@ export interface MessageTurn {
 
 export function useMessageTurns() {
   const messageTurns = ref<MessageTurn[]>([]);
-  const { parseToolCallsFromText } = useToolParser();
+  const { parseToolCallsFromText, stripToolCalls } = useToolParser();
   const { registerActions } = useActionCards();
   const { isGenerating } = useDeepSeekDom();
 
@@ -74,12 +74,21 @@ export function useMessageTurns() {
 
       // Locate insertion point right before the first tool call element
       const toolEl =
-        block.querySelector("tool_call, [class*='tool_call' i]") ||
-        Array.from(block.children).find(
-          (c) =>
-            (c.textContent || "").includes("<tool_call>") ||
-            (c.innerHTML || "").includes("tool_call"),
-        );
+        block.querySelector(
+          "tool_call, [class*='tool_call' i], invoke, parameter, [class*='dsml' i]",
+        ) ||
+        Array.from(block.children).find((c) => {
+          const t = c.textContent || "";
+          const h = c.innerHTML || "";
+          return (
+            t.includes("<tool_call>") ||
+            h.includes("tool_call") ||
+            t.includes("DSML") ||
+            h.includes("DSML") ||
+            t.includes("invoke") ||
+            h.includes("invoke")
+          );
+        });
 
       if (toolEl) {
         toolEl.insertAdjacentElement("beforebegin", anchor);
@@ -90,7 +99,7 @@ export function useMessageTurns() {
       // Hide raw tool call tags from DOM
       block
         .querySelectorAll(
-          "tool_call, [class*='tool_call' i], tool_name, parameters, parameter, arguments, tool_result",
+          "tool_call, [class*='tool_call' i], tool_name, parameters, parameter, arguments, tool_result, invoke, [class*='dsml' i]",
         )
         .forEach((el) => {
           (el as HTMLElement).style.display = "none";
@@ -98,13 +107,24 @@ export function useMessageTurns() {
 
       block.querySelectorAll("p, pre, code").forEach((el) => {
         const txt = el.textContent || "";
-        if (txt.includes("<tool_call>") || txt.includes("tool_call>")) {
-          const stripped = txt
-            .replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "")
+        const isToolSnippet =
+          txt.includes("<tool_call>") ||
+          txt.includes("tool_call>") ||
+          txt.includes("DSML") ||
+          txt.includes("invoke") ||
+          txt.includes("\uff5c\uff5c") ||
+          txt.includes("<|DSML|") ||
+          txt.includes("<||") ||
+          txt.includes("<tool_result>");
+
+        if (isToolSnippet) {
+          const stripped = stripToolCalls(txt)
             .replace(/<\/?[a-zA-Z0-9_:-]+>/g, "")
             .trim();
           if (stripped === "") {
             (el as HTMLElement).style.display = "none";
+          } else {
+            el.innerHTML = stripToolCalls(el.innerHTML);
           }
         }
       });

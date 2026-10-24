@@ -77,7 +77,9 @@ export function useAgentSystemPrompt() {
     if (shouldInject) {
       const chatId = getCurrentChatId() || "new_chat";
       injectedChatIds.add(chatId);
-      isTaskActive.value = true;
+      if (hasAgentMentions(rawText)) {
+        isTaskActive.value = true;
+      }
       return `${buildFableSystemPrompt()}\n\n${expanded}`;
     }
 
@@ -111,7 +113,9 @@ export function useAgentSystemPrompt() {
       modified = `${buildFableSystemPrompt()}\n\n${modified}`;
       const chatId = getCurrentChatId() || "new_chat";
       injectedChatIds.add(chatId);
-      isTaskActive.value = true;
+      if (hasAgentMentions(input.value)) {
+        isTaskActive.value = true;
+      }
     } else if (hasAgentMentions(input.value)) {
       isTaskActive.value = true;
     }

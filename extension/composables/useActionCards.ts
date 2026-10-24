@@ -123,6 +123,9 @@ export function useActionCards() {
   }
 
   function registerActions(newActions: ToolCallAction[]) {
+    if (newActions.length > 0) {
+      isTaskActive.value = true;
+    }
     for (const act of newActions) {
       const alreadyHandled = activeActions.value.some(
         (a) =>

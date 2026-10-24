@@ -24,7 +24,10 @@ export function useProjects() {
         projects.value = stored.projects;
       }
       if (stored.activeProject) {
-        settings.activeProject = stored.activeProject;
+        settings.activeProject =
+          stored.activeProject === "/home"
+            ? "/home/adham/projects/adham"
+            : stored.activeProject;
       }
     } catch (_) {}
 

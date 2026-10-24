@@ -9,8 +9,8 @@ export function useToolParser() {
     // Pre-normalize fullwidth pipes and spaced DSML delimiters
     const normText = text
       .replace(/[\uff5c]+/g, "|")
-      .replace(/<\s*\|\s*DSML\s*\|\s*/gi, "<|DSML|")
-      .replace(/<\/\s*\|\s*DSML\s*\|\s*/gi, "</|DSML|");
+      .replace(/<\s*[|\s]*DSML[|\s]*/gi, "<|DSML|")
+      .replace(/<\/\s*[|\s]*DSML[|\s]*/gi, "</|DSML|");
 
     // 1. Markdown ```tool_call or ```json
     const mdRegex = /```(?:tool_call|json)?\s*([\s\S]*?)```/gi;
@@ -142,11 +142,11 @@ export function useToolParser() {
       .replace(/CopyDownload/gi, "")
       .replace(/```(?:tool_call|json)?\s*[\s\S]*?```/gi, "")
       .replace(
-        /<\s*\|\s*DSML\s*\|\s*calls>[\s\S]*?<\/\s*\|\s*DSML\s*\|\s*calls>/gi,
+        /<[|\s\uff5c]*DSML[|\s\uff5c]*calls>[\s\S]*?<\/[|\s\uff5c]*DSML[|\s\uff5c]*calls>/gi,
         "",
       )
       .replace(
-        /<\s*\|\s*DSML\s*\|\s*invoke[\s\S]*?<\/\s*\|\s*DSML\s*\|\s*invoke>/gi,
+        /<[|\s\uff5c]*DSML[|\s\uff5c]*invoke[\s\S]*?<\/[|\s\uff5c]*DSML[|\s\uff5c]*invoke>/gi,
         "",
       )
       .replace(/<invoke\s+name=["'][\s\S]*?<\/invoke>/gi, "")
@@ -155,6 +155,8 @@ export function useToolParser() {
         "",
       )
       .replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "")
+      .replace(/<[|\s\uff5c]*DSML[\s\S]*?>/gi, "")
+      .replace(/<\/[|\s\uff5c]*DSML[\s\S]*?>/gi, "")
       .replace(/<[\s\S]*?(?:DSML|invoke|parameter)[\s\S]*?>/gi, "")
       .replace(/<\/[\s\S]*?(?:DSML|invoke|parameter)[\s\S]*?>/gi, "")
       .trim();

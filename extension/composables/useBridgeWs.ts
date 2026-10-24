@@ -139,6 +139,10 @@ export function useBridgeWs() {
     args: Record<string, any>,
   ): Promise<any> {
     const res = await new Promise<any>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`Tool execution timed out after 60s for ${toolName}`));
+      }, 60000);
+
       chrome.runtime.sendMessage(
         {
           type: "CALL",
@@ -150,6 +154,7 @@ export function useBridgeWs() {
           },
         },
         (response) => {
+          clearTimeout(timer);
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
           } else if (!response || !response.ok) {
