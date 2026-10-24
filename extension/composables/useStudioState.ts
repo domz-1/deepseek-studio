@@ -12,7 +12,7 @@ export const settings = reactive<StudioSettings>({
   bridgePort: 43210,
   autoApprove: true,
   autoContinue: true,
-  autoContinueDelay: 5,
+  autoContinueDelay: 2,
   humanSpeed: "natural",
   activeProject: "",
   customSystemPrompt: "",

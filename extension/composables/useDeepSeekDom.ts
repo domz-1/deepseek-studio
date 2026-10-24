@@ -111,13 +111,15 @@ export function useDeepSeekDom() {
       (el.closest(
         'button, div[role="button"], span[role="button"], .ds-button, .ds-button--capsule',
       ) as HTMLElement) || el;
-    const rect = btn.getBoundingClientRect();
-    if (rect.width === 0 && rect.height === 0) return false;
-
     try {
+      if (typeof btn.scrollIntoView === "function") {
+        btn.scrollIntoView({ behavior: "instant", block: "center" });
+      }
       btn.focus?.();
-      const x = rect.left + rect.width / 2;
-      const y = rect.top + rect.height / 2;
+      const rect = btn.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) return false;
+      const x = rect.left + (rect.width > 0 ? rect.width / 2 : 10);
+      const y = rect.top + (rect.height > 0 ? rect.height / 2 : 10);
       const opts = {
         bubbles: true,
         cancelable: true,
@@ -140,24 +142,29 @@ export function useDeepSeekDom() {
         btn.dispatchEvent(new MouseEvent("click", opts));
       }
 
-      // Also trigger React synthetic onClick if present
-      const reactPropKey = Object.keys(btn).find((k) =>
-        k.startsWith("__reactProps"),
-      );
-      if (
-        reactPropKey &&
-        (btn as any)[reactPropKey] &&
-        typeof (btn as any)[reactPropKey].onClick === "function"
-      ) {
-        try {
-          (btn as any)[reactPropKey].onClick({
-            stopPropagation: () => {},
-            preventDefault: () => {},
-            nativeEvent: new MouseEvent("click", opts),
-            currentTarget: btn,
-            target: btn,
-          });
-        } catch (_) {}
+      // Also trigger React synthetic onClick on btn or its parent/children
+      const candidates = [btn, btn.parentElement, btn.firstElementChild].filter(
+        Boolean,
+      ) as any[];
+      for (const t of candidates) {
+        const reactKey = Object.keys(t).find((k) =>
+          k.startsWith("__reactProps"),
+        );
+        if (
+          reactKey &&
+          t[reactKey] &&
+          typeof t[reactKey].onClick === "function"
+        ) {
+          try {
+            t[reactKey].onClick({
+              stopPropagation: () => {},
+              preventDefault: () => {},
+              nativeEvent: new MouseEvent("click", opts),
+              currentTarget: t,
+              target: t,
+            });
+          } catch (_) {}
+        }
       }
 
       return true;

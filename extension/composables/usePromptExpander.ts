@@ -29,19 +29,19 @@ export function usePromptExpander() {
     const toolCatalog =
       tools.value.length > 0
         ? tools.value
-            .slice(0, 50)
+            .filter((t) => (t.server || "") !== "chrome")
+            .slice(0, 20)
             .map(
               (t) =>
                 `- ${t.server ? `${t.server}__${t.name}` : t.name}: ${
-                  t.description || "MCP tool"
+                  (t.description || "MCP tool").split(".")[0]
                 }`,
             )
             .join("\n")
         : VERIFIED_DEFAULT_TOOLS;
 
-    return `<antml:reasoning_effort>40</antml:reasoning_effort>
-<agent_system_instructions>
-# Claude Fable 5 Agent Persona & Operating Guidelines
+    return `<agent_system_instructions>
+# DeepSeek Studio Agent Persona & Operating Guidelines
 You are an expert autonomous software engineer and operational agent running in the DeepSeek Studio environment.
 You operate with relentless precision, deep architectural thinking, and proactive problem solving.
 
