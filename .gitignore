@@ -42,3 +42,9 @@ bridge/.bridge-token
 
 # Local HTML dumps
 *.html
+
+# WXT outputs & cache
+.output/
+.wxt/
+extension/.output/
+extension/.wxt/

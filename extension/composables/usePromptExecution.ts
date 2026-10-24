@@ -1,0 +1,100 @@
+import { useDeepSeekDom } from "./useDeepSeekDom";
+import { settings } from "./useStudioState";
+
+export function usePromptExecution() {
+  const { getChatInput, getSendButton } = useDeepSeekDom();
+
+  async function typeHumanizedText(el: HTMLTextAreaElement, text: string) {
+    el.focus();
+    const isNatural = settings.humanSpeed === "natural";
+
+    if (text.length <= 100) {
+      for (let i = 0; i < text.length; i++) {
+        el.value = (el.value || "") + text[i];
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        if (isNatural) {
+          const jitter = Math.floor(Math.random() * 20) + 12; // 12-32ms
+          await new Promise((r) => setTimeout(r, jitter));
+        }
+      }
+    } else {
+      // Natural typing start
+      const preview = text.slice(0, 15);
+      const remaining = text.slice(15);
+      for (let i = 0; i < preview.length; i++) {
+        el.value = (el.value || "") + preview[i];
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        if (isNatural) {
+          await new Promise((r) => setTimeout(r, 15 + Math.random() * 15));
+        }
+      }
+
+      // Native setter injection for bulk
+      const proto = Object.getPrototypeOf(el);
+      const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+      if (nativeSetter) {
+        nativeSetter.call(el, text);
+      } else {
+        el.value = text;
+      }
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }
+
+  async function sendPrompt(promptText: string): Promise<boolean> {
+    const input = getChatInput();
+    if (!input) return false;
+
+    // 1. Natural pre-input focus delay
+    if (settings.humanSpeed === "natural") {
+      input.focus();
+      await new Promise((r) => setTimeout(r, 150 + Math.random() * 200));
+    }
+
+    // 2. Type text
+    await typeHumanizedText(input, promptText);
+
+    // 3. Natural post-input pause
+    if (settings.humanSpeed === "natural") {
+      await new Promise((r) => setTimeout(r, 200 + Math.random() * 250));
+    }
+
+    // 4. Click Send
+    const sendBtn = getSendButton();
+    if (sendBtn) {
+      try {
+        sendBtn.dispatchEvent(
+          new PointerEvent("pointerdown", { bubbles: true }),
+        );
+        sendBtn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        sendBtn.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+        sendBtn.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+        sendBtn.click();
+      } catch (_) {
+        sendBtn.click?.();
+      }
+    }
+
+    // 5. Fallback Enter key if input is still populated
+    await new Promise((r) => setTimeout(r, 180));
+    if (input.value && input.value.trim().length > 0) {
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          code: "Enter",
+          keyCode: 13,
+          which: 13,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    }
+
+    return true;
+  }
+
+  return {
+    typeHumanizedText,
+    sendPrompt,
+  };
+}
