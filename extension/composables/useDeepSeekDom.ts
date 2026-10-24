@@ -157,6 +157,13 @@ export function useDeepSeekDom() {
     const cont = findContinueOrRetryButton();
     if (cont) return false;
 
+    // 0. Detect disabled or pending textarea (submission in progress)
+    const input = getChatInput();
+    if (input && input.disabled) {
+      lastChangeTime = Date.now();
+      return true;
+    }
+
     // 1. Detect Stop button via aria, title, class, or text
     const stopButton = document.querySelector(
       'button[aria-label*="Stop" i], button[title*="Stop" i], .ds-stop-button, .ds-button--stop, [class*="stop-button" i], [class*="StopButton" i]',

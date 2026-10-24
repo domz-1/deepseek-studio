@@ -37,6 +37,23 @@ export function useWatchdog() {
       return;
     }
 
+    // Only nudge if the LAST message in the conversation is an ASSISTANT message!
+    // If the last message is a user message, we must wait for the model to reply.
+    const allMessages = document.querySelectorAll(".ds-message");
+    if (allMessages.length === 0) {
+      idleSince = 0;
+      return;
+    }
+    const lastMsg = allMessages[allMessages.length - 1];
+    const isAssistant =
+      lastMsg.classList.contains("ds-markdown") ||
+      !!lastMsg.querySelector(".ds-markdown") ||
+      !!lastMsg.querySelector("div[class*='markdown']");
+    if (!isAssistant) {
+      idleSince = 0;
+      return;
+    }
+
     // If any tool action is currently running or pending, wait
     const hasActiveActions = activeActions.value.some(
       (a) => a.status === "running" || a.status === "pending",
