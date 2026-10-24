@@ -7,11 +7,11 @@ export interface ChatStatusInfo {
   timestamp: number;
 }
 
-export const chatProjectMap = ref<Record<string, string>>({});
-export const chatTitles = ref<Record<string, string>>({});
-export const chatStatusMap = ref<Record<string, ChatStatusInfo>>({});
-export const pinnedChats = ref<Record<string, boolean>>({});
-export const filterByActiveProject = ref<boolean>(false);
+export const chatProjectMap = ref<Record<string, string>>({}),
+  chatTitles = ref<Record<string, string>>({}),
+  chatStatusMap = ref<Record<string, ChatStatusInfo>>({}),
+  pinnedChats = ref<Record<string, boolean>>({}),
+  filterByActiveProject = ref<boolean>(false);
 
 export function useChatProjects() {
   async function loadChatProjects() {
@@ -51,10 +51,10 @@ export function useChatProjects() {
   }
 
   function getCurrentChatId(): string | null {
-    const match = window.location.pathname.match(
-      /\/a\/chat\/s\/([a-zA-Z0-9-]+)/,
+    return (
+      window.location.pathname.match(/\/a\/chat\/s\/([a-zA-Z0-9-]+)/)?.[1] ||
+      null
     );
-    return match ? match[1] : null;
   }
 
   function formatTimeAgo(ts?: number): string {
@@ -141,11 +141,11 @@ export function useChatProjects() {
       }
 
       matchingChats.sort((a, b) => {
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
-        const timeA = chatStatusMap.value[a.id]?.timestamp || 0;
-        const timeB = chatStatusMap.value[b.id]?.timestamp || 0;
-        return timeB - timeA;
+        if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+        return (
+          (chatStatusMap.value[b.id]?.timestamp || 0) -
+          (chatStatusMap.value[a.id]?.timestamp || 0)
+        );
       });
 
       return {
@@ -164,23 +164,18 @@ export function useChatProjects() {
       "div._7b40dad button, button[aria-label*='New chat' i], a[href='/']",
     );
     if (btn) btn.click();
-    if (window.location.pathname.startsWith("/a/chat/s/")) {
-      setTimeout(() => {
-        if (window.location.pathname.startsWith("/a/chat/s/"))
-          window.location.href = "/";
-      }, 150);
-    }
+    setTimeout(() => {
+      if (window.location.pathname.startsWith("/a/chat/s/"))
+        window.location.href = "/";
+    }, 150);
   }
 
   function openChat(chatId: string) {
-    const existingLink = document.querySelector<HTMLAnchorElement>(
+    const link = document.querySelector<HTMLAnchorElement>(
       `a[href*='/a/chat/s/${chatId}']`,
     );
-    if (existingLink) {
-      existingLink.click();
-    } else {
-      window.location.href = `/a/chat/s/${chatId}`;
-    }
+    if (link) link.click();
+    else window.location.href = `/a/chat/s/${chatId}`;
   }
 
   function applySidebarFilter() {
@@ -216,7 +211,7 @@ export function useChatProjects() {
       if (!chatStatusMap.value[chatId]) {
         chatStatusMap.value[chatId] = {
           status: "in_progress",
-          timestamp: Date.now() - index * 1000 * 3600 * 6,
+          timestamp: Date.now() - index * 3600000 * 6,
         };
         titlesChanged = true;
       }

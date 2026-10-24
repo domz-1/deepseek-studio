@@ -104,6 +104,18 @@ ${toolCatalog}
           extraContext += `\n<mcp_context server="chrome">\nAvailable: chrome__navigate_page, chrome__click, chrome__type_text, chrome__take_screenshot, chrome__list_pages\n</mcp_context>\n`;
         } else if (sName === "memory") {
           extraContext += `\n<mcp_context server="memory">\nAvailable: memory__create_entities, memory__read_graph, memory__search_nodes\n</mcp_context>\n`;
+        } else if (sName === "all" || sName === "agent" || sName === "studio") {
+          const list =
+            tools.value.length > 0
+              ? tools.value
+                  .slice(0, 50)
+                  .map(
+                    (t) =>
+                      `- ${t.server ? `${t.server}__${t.name}` : t.name}: ${t.description || "MCP tool"}`,
+                  )
+                  .join("\n")
+              : VERIFIED_DEFAULT_TOOLS;
+          extraContext += `\n<mcp_context server="all">\nActive Project Root: ${activePath}\nAvailable Tools:\n${list}\n</mcp_context>\n`;
         }
       }
     }

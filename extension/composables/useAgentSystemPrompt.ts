@@ -18,57 +18,37 @@ export function useAgentSystemPrompt() {
     return /@([a-zA-Z0-9_-]+)/.test(text) || /\/([a-zA-Z0-9_-]+)/.test(text);
   }
 
-  function isTrivialMessage(text: string): boolean {
-    const clean = text.trim().toLowerCase();
-    const trivial = [
-      "hi",
-      "hello",
-      "hey",
-      "ok",
-      "okay",
-      "thanks",
-      "thank you",
-      "thx",
-      "cool",
-      "great",
-      "good",
-      "yes",
-      "no",
-      "done",
-      "continue",
-    ];
-    return trivial.includes(clean);
-  }
-
-  function isChatEmpty(): boolean {
-    if (window.location.pathname === "/" || window.location.pathname === "") {
-      return true;
-    }
+  function isFirstMessageInChat(): boolean {
     const mdBlocks = document.querySelectorAll("div.ds-markdown");
     const userMsgs = document.querySelectorAll(
       "div.ds-message:not(.ds-mcp-hidden-turn)",
     );
-    return mdBlocks.length === 0 && userMsgs.length === 0;
-  }
 
-  function hasSystemPromptInChat(): boolean {
-    const chatId = getCurrentChatId() || "new_chat";
-    if (injectedChatIds.has(chatId)) return true;
-    const mainEl = document.querySelector("main") || document.body;
-    const text = mainEl.textContent || "";
-    if (
-      text.includes("Claude Fable 5 Agent Persona") ||
-      text.includes("<agent_system_instructions>")
-    ) {
-      injectedChatIds.add(chatId);
+    // If there are ANY messages in the conversation DOM, this is NOT the first message
+    if (mdBlocks.length > 0 || userMsgs.length > 0) {
+      return false;
+    }
+
+    // If on the root / new chat page with 0 messages, ensure fresh injection state
+    if (window.location.pathname === "/" || window.location.pathname === "") {
+      injectedChatIds.delete("new_chat");
       return true;
     }
-    return false;
+
+    // In an existing chat path, if already marked injected, do not reinject
+    const chatId = getCurrentChatId();
+    if (chatId && injectedChatIds.has(chatId)) {
+      return false;
+    }
+
+    return true;
   }
 
   function shouldInjectSystemPrompt(rawText: string): boolean {
     const text = rawText.trim();
     if (!text) return false;
+
+    // Never inject on automated MCP results, task continuation prompts, or "continue"
     if (
       text.startsWith("[MCP_AUTO_RESULT]") ||
       text.startsWith("[MCP_CONTINUE_TASK]") ||
@@ -78,17 +58,8 @@ export function useAgentSystemPrompt() {
       return false;
     }
 
-    // 1. First message in chat
-    if (isChatEmpty() || !hasSystemPromptInChat()) {
-      return true;
-    }
-
-    // 2. First message in a new task (idle session starting non-trivial action)
-    if (!isTaskActive.value && !isTrivialMessage(text)) {
-      return true;
-    }
-
-    return false;
+    // ONLY inject on the very first message of a chat!
+    return isFirstMessageInChat();
   }
 
   function preparePromptForSubmission(rawText: string): string {
