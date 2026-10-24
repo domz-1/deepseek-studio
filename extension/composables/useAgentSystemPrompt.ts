@@ -136,13 +136,17 @@ ${toolCatalog}
     return `${buildFableSystemPrompt()}\n\n${expanded}`;
   }
 
+  let lastInjectTime = 0;
+
   function injectIntoTextarea(input: HTMLTextAreaElement) {
     if (!input || !input.value || !input.value.trim()) return;
+    if (Date.now() - lastInjectTime < 800) return;
     if (input.value.includes("<agent_system_instructions>")) {
       isTaskActive.value = true;
       return;
     }
 
+    lastInjectTime = Date.now();
     let modified = expandMentionsAndSkills(input.value);
     modified = `${buildFableSystemPrompt()}\n\n${modified}`;
     isTaskActive.value = true;
@@ -189,7 +193,6 @@ ${toolCatalog}
     };
 
     window.addEventListener("pointerdown", onSendClick, true);
-    window.addEventListener("click", onSendClick, true);
   }
 
   return {

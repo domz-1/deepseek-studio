@@ -2,6 +2,9 @@ import { useDeepSeekDom } from "./useDeepSeekDom";
 import { settings } from "./useStudioState";
 import { useAgentSystemPrompt } from "./useAgentSystemPrompt";
 
+let isSending = false;
+let lastSendTime = 0;
+
 export function usePromptExecution() {
   const { getChatInput, getSendButton, clickButton } = useDeepSeekDom();
   const { preparePromptForSubmission } = useAgentSystemPrompt();
@@ -32,45 +35,54 @@ export function usePromptExecution() {
   }
 
   async function sendPrompt(rawPromptText: string): Promise<boolean> {
+    // Prevent concurrent or burst duplicate prompt submissions
+    if (isSending) return false;
+    if (Date.now() - lastSendTime < 1200) return false;
+
     const input = getChatInput();
     if (!input) return false;
 
-    const promptText = preparePromptForSubmission(rawPromptText);
+    isSending = true;
+    lastSendTime = Date.now();
 
-    // 1. Natural pre-input focus delay
-    if (settings.humanSpeed === "natural") {
-      input.focus();
-      await new Promise((r) => setTimeout(r, 150 + Math.random() * 200));
+    try {
+      const promptText = preparePromptForSubmission(rawPromptText);
+
+      // 1. Natural pre-input focus delay
+      if (settings.humanSpeed === "natural") {
+        input.focus();
+        await new Promise((r) => setTimeout(r, 120));
+      }
+
+      // 2. Set text in textarea and notify React
+      await typeHumanizedText(input, promptText);
+
+      // 3. Wait for React to enable the Send button
+      await new Promise((r) => setTimeout(r, 120));
+
+      // 4. Click Send button OR fallback to Enter key (never both!)
+      const sendBtn = getSendButton();
+      if (sendBtn && !(sendBtn as HTMLButtonElement).disabled) {
+        clickButton(sendBtn);
+      } else {
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      }
+
+      // Settle time before allowing next automated send
+      await new Promise((r) => setTimeout(r, 500));
+      return true;
+    } finally {
+      isSending = false;
     }
-
-    // 2. Type text
-    await typeHumanizedText(input, promptText);
-
-    // 3. Wait for React state to update Send button
-    await new Promise((r) => setTimeout(r, 80));
-
-    // 4. Click Send
-    const sendBtn = getSendButton();
-    if (sendBtn) {
-      clickButton(sendBtn);
-    }
-
-    // 5. Fallback Enter key if input is still populated
-    await new Promise((r) => setTimeout(r, 180));
-    if (input.value && input.value.trim().length > 0) {
-      input.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: "Enter",
-          code: "Enter",
-          keyCode: 13,
-          which: 13,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-    }
-
-    return true;
   }
 
   return {

@@ -130,8 +130,11 @@ export function useDeepSeekDom() {
       btn.dispatchEvent(new MouseEvent("mousedown", opts));
       btn.dispatchEvent(new PointerEvent("pointerup", opts));
       btn.dispatchEvent(new MouseEvent("mouseup", opts));
-      btn.dispatchEvent(new MouseEvent("click", opts));
-      btn.click?.();
+      if (typeof btn.click === "function") {
+        btn.click();
+      } else {
+        btn.dispatchEvent(new MouseEvent("click", opts));
+      }
       return true;
     } catch (_) {
       try {
