@@ -142,6 +142,7 @@ export function useBridgeWs() {
         {
           type: "CALL",
           payload: {
+            name: toolName,
             tool: toolName,
             arguments: args,
           },

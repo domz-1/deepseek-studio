@@ -11,7 +11,7 @@ import { useActionCards } from "../../composables/useActionCards";
 import { useDeepSeekDom } from "../../composables/useDeepSeekDom";
 import { useAgentSystemPrompt } from "../../composables/useAgentSystemPrompt";
 
-import ActionCard from "../../components/ActionCard.vue";
+import InlineToolExecution from "../../components/InlineToolExecution.vue";
 import ChatInputBadge from "../../components/ChatInputBadge.vue";
 import SidebarProjectDropdown from "../../components/SidebarProjectDropdown.vue";
 import TopFloatingBar from "../../components/TopFloatingBar.vue";
@@ -29,6 +29,7 @@ const { registerActions } = useActionCards();
 const { getChatInput, getSendButton } = useDeepSeekDom();
 
 const showSidebarDropdown = ref(false);
+const hasActionMount = ref(false);
 let scannerInterval: any = null;
 let domDetector: any = null;
 let lastKnownPath = "";
@@ -93,6 +94,28 @@ function checkDomMounts() {
     showSidebarDropdown.value = false;
   }
 
+  // 2. Chat inline tool execution anchor: locate latest assistant markdown block
+  const mdBlocks = Array.from(
+    document.querySelectorAll("div.ds-markdown"),
+  ).filter(
+    (el) => !el.closest("div[class*='think' i], div[class*='thought' i]"),
+  );
+  if (mdBlocks.length > 0) {
+    const latest = mdBlocks[mdBlocks.length - 1];
+    let anchor = document.getElementById("ds-inline-action-anchor");
+    if (!anchor) {
+      anchor = document.createElement("div");
+      anchor.id = "ds-inline-action-anchor";
+      anchor.className = "ds-inline-action-anchor w-full pointer-events-auto";
+    }
+    if (latest.previousElementSibling !== anchor) {
+      latest.insertAdjacentElement("beforebegin", anchor);
+    }
+    hasActionMount.value = true;
+  } else {
+    hasActionMount.value = false;
+  }
+
   // 3. Track URL route change for chat-to-project tagging and filtering
   const currentPath = window.location.pathname;
   if (currentPath !== lastKnownPath) {
@@ -146,16 +169,12 @@ onUnmounted(() => {
       <SidebarProjectDropdown />
     </Teleport>
 
-    <!-- Interactive MCP Action Cards in Chat -->
-    <div
-      v-if="activeActions.length > 0"
-      class="fixed bottom-16 right-4 w-96 max-w-[calc(100vw-32px)] flex flex-col gap-2 pointer-events-auto z-[999999]"
+    <!-- Inline Expandable MCP Tool Execution in Chat (Matching Image 2) -->
+    <Teleport
+      v-if="hasActionMount && activeActions.length > 0"
+      to="#ds-inline-action-anchor"
     >
-      <ActionCard
-        v-for="act in activeActions.slice(-3)"
-        :key="act.id"
-        :action="act"
-      />
-    </div>
+      <InlineToolExecution />
+    </Teleport>
   </div>
 </template>

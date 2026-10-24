@@ -404,7 +404,9 @@ app.post("/call", async (req, res) => {
     });
   }
 
-  let { name, arguments: args = {}, callId, project } = req.body;
+  let name = req.body.name || req.body.tool || req.body.toolName;
+  let args = req.body.arguments || req.body.args || req.body.parameters || {};
+  let { callId, project } = req.body;
   console.log(`[Bridge] Incoming /call: ${name}`, JSON.stringify(args || {}));
 
   // Resolve model confusion when it passes server name (e.g. "chrome", "filesystem", "bash") as tool name:
