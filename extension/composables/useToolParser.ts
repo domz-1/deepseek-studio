@@ -29,7 +29,39 @@ export function useToolParser() {
       } catch (_) {}
     }
 
-    // 2. DSML Format (<|DSML|invoke name="..." >)
+    // 2. Claude Fable / XML <tool_call> format
+    const toolCallRegex = /<tool_call>([\s\S]*?)<\/tool_call>/gi;
+    let tcMatch: RegExpExecArray | null;
+    while ((tcMatch = toolCallRegex.exec(normText)) !== null) {
+      const block = tcMatch[1];
+      const nameMatch = block.match(/<tool_name>([\s\S]*?)<\/tool_name>/i);
+      if (!nameMatch) continue;
+      const fnName = nameMatch[1].trim();
+
+      let args: Record<string, any> = {};
+      const paramsMatch = block.match(
+        /<(?:parameters|arguments)>([\s\S]*?)<\/(?:parameters|arguments)>/i,
+      );
+      const rawParams = paramsMatch
+        ? paramsMatch[1].trim()
+        : block.replace(/<tool_name>[\s\S]*?<\/tool_name>/i, "").trim();
+
+      if (rawParams) {
+        try {
+          args = JSON.parse(rawParams);
+        } catch {
+          const jsonM = rawParams.match(/\{[\s\S]*\}/);
+          if (jsonM) {
+            try {
+              args = JSON.parse(jsonM[0]);
+            } catch (_) {}
+          }
+        }
+      }
+      results.push(createAction(fnName, args, tcMatch[0]));
+    }
+
+    // 3. DSML Format (<|DSML|invoke name="..." >)
     if (normText.includes("DSML") || normText.includes("invoke")) {
       const invokeRegex =
         /(?:<\|DSML\|)?(?:i)?nvoke\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)(?:<\/(?:\|DSML\|)?invoke>|<\/(?:\|DSML\|)?calls>|$)/gi;

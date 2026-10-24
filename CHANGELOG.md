@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.0] - 2026-10-17
 
 ### Added
+
 - **Skills system** — reusable prompt bundles triggered with a leading `/name`.
   - 10 built-in skills: `/help`, `/explain`, `/review`, `/refactor`, `/tests`, `/debug`, `/commit`, `/summarize`, `/translate-ar`, `/translate-en`.
   - Slash-autocomplete dropdown in the chat box.
@@ -16,12 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `unlimitedStorage` permission.
 
 ### Changed
+
 - `content.js` input handler now recognises both `@` and `/` triggers.
 - Popup reworked with three tabs: Servers, JSON, Skills.
 
 ## [1.0.0] - 2026-10-17
 
 ### Added
+
 - Initial public release.
 - Local **MCP bridge** (`bridge/server.js`) exposing `GET /mcp`, `POST /mcp`, and `POST /call` on port `43210`.
 - Built-in **bash/shell MCP server** (`bridge/command-server.js`) with the `execute_command` tool.

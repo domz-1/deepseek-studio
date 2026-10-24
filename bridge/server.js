@@ -133,6 +133,7 @@ async function syncServers() {
         toolMap.set(t.name, { serverName: name, schema: t });
         toolMap.set(`${name}.${t.name}`, { serverName: name, schema: t });
         toolMap.set(`${name}_${t.name}`, { serverName: name, schema: t });
+        toolMap.set(`${name}__${t.name}`, { serverName: name, schema: t });
       }
       serverStatus[name] = { online: true, count: tools.length };
       console.log(`[MCP] ${name} → ${tools.length} tools`);
@@ -217,6 +218,7 @@ app.get("/server/state", (req, res) => {
     status: isServerActive ? "online" : "stopped",
     servers: serverStatus,
     toolCount: toolMap.size,
+    tools: isServerActive ? getUniqueTools() : [],
   });
 });
 
@@ -449,14 +451,32 @@ app.post("/call", async (req, res) => {
     }
   }
 
+  if (typeof name === "string") {
+    if (name.includes("__")) {
+      name = name.split("__").slice(1).join("__");
+    } else if (name.includes(".")) {
+      name = name.split(".").slice(1).join(".");
+    }
+  }
+
   let target = toolMap.get(name);
   if (!target && name && typeof name === "string") {
-    if (name.includes(".")) {
-      const stripped = name.split(".").slice(1).join(".");
-      target = toolMap.get(stripped);
-    } else if (name.includes("_")) {
+    if (name.includes("_")) {
       const stripped = name.split("_").slice(1).join("_");
       target = toolMap.get(stripped);
+    }
+    // Intelligent model aliases
+    if (!target) {
+      const lower = name.toLowerCase();
+      if (
+        lower.endsWith("file_list") ||
+        lower.endsWith("filelist") ||
+        lower.endsWith("list_files") ||
+        lower.endsWith("listfiles") ||
+        lower === "ls"
+      ) {
+        target = toolMap.get("list_directory");
+      }
     }
   }
   if (!target) {

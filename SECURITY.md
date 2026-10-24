@@ -35,13 +35,13 @@ production data. It exists for demos on disposable environments only.
 
 ## Mitigations in place
 
-| Layer | Control |
-|---|---|
-| Network | loopback bind (default) |
-| Origin | allowlist + extension origins |
-| Auth | per-call bearer token |
-| Index | metadata-only, root-allowlisted, depth-capped |
-| Approval | permission cards for write/execute tools |
+| Layer    | Control                                       |
+| -------- | --------------------------------------------- |
+| Network  | loopback bind (default)                       |
+| Origin   | allowlist + extension origins                 |
+| Auth     | per-call bearer token                         |
+| Index    | metadata-only, root-allowlisted, depth-capped |
+| Approval | permission cards for write/execute tools      |
 
 ## Reporting
 

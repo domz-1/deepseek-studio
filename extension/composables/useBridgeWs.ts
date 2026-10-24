@@ -57,6 +57,12 @@ export function useBridgeWs() {
           });
         });
         servers.value = newServers;
+        chrome.storage.local
+          .set({
+            cached_tools: rawTools,
+            cached_servers: newServers,
+          })
+          .catch(() => {});
       } else {
         bridgeConnected.value = false;
         bridgeStatusText.value = "Offline";

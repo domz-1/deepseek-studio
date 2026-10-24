@@ -41,11 +41,23 @@ function scanMessagesForTools() {
   );
   if (mdBlocks.length === 0) return;
 
-  const latest = mdBlocks[mdBlocks.length - 1];
-  const text = latest.textContent || "";
-  const detected = parseToolCallsFromText(text);
-  if (detected.length > 0) {
-    registerActions(detected);
+  const recent = mdBlocks.slice(-3);
+  for (const block of recent) {
+    const rawText = block.textContent || "";
+    let detected = parseToolCallsFromText(rawText);
+
+    // Fallback if browser parsed <tool_call> as DOM elements instead of text nodes
+    if (detected.length === 0 && block.innerHTML.includes("tool_call")) {
+      const htmlUnescaped = block.innerHTML
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&");
+      detected = parseToolCallsFromText(htmlUnescaped);
+    }
+
+    if (detected.length > 0) {
+      registerActions(detected);
+    }
   }
 }
 

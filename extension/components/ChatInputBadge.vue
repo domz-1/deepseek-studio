@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
 import { useDeepSeekDom } from "../composables/useDeepSeekDom";
-import { usePromptExecution } from "../composables/usePromptExecution";
 import SlashMentionMenu from "./SlashMentionMenu.vue";
 
 const { getChatInput } = useDeepSeekDom();
-const { typeHumanizedText } = usePromptExecution();
 
 const menuMode = ref<"slash" | "mention" | null>(null);
 const menuQuery = ref("");
@@ -85,17 +83,30 @@ function handleMenuSelect(insertedText: string) {
   const textBefore = current.slice(0, cursor);
   const textAfter = current.slice(cursor);
 
-  const pattern =
-    menuMode.value === "slash"
-      ? /(?:^|\s)\/[a-zA-Z0-9_-]*$/
-      : /(?:^|\s)@[^\s@]*$/;
+  // Derive pattern from insertedText prefix (/ or @) for bulletproof token replacement
+  const isSlash = insertedText.startsWith("/");
+  const pattern = isSlash
+    ? /(?:^|\s)\/+[a-zA-Z0-9_\-\.]*$/
+    : /(?:^|\s)@+[a-zA-Z0-9_\-\.]*$/;
 
   const replacedBefore = textBefore.replace(pattern, (match) => {
     return match.startsWith(" ") ? ` ${insertedText}` : insertedText;
   });
 
-  typeHumanizedText(input, `${replacedBefore}${textAfter}`);
+  const fullText = `${replacedBefore}${textAfter}`;
+  const proto = Object.getPrototypeOf(input);
+  const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+  if (nativeSetter) {
+    nativeSetter.call(input, fullText);
+  } else {
+    input.value = fullText;
+  }
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.focus();
+  const newPos = replacedBefore.length;
+  input.setSelectionRange(newPos, newPos);
   menuMode.value = null;
+  menuQuery.value = "";
 }
 
 onMounted(() => {

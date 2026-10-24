@@ -143,7 +143,7 @@ onUnmounted(() => {
           }
         : {}
     "
-    class="glass glass--strong w-[310px] max-w-[92vw] rounded-2xl overflow-hidden select-none border border-white/15 shadow-[0_12px_32px_rgba(0,0,0,0.5)] backdrop-blur-2xl bg-slate-900/95 text-slate-100 font-sans animate-in fade-in zoom-in-95 duration-150"
+    class="ds-slash-menu glass glass--strong w-[310px] max-w-[92vw] rounded-2xl overflow-hidden select-none border border-white/15 shadow-[0_12px_32px_rgba(0,0,0,0.5)] backdrop-blur-2xl bg-slate-900/95 text-slate-100 font-sans animate-in fade-in zoom-in-95 duration-150"
     :class="[!coords && 'absolute bottom-full left-0 mb-2']"
   >
     <!-- Compact Rounded Header -->
@@ -176,7 +176,8 @@ onUnmounted(() => {
             ? 'bg-indigo-500/25 border border-indigo-400/40 shadow-sm ds-slash-item-active'
             : 'hover:bg-white/5 border border-transparent',
         ]"
-        @click="selectItem(item)"
+        @mousedown.prevent.stop="selectItem(item)"
+        @click.stop="selectItem(item)"
         @mouseenter="selectedIndex = idx"
       >
         <div

@@ -1,10 +1,30 @@
 import { tools, settings } from "./useStudioState";
 import { useProjects } from "./useProjects";
+import { useSkills } from "./useSkills";
 
 let sessionPromptInjected = false;
 
+const VERIFIED_DEFAULT_TOOLS = `
+- filesystem__list_directory: { "path": "string" } - List files and directories in path
+- filesystem__read_file: { "path": "string" } - Read complete file content
+- filesystem__write_file: { "path": "string", "content": "string" } - Write or overwrite a file
+- filesystem__edit_file: { "path": "string", "edits": [{"oldText": "string", "newText": "string"}] } - Atomic file editing
+- filesystem__create_directory: { "path": "string" } - Create directory
+- filesystem__directory_tree: { "path": "string" } - Recursive directory tree
+- filesystem__search_files: { "path": "string", "pattern": "string" } - Search for files matching pattern
+- filesystem__get_file_info: { "path": "string" } - File metadata
+- bash__execute_command: { "command": "string" } - Run bash shell commands
+- bash__hot_check: { "cwd": "string" } - Fast typecheck or test runner
+- chrome__navigate_page: { "url": "string" } - Navigate browser
+- chrome__click: { "selector": "string" } - Click webpage element
+- chrome__take_screenshot: {} - Capture browser screenshot
+- memory__create_entities: { "entities": [...] } - Store knowledge graph nodes
+- task_done: { "summary": "string", "status": "completed" } - Signal entire task is finished and verified
+`.trim();
+
 export function useAgentSystemPrompt() {
   const { activeProjectName } = useProjects();
+  const { findSkillByTrigger } = useSkills();
 
   function isFirstMessageInChat(): boolean {
     const mdBlocks = document.querySelectorAll("div.ds-markdown");
@@ -15,17 +35,121 @@ export function useAgentSystemPrompt() {
     sessionPromptInjected = false;
   }
 
+  function expandMentionsAndSkills(rawText: string): string {
+    const activePath = settings.activeProject || "/home/adham/projects/adham";
+    let extraContext = "";
+
+    // 1. Expand @server mentions (@filesystem, @bash, @chrome, @memory, @all)
+    const mentionMatches = rawText.match(/@([a-zA-Z0-9_-]+)/g);
+    if (mentionMatches) {
+      const seenServers = new Set<string>();
+      for (const m of mentionMatches) {
+        const sName = m.slice(1).toLowerCase().replace(/_/g, "");
+        if (seenServers.has(sName)) continue;
+        seenServers.add(sName);
+
+        if (sName === "filesystem" || sName === "fs") {
+          extraContext += `\n<mcp_context server="filesystem">
+The user explicitly invoked the @filesystem MCP server.
+Active Project Root: ${activePath}
+Available Filesystem Tools:
+- filesystem__list_directory: { "path": "${activePath}" } - List files and directories in path
+- filesystem__read_file: { "path": "string" } - Read complete file content
+- filesystem__write_file: { "path": "string", "content": "string" } - Write or overwrite a file
+- filesystem__edit_file: { "path": "string", "edits": [{"oldText": "string", "newText": "string"}] } - Edit file atomically
+- filesystem__create_directory: { "path": "string" } - Create directory
+- filesystem__directory_tree: { "path": "string" } - Directory hierarchy
+- filesystem__search_files: { "path": "string", "pattern": "string" } - Find files
+- filesystem__get_file_info: { "path": "string" } - File metadata
+To execute any tool, output:
+<tool_call>
+<tool_name>filesystem__tool_name</tool_name>
+<parameters>
+{ ... }
+</parameters>
+</tool_call>
+</mcp_context>\n`;
+        } else if (sName === "bash" || sName === "sh" || sName === "cmd") {
+          extraContext += `\n<mcp_context server="bash">
+The user explicitly invoked the @bash MCP server.
+Working Directory: ${activePath}
+Available Bash Tools:
+- bash__execute_command: { "command": "string" } - Execute shell command
+- bash__hot_check: { "cwd": "${activePath}" } - Run typecheck or tests
+To execute bash, output:
+<tool_call>
+<tool_name>bash__execute_command</tool_name>
+<parameters>
+{ "command": "command_to_run" }
+</parameters>
+</tool_call>
+</mcp_context>\n`;
+        } else if (sName === "chrome" || sName === "browser") {
+          extraContext += `\n<mcp_context server="chrome">
+The user explicitly invoked the @chrome MCP server for browser automation.
+Available Chrome Tools:
+- chrome__navigate_page: { "url": "string" }
+- chrome__click: { "selector": "string" }
+- chrome__type_text: { "selector": "string", "text": "string" }
+- chrome__take_screenshot: {}
+- chrome__list_pages: {}
+</mcp_context>\n`;
+        } else if (sName === "memory") {
+          extraContext += `\n<mcp_context server="memory">
+The user explicitly invoked the @memory MCP server.
+- memory__create_entities: { "entities": [...] }
+- memory__read_graph: {}
+- memory__search_nodes: { "query": "string" }
+</mcp_context>\n`;
+        } else if (sName === "all") {
+          const allToolsList = tools.value
+            .map(
+              (t) =>
+                `- ${t.server ? `${t.server}__${t.name}` : t.name}: ${
+                  t.description || "MCP tool"
+                }`,
+            )
+            .join("\n");
+          extraContext += `\n<mcp_context server="all">
+Available Tools:
+${allToolsList || VERIFIED_DEFAULT_TOOLS}
+</mcp_context>\n`;
+        }
+      }
+    }
+
+    // 2. Expand /skill mentions
+    const slashMatches = rawText.match(/\/([a-zA-Z0-9_-]+)/g);
+    if (slashMatches) {
+      for (const sm of slashMatches) {
+        const skillName = sm.slice(1);
+        const skill = findSkillByTrigger(skillName);
+        if (skill) {
+          extraContext += `\n<skill_instructions skill="${skill.name}">
+## Skill: ${skill.name}
+${skill.description ? `${skill.description}\n\n` : ""}${skill.content || ""}
+</skill_instructions>\n`;
+        }
+      }
+    }
+
+    return extraContext ? `${extraContext}\n${rawText}` : rawText;
+  }
+
   function buildFableSystemPrompt(): string {
     const activePath = settings.activeProject || "/home/adham/projects/adham";
-    const toolCatalog = tools.value
-      .slice(0, 50)
-      .map(
-        (t) =>
-          `- ${t.server ? `${t.server}__${t.name}` : t.name}: ${
-            t.description || "MCP tool"
-          }`,
-      )
-      .join("\n");
+    const toolCatalog =
+      tools.value.length > 0
+        ? tools.value
+            .slice(0, 60)
+            .map(
+              (t) =>
+                `- ${t.server ? `${t.server}__${t.name}` : t.name}: ${
+                  t.description || "MCP tool"
+                }`,
+            )
+            .join("\n")
+        : VERIFIED_DEFAULT_TOOLS;
 
     return `<antml:reasoning_effort>40</antml:reasoning_effort>
 <agent_system_instructions>
@@ -70,34 +194,40 @@ Calling \`task_done\` informs the user and marks this chat task as successfully 
 
 ## Available MCP Tool Catalog:
 - task_done: Signals that the entire task or goal is complete and verified. Provide an executive summary.
-${toolCatalog || "- bash: run shell commands\n- filesystem: read/write/list files\n- chrome: inspect browser pages"}
+${toolCatalog}
 </agent_system_instructions>`;
   }
 
   function preparePromptForSubmission(rawText: string): string {
+    const expanded = expandMentionsAndSkills(rawText);
     const isNew = isFirstMessageInChat() && !sessionPromptInjected;
     if (isNew) {
       sessionPromptInjected = true;
-      return `${buildFableSystemPrompt()}\n\n${rawText}`;
+      return `${buildFableSystemPrompt()}\n\n${expanded}`;
     }
-    return rawText;
+    return expanded;
   }
 
   function injectIntoTextarea(input: HTMLTextAreaElement) {
     if (!input || !input.value || !input.value.trim()) return;
     if (input.value.includes("<agent_system_instructions>")) return;
 
+    let modified = expandMentionsAndSkills(input.value);
+
     if (isFirstMessageInChat()) {
-      const full = `${buildFableSystemPrompt()}\n\n${input.value}`;
+      modified = `${buildFableSystemPrompt()}\n\n${modified}`;
+      sessionPromptInjected = true;
+    }
+
+    if (modified !== input.value) {
       const proto = Object.getPrototypeOf(input);
       const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
       if (nativeSetter) {
-        nativeSetter.call(input, full);
+        nativeSetter.call(input, modified);
       } else {
-        input.value = full;
+        input.value = modified;
       }
       input.dispatchEvent(new Event("input", { bubbles: true }));
-      sessionPromptInjected = true;
     }
   }
 

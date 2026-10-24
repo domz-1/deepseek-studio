@@ -54,6 +54,8 @@ export function useStudioState() {
         "autoContinueDelay",
         "humanSpeed",
         "activeProject",
+        "cached_tools",
+        "cached_servers",
       ]);
       if (stored.bridgePort) settings.bridgePort = Number(stored.bridgePort);
       else settings.bridgePort = 43210;
@@ -65,6 +67,20 @@ export function useStudioState() {
         settings.autoContinueDelay = Number(stored.autoContinueDelay);
       if (stored.humanSpeed) settings.humanSpeed = stored.humanSpeed;
       if (stored.activeProject) settings.activeProject = stored.activeProject;
+      if (
+        Array.isArray(stored.cached_tools) &&
+        stored.cached_tools.length > 0 &&
+        tools.value.length === 0
+      ) {
+        tools.value = stored.cached_tools;
+      }
+      if (
+        Array.isArray(stored.cached_servers) &&
+        stored.cached_servers.length > 0 &&
+        servers.value.length === 0
+      ) {
+        servers.value = stored.cached_servers;
+      }
     } catch (_) {}
   }
 
