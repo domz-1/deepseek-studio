@@ -16,21 +16,19 @@ export const filterByActiveProject = ref<boolean>(false);
 export function useChatProjects() {
   async function loadChatProjects() {
     try {
-      const stored = await chrome.storage.local.get([
+      const s = await chrome.storage.local.get([
         "ds_chat_projects",
         "ds_chat_titles",
         "ds_chat_status",
         "ds_pinned_chats",
         "ds_filter_by_project",
       ]);
-      if (stored.ds_chat_projects)
-        chatProjectMap.value = stored.ds_chat_projects;
-      if (stored.ds_chat_titles) chatTitles.value = stored.ds_chat_titles;
-      if (stored.ds_chat_status) chatStatusMap.value = stored.ds_chat_status;
-      if (stored.ds_pinned_chats) pinnedChats.value = stored.ds_pinned_chats;
-      if (typeof stored.ds_filter_by_project === "boolean") {
-        filterByActiveProject.value = stored.ds_filter_by_project;
-      }
+      if (s.ds_chat_projects) chatProjectMap.value = s.ds_chat_projects;
+      if (s.ds_chat_titles) chatTitles.value = s.ds_chat_titles;
+      if (s.ds_chat_status) chatStatusMap.value = s.ds_chat_status;
+      if (s.ds_pinned_chats) pinnedChats.value = s.ds_pinned_chats;
+      if (typeof s.ds_filter_by_project === "boolean")
+        filterByActiveProject.value = s.ds_filter_by_project;
     } catch (_) {}
   }
 
@@ -59,24 +57,18 @@ export function useChatProjects() {
     return match ? match[1] : null;
   }
 
-  function formatTimeAgo(timestamp?: number): string {
-    if (!timestamp) return "";
-    const sec = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
-    if (sec < 60) return "just now";
-    const min = Math.floor(sec / 60);
-    if (min < 60) return `${min}m`;
-    const hr = Math.floor(min / 60);
-    if (hr < 24) return `${hr}h`;
-    const day = Math.floor(hr / 24);
-    if (day < 7) return `${day}d`;
-    const wk = Math.floor(day / 7);
-    return `${wk}w`;
+  function formatTimeAgo(ts?: number): string {
+    if (!ts) return "";
+    const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
+    if (s < 60) return "just now";
+    if (s < 3600) return `${Math.floor(s / 60)}m`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h`;
+    return `${Math.floor(s / 86400)}d`;
   }
 
   async function tagCurrentChat(projectPath?: string) {
     const chatId = getCurrentChatId();
     if (!chatId) return;
-
     const targetProject = projectPath || settings.activeProject;
     if (!targetProject) return;
 
@@ -92,7 +84,6 @@ export function useChatProjects() {
       };
       modified = true;
     }
-
     if (modified) {
       await saveChatProjects();
       applySidebarFilter();
@@ -102,7 +93,6 @@ export function useChatProjects() {
   async function markChatDone(chatId?: string, summary?: string) {
     const id = chatId || getCurrentChatId();
     if (!id) return;
-
     chatStatusMap.value[id] = {
       status: "done",
       summary: summary || "Task completed",
@@ -114,11 +104,7 @@ export function useChatProjects() {
   async function markChatInProgress(chatId?: string) {
     const id = chatId || getCurrentChatId();
     if (!id) return;
-
-    chatStatusMap.value[id] = {
-      status: "in_progress",
-      timestamp: Date.now(),
-    };
+    chatStatusMap.value[id] = { status: "in_progress", timestamp: Date.now() };
     await saveChatProjects();
   }
 
@@ -129,22 +115,15 @@ export function useChatProjects() {
     ).length;
   }
 
-  const activeProjectChatCount = computed(() => {
-    return getProjectChatCount(settings.activeProject);
-  });
+  const activeProjectChatCount = computed(() =>
+    getProjectChatCount(settings.activeProject),
+  );
 
   const projectTree = computed(() => {
     const currentId = getCurrentChatId();
     return projects.value.map((proj) => {
       const folderName = proj.name || proj.path.split("/").pop() || "project";
-      const matchingChats: {
-        id: string;
-        title: string;
-        url: string;
-        timeAgo: string;
-        isDone: boolean;
-        isActive: boolean;
-      }[] = [];
+      const matchingChats: any[] = [];
 
       for (const [id, assignedPath] of Object.entries(chatProjectMap.value)) {
         if (assignedPath === proj.path || assignedPath.endsWith(proj.path)) {
@@ -161,7 +140,6 @@ export function useChatProjects() {
         }
       }
 
-      // Sort chats: pinned first, then most recently updated
       matchingChats.sort((a, b) => {
         if (a.isPinned && !b.isPinned) return -1;
         if (!a.isPinned && b.isPinned) return 1;
@@ -182,32 +160,14 @@ export function useChatProjects() {
   async function createNewChatInProject(projectPath: string) {
     settings.activeProject = projectPath;
     await saveSettings({ activeProject: projectPath });
-
-    // Look for DeepSeek's native New Chat action
-    const candidates = [
-      document.querySelector<HTMLElement>("div._7b40dad button"),
-      document.querySelector<HTMLElement>("div._7b40dad div[role='button']"),
-      document.querySelector<HTMLElement>("div._7b40dad a"),
-      document.querySelector<HTMLElement>("div._7b40dad"),
-      document.querySelector<HTMLElement>("button[aria-label*='New chat' i]"),
-      document.querySelector<HTMLElement>("a[href='/']"),
-    ];
-
-    for (const c of candidates) {
-      if (c) {
-        c.click();
-        c.dispatchEvent(
-          new MouseEvent("click", { bubbles: true, cancelable: true }),
-        );
-        break;
-      }
-    }
-
+    const btn = document.querySelector<HTMLElement>(
+      "div._7b40dad button, button[aria-label*='New chat' i], a[href='/']",
+    );
+    if (btn) btn.click();
     if (window.location.pathname.startsWith("/a/chat/s/")) {
       setTimeout(() => {
-        if (window.location.pathname.startsWith("/a/chat/s/")) {
+        if (window.location.pathname.startsWith("/a/chat/s/"))
           window.location.href = "/";
-        }
       }, 150);
     }
   }
@@ -246,7 +206,6 @@ export function useChatProjects() {
       const chatId = match ? match[1] : null;
       if (!chatId) continue;
 
-      // Extract and cache title
       const titleEl = link.querySelector("div.c08e6e93") || link;
       const titleText = (titleEl.textContent || "").trim();
       if (titleText && chatTitles.value[chatId] !== titleText) {
@@ -254,7 +213,6 @@ export function useChatProjects() {
         titlesChanged = true;
       }
 
-      // Default timestamp if none exists
       if (!chatStatusMap.value[chatId]) {
         chatStatusMap.value[chatId] = {
           status: "in_progress",
