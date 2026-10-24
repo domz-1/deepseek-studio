@@ -79,13 +79,12 @@ export function useDeepSeekDom() {
 
       const text = (el.textContent || "").trim().toLowerCase();
       const aria = (el.getAttribute("aria-label") || "").toLowerCase();
-      const title = (el.getAttribute("title") || "").toLowerCase();
 
       // 1. Continue
       if (
-        text === "continue" ||
-        aria === "continue" ||
-        title === "continue" ||
+        ["continue", "كمل", "إكمال", "استمرار", "متابعة"].includes(text) ||
+        aria.includes("continue") ||
+        aria.includes("كمل") ||
         el.classList.contains("ds-continue-button")
       ) {
         return { el, type: "Continue" };
@@ -93,9 +92,8 @@ export function useDeepSeekDom() {
 
       // 2. Retry
       if (
-        text === "retry" ||
-        aria === "retry" ||
-        title === "retry" ||
+        ["retry", "إعادة المحاولة"].includes(text) ||
+        aria.includes("retry") ||
         el.classList.contains("ds-button--warning") ||
         el.classList.contains("ds-retry-button")
       ) {
@@ -201,9 +199,9 @@ export function useDeepSeekDom() {
       return true;
     }
 
-    // 2. Detect Stop square icon (SVG rect in textarea buttons)
+    // 2. Detect Stop square icon (strictly SVG rect in textarea wrapper buttons)
     const stopIcon = document.querySelector(
-      "div.ds-textarea-wrapper svg rect, button svg rect",
+      "div.ds-textarea-wrapper button svg rect, div.ds-textarea-wrapper div[role='button'] svg rect",
     );
     if (stopIcon && (stopIcon as HTMLElement).offsetParent !== null) {
       lastChangeTime = Date.now();

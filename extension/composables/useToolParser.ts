@@ -81,6 +81,7 @@ export function useToolParser() {
           const pName = pm[1].trim();
           let pVal = pm[2].trim();
           pVal = pVal
+            .replace(/<[\s\S]*?(?:DSML|parameter|invoke|calls)[\s\S]*?>/gi, "")
             .replace(/<\/?(?:\|DSML\||parameter)[^>]*>?$/gi, "")
             .trim();
           try {
@@ -88,6 +89,10 @@ export function useToolParser() {
           } catch (_) {}
           if (typeof pVal === "string") {
             pVal = pVal
+              .replace(
+                /<[\s\S]*?(?:DSML|parameter|invoke|calls)[\s\S]*?>/gi,
+                "",
+              )
               .replace(/<\/?(?:\|DSML\||parameter)[^>]*>?$/gi, "")
               .trim();
           }
@@ -132,9 +137,14 @@ export function useToolParser() {
 
     if (!cleanArgs.command && cleanArgs.cmd) cleanArgs.command = cleanArgs.cmd;
     if (typeof cleanArgs === "string") cleanArgs.command = cleanArgs;
+    if (typeof cleanArgs.command === "string") {
+      cleanArgs.command = cleanArgs.command
+        .replace(/<[\s\S]*?(?:DSML|parameter|invoke|calls)[\s\S]*?>/gi, "")
+        .trim();
+    }
     if (typeof cleanArgs.path === "string") {
       cleanArgs.path = cleanArgs.path
-        .replace(/<\/?(?:\|DSML\||parameter)[^>]*>?$/gi, "")
+        .replace(/<[\s\S]*?(?:DSML|parameter|invoke|calls)[\s\S]*?>/gi, "")
         .trim();
     }
 
