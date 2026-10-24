@@ -1,38 +1,56 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
-import { useStudioState } from "../composables/useStudioState";
+import { useStudioState, settings } from "../composables/useStudioState";
 import { useBridgeWs } from "../composables/useBridgeWs";
+import { useProjects } from "../composables/useProjects";
 import { useDeepSeekDom } from "../composables/useDeepSeekDom";
 import { usePromptExecution } from "../composables/usePromptExecution";
 import SlashMentionMenu from "./SlashMentionMenu.vue";
-import ChatProjectSelector from "./ChatProjectSelector.vue";
-import { Cpu, Activity } from "lucide-vue-next";
+import { Cpu, Activity, FolderGit2 } from "lucide-vue-next";
 
 const { bridgeConnected, isServerStopped } = useStudioState();
+const { activeProjectName } = useProjects();
 const { connect } = useBridgeWs();
 const { getChatInput } = useDeepSeekDom();
 const { typeHumanizedText } = usePromptExecution();
 
 const menuMode = ref<"slash" | "mention" | null>(null);
 const menuQuery = ref("");
-const menuCoords = ref<{ bottom: string; left: string; width: string }>({
+const menuCoords = ref<{
+  bottom?: string;
+  top?: string;
+  left: string;
+  width: string;
+}>({
   bottom: "80px",
   left: "24px",
-  width: "380px",
+  width: "420px",
 });
 
 function updateMenuCoords(input: HTMLTextAreaElement) {
   const rect = input.getBoundingClientRect();
-  const width = Math.min(400, window.innerWidth - 32);
+  const width = Math.min(420, window.innerWidth - 32);
   const left = Math.max(
     16,
     Math.min(rect.left, window.innerWidth - width - 16),
   );
-  menuCoords.value = {
-    bottom: `${window.innerHeight - rect.top + 8}px`,
-    left: `${left}px`,
-    width: `${width}px`,
-  };
+
+  // If there's ample room above (at least 320px), place above input; otherwise place below
+  if (rect.top > 320) {
+    menuCoords.value = {
+      bottom: `${window.innerHeight - rect.top + 10}px`,
+      top: "auto",
+      left: `${left}px`,
+      width: `${width}px`,
+    };
+  } else {
+    menuCoords.value = {
+      top: `${rect.bottom + 10}px`,
+      bottom: "auto",
+      left: `${left}px`,
+      width: `${width}px`,
+    };
+  }
 }
 
 function checkInputState(e?: Event) {
@@ -88,17 +106,6 @@ function handleMenuSelect(insertedText: string) {
   menuMode.value = null;
 }
 
-function addMention(mentionText: string) {
-  const input = getChatInput();
-  if (!input) return;
-  input.focus();
-  const current = input.value || "";
-  if (!current.includes(mentionText)) {
-    const sep = current.trim() ? " " : "";
-    typeHumanizedText(input, `${current.trim()}${sep}${mentionText} `);
-  }
-}
-
 onMounted(() => {
   window.addEventListener("input", checkInputState, true);
   window.addEventListener("keyup", checkInputState, true);
@@ -126,9 +133,9 @@ onUnmounted(() => {
       />
     </Teleport>
 
-    <!-- Liquid Glass MCP Bar -->
+    <!-- Sleek In-Chat MCP Status Pill (Project selector moved to sidebar) -->
     <div
-      class="glass glass--subtle glass--liquid flex items-center flex-wrap gap-1.5 px-2.5 py-1.5 rounded-xl border border-white/10 text-xs text-slate-200"
+      class="glass glass--subtle glass--liquid inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-white/10 text-xs text-slate-200"
     >
       <!-- Bridge Status Pill -->
       <button
@@ -168,8 +175,17 @@ onUnmounted(() => {
         }}</span>
       </button>
 
-      <!-- Workspace Project Selector Pill with Dropdown -->
-      <ChatProjectSelector />
+      <!-- Non-intrusive Active Project Readout (DDL lives in Sidebar) -->
+      <div
+        v-if="settings.activeProject"
+        class="flex items-center gap-1 text-[11px] text-slate-400 pr-1 truncate max-w-[200px]"
+        :title="`Current active workspace project: ${settings.activeProject}`"
+      >
+        <FolderGit2 :size="11" class="text-indigo-400 shrink-0" />
+        <span class="truncate text-slate-300 font-medium">{{
+          activeProjectName
+        }}</span>
+      </div>
     </div>
   </div>
 </template>

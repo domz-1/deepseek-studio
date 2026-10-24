@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
 import { useProjects } from "../composables/useProjects";
 import { settings } from "../composables/useStudioState";
+import { useChatProjects } from "../composables/useChatProjects";
 import {
   FolderGit2,
   Folder,
@@ -9,26 +10,65 @@ import {
   ChevronDown,
   Check,
   Search,
+  Plus,
+  Filter,
 } from "lucide-vue-next";
 
-const { projects, activeProjectName, loadProjects, selectProject } =
-  useProjects();
+const {
+  projects,
+  activeProjectName,
+  loadProjects,
+  selectProject,
+  addCustomProject,
+} = useProjects();
+const {
+  filterByActiveProject,
+  activeProjectChatCount,
+  setFilterByProject,
+  applySidebarFilter,
+} = useChatProjects();
+
 const isOpen = ref(false);
 const searchQuery = ref("");
+const showAddInput = ref(false);
+const newPathInput = ref("");
+const triggerRef = ref<HTMLElement | null>(null);
+const dropdownCoords = ref<{ top: string; left: string; width: string }>({
+  top: "0px",
+  left: "0px",
+  width: "260px",
+});
+
+function updateDropdownCoords() {
+  if (!triggerRef.value) return;
+  const rect = triggerRef.value.getBoundingClientRect();
+  const width = Math.max(270, rect.width);
+  dropdownCoords.value = {
+    top: `${rect.bottom + 6}px`,
+    left: `${Math.max(8, rect.left)}px`,
+    width: `${width}px`,
+  };
+}
 
 onMounted(async () => {
   await loadProjects();
   window.addEventListener("click", handleClickOutside, true);
+  window.addEventListener("resize", updateDropdownCoords);
 });
 
 onUnmounted(() => {
   window.removeEventListener("click", handleClickOutside, true);
+  window.removeEventListener("resize", updateDropdownCoords);
 });
 
 function handleClickOutside(e: MouseEvent) {
   const t = e.target as HTMLElement;
-  if (!t.closest(".ds-sidebar-project-container")) {
+  if (
+    !t.closest(".ds-sidebar-project-container") &&
+    !t.closest(".ds-sidebar-project-menu")
+  ) {
     isOpen.value = false;
+    showAddInput.value = false;
   }
 }
 
@@ -42,54 +82,123 @@ const filteredProjects = computed(() => {
   );
 });
 
-function toggle() {
+function toggleDropdown() {
   isOpen.value = !isOpen.value;
+  if (isOpen.value) {
+    nextTick(updateDropdownCoords);
+  }
 }
 
-function choose(path: string) {
-  selectProject(path);
+async function chooseProject(path: string) {
+  await selectProject(path);
   isOpen.value = false;
   searchQuery.value = "";
+  applySidebarFilter();
+}
+
+async function handleAddProject() {
+  const val = newPathInput.value.trim();
+  if (!val) return;
+  await addCustomProject(val);
+  newPathInput.value = "";
+  showAddInput.value = false;
+  isOpen.value = false;
+  applySidebarFilter();
 }
 </script>
 
 <template>
   <div
-    class="ds-sidebar-project-container relative mx-3 my-2 font-sans select-none"
+    ref="triggerRef"
+    class="ds-sidebar-project-container mx-2.5 my-1.5 font-sans select-none"
   >
-    <!-- Project Trigger Button -->
+    <!-- Main Project Card in Sidebar -->
     <div
-      class="glass glass--subtle glass-interactive flex justify-between items-center px-3 py-2 rounded-xl text-slate-200 text-xs cursor-pointer border border-white/10 hover:border-indigo-400/30 transition-all"
-      title="Switch active workspace project"
-      @click="toggle"
+      class="glass glass--subtle glass-interactive flex flex-col gap-1.5 p-2 rounded-2xl border border-white/10 hover:border-indigo-400/40 transition-all bg-white/[0.03] shadow-md"
     >
-      <div class="flex items-center gap-2 overflow-hidden">
-        <component
-          :is="settings.activeProject ? FolderGit2 : Globe"
+      <!-- Trigger Button -->
+      <div
+        class="flex items-center justify-between cursor-pointer px-1 py-0.5"
+        :title="`Current Project: ${settings.activeProject || 'All Workspaces'}`"
+        @click="toggleDropdown"
+      >
+        <div class="flex items-center gap-2 overflow-hidden">
+          <component
+            :is="settings.activeProject ? FolderGit2 : Globe"
+            :size="14"
+            class="text-indigo-400 shrink-0"
+          />
+          <div class="flex flex-col min-w-0">
+            <span
+              class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold"
+              >Active Project</span
+            >
+            <span class="truncate font-semibold text-slate-100 text-xs">{{
+              activeProjectName
+            }}</span>
+          </div>
+        </div>
+        <ChevronDown
           :size="14"
-          class="text-indigo-400 shrink-0"
+          class="text-slate-400 shrink-0 transition-transform duration-200"
+          :class="{ 'rotate-180': isOpen }"
         />
-        <span class="truncate font-medium text-slate-100">{{
-          activeProjectName
-        }}</span>
       </div>
-      <ChevronDown
-        :size="13"
-        class="text-slate-400 shrink-0 transition-transform duration-200"
-        :class="{ 'rotate-180': isOpen }"
-      />
+
+      <!-- Project Filter Toggle Pill -->
+      <div
+        class="flex items-center justify-between pt-1 border-t border-white/10 text-[10px]"
+      >
+        <button
+          type="button"
+          class="flex items-center gap-1 px-2 py-0.5 rounded-full border transition-all"
+          :class="[
+            filterByActiveProject
+              ? 'bg-indigo-500/25 border-indigo-400/50 text-indigo-300 font-semibold'
+              : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200',
+          ]"
+          :title="
+            filterByActiveProject
+              ? 'Viewing chats in this project only'
+              : 'Click to filter sidebar chats by this project'
+          "
+          @click="setFilterByProject(!filterByActiveProject)"
+        >
+          <Filter :size="10" />
+          <span>{{
+            filterByActiveProject ? "Project Chats" : "All Chats"
+          }}</span>
+          <span
+            v-if="filterByActiveProject && settings.activeProject"
+            class="bg-indigo-400/30 text-indigo-200 px-1.5 rounded-full text-[9px] font-mono"
+          >
+            {{ activeProjectChatCount }}
+          </span>
+        </button>
+
+        <span class="text-slate-400 text-[10px]">
+          {{ projects.length }} available
+        </span>
+      </div>
     </div>
 
-    <!-- Dropdown Menu -->
-    <div
-      v-if="isOpen"
-      class="glass glass--strong absolute top-full left-0 right-0 mt-1.5 max-h-72 rounded-2xl border border-white/15 bg-slate-900/95 backdrop-blur-xl shadow-2xl z-[99999] overflow-hidden flex flex-col p-1.5"
-    >
-      <div class="p-1 mb-1 border-b border-white/10">
+    <!-- Teleported Floating Dropdown Menu with Search & Add -->
+    <Teleport to="body">
+      <div
+        v-if="isOpen"
+        class="ds-sidebar-project-menu glass glass--strong fixed rounded-2xl border border-white/15 bg-slate-900/95 backdrop-blur-2xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] z-[99999999] overflow-hidden flex flex-col p-2 text-slate-100 font-sans"
+        :style="{
+          top: dropdownCoords.top,
+          left: dropdownCoords.left,
+          width: dropdownCoords.width,
+          maxHeight: '380px',
+        }"
+      >
+        <!-- Search bar -->
         <div
-          class="flex items-center gap-1.5 px-2 py-1 bg-black/40 rounded-lg border border-white/10"
+          class="flex items-center gap-1.5 px-2.5 py-1.5 bg-black/40 rounded-xl border border-white/10 mb-1.5"
         >
-          <Search :size="12" class="text-slate-400 shrink-0" />
+          <Search :size="13" class="text-slate-400 shrink-0" />
           <input
             v-model="searchQuery"
             type="text"
@@ -98,53 +207,101 @@ function choose(path: string) {
             @click.stop
           />
         </div>
-      </div>
 
-      <div class="overflow-y-auto max-h-56 flex flex-col gap-0.5">
+        <!-- Add Custom Project Option -->
         <div
-          class="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs text-slate-200 cursor-pointer transition-all hover:bg-white/10"
-          :class="{
-            'bg-indigo-500/25 font-semibold text-white':
-              !settings.activeProject,
-          }"
-          @click="choose('')"
+          v-if="!showAddInput"
+          class="px-1 py-1 mb-1 border-b border-white/10"
         >
-          <Globe :size="13" class="text-indigo-400 shrink-0" />
-          <span class="flex-1">All Workspaces</span>
-          <Check
-            v-if="!settings.activeProject"
-            :size="12"
-            class="text-indigo-400 shrink-0"
+          <button
+            type="button"
+            class="w-full flex items-center justify-center gap-1.5 px-2 py-1 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-400/30 text-indigo-300 text-[11px] font-medium transition-all"
+            @click.stop="showAddInput = true"
+          >
+            <Plus :size="12" />
+            <span>+ Add Project / Custom Path</span>
+          </button>
+        </div>
+        <div
+          v-else
+          class="flex items-center gap-1.5 p-1 mb-1 border-b border-white/10"
+          @click.stop
+        >
+          <input
+            v-model="newPathInput"
+            type="text"
+            placeholder="/path/to/project"
+            class="bg-black/50 border border-white/15 text-xs text-white px-2 py-1 rounded-lg w-full outline-none"
+            @keydown.enter="handleAddProject"
           />
+          <button
+            type="button"
+            class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] px-2 py-1 rounded-lg font-medium shrink-0"
+            @click="handleAddProject"
+          >
+            Add
+          </button>
         </div>
 
-        <div
-          v-for="p in filteredProjects"
-          :key="p.path"
-          class="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs text-slate-200 cursor-pointer transition-all hover:bg-white/10"
-          :class="{
-            'bg-indigo-500/25 font-semibold text-white':
-              settings.activeProject === p.path,
-          }"
-          @click="choose(p.path)"
-        >
-          <Folder :size="13" class="text-indigo-400 shrink-0" />
-          <div class="flex-1 overflow-hidden flex flex-col">
-            <span class="truncate font-medium text-slate-100">{{
-              p.name
-            }}</span>
-            <span
-              class="text-[10px] text-slate-400 truncate font-mono opacity-80"
-              >{{ p.path }}</span
-            >
+        <!-- Scrollable Project list -->
+        <div class="overflow-y-auto max-h-56 flex flex-col gap-0.5 p-0.5">
+          <!-- All workspaces option -->
+          <div
+            class="flex items-center justify-between px-2.5 py-1.5 rounded-xl cursor-pointer text-xs transition-all"
+            :class="[
+              !settings.activeProject
+                ? 'bg-indigo-500/25 text-white font-medium border border-indigo-400/30'
+                : 'hover:bg-white/5 text-slate-300 border border-transparent',
+            ]"
+            @click="chooseProject('')"
+          >
+            <div class="flex items-center gap-2 overflow-hidden">
+              <Globe :size="13" class="text-indigo-400 shrink-0" />
+              <span>All Workspaces</span>
+            </div>
+            <Check
+              v-if="!settings.activeProject"
+              :size="13"
+              class="text-indigo-400 shrink-0"
+            />
           </div>
-          <Check
-            v-if="settings.activeProject === p.path"
-            :size="12"
-            class="text-indigo-400 shrink-0 ml-auto"
-          />
+
+          <!-- Individual projects -->
+          <div
+            v-for="p in filteredProjects"
+            :key="p.path || p.name"
+            class="flex items-center justify-between px-2.5 py-1.5 rounded-xl cursor-pointer text-xs transition-all"
+            :class="[
+              settings.activeProject === p.path
+                ? 'bg-indigo-500/25 text-white font-medium border border-indigo-400/30'
+                : 'hover:bg-white/5 text-slate-300 border border-transparent',
+            ]"
+            @click="chooseProject(p.path)"
+          >
+            <div class="flex items-center gap-2 overflow-hidden min-w-0">
+              <component
+                :is="p.custom ? Folder : FolderGit2"
+                :size="13"
+                class="text-indigo-400 shrink-0"
+              />
+              <div class="flex flex-col min-w-0">
+                <span
+                  class="truncate font-medium text-slate-100 text-[11.5px]"
+                  >{{ p.name }}</span
+                >
+                <span class="truncate text-[10px] text-slate-400 opacity-80">{{
+                  p.path
+                }}</span>
+              </div>
+            </div>
+            <Check
+              v-if="settings.activeProject === p.path"
+              :size="13"
+              class="text-indigo-400 shrink-0 ml-1"
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>

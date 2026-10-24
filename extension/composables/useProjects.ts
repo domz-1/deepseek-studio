@@ -94,6 +94,24 @@ export function useProjects() {
     });
   }
 
+  async function addCustomProject(rawPath: string, customName?: string) {
+    const cleanPath = rawPath.trim();
+    if (!cleanPath) return;
+    const name =
+      customName?.trim() ||
+      cleanPath.split("/").filter(Boolean).pop() ||
+      cleanPath;
+    const newProj: ProjectWorkspace = {
+      name: `⭐ ${name}`,
+      path: cleanPath,
+      custom: true,
+      addedAt: Date.now(),
+    };
+    await saveProject(newProj);
+    await selectProject(cleanPath);
+    return newProj;
+  }
+
   return {
     projects,
     activeProjectName,
@@ -101,5 +119,6 @@ export function useProjects() {
     selectProject,
     saveProject,
     deleteProject,
+    addCustomProject,
   };
 }

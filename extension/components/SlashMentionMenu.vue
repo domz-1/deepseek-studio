@@ -15,7 +15,7 @@ import {
 const props = defineProps<{
   query: string;
   mode: "slash" | "mention";
-  coords?: { bottom: string; left: string; width: string };
+  coords?: { bottom?: string; top?: string; left: string; width: string };
 }>();
 
 const emit = defineEmits<{
@@ -47,7 +47,7 @@ const filteredItems = computed(() => {
         (s.triggers || []).some((t) => t.toLowerCase().includes(q)),
     );
   } else {
-    // Show ONLY active MCP server titles (no flood of sub-tools)
+    // Show ONLY active MCP server titles
     const serverItems = servers.value.map((s) => ({
       name: s.name,
       description: `${s.toolCount || 0} tools active`,
@@ -135,42 +135,45 @@ onUnmounted(() => {
       coords
         ? {
             position: 'fixed',
-            bottom: coords.bottom,
+            bottom: coords.bottom !== 'auto' ? coords.bottom : undefined,
+            top: coords.top !== 'auto' ? coords.top : undefined,
             left: coords.left,
             width: coords.width,
             zIndex: 99999999,
           }
         : {}
     "
-    class="glass glass--strong w-96 max-w-[92vw] rounded-2xl overflow-hidden select-none border border-white/10 shadow-2xl backdrop-blur-xl bg-slate-900/95 text-slate-100 font-sans"
+    class="glass glass--strong w-[420px] max-w-[94vw] rounded-3xl overflow-hidden select-none border border-white/15 shadow-[0_16px_40px_rgba(0,0,0,0.45)] backdrop-blur-2xl bg-slate-900/95 text-slate-100 font-sans animate-in fade-in zoom-in-95 duration-150"
     :class="[!coords && 'absolute bottom-full left-0 mb-2']"
   >
+    <!-- Rounded Header -->
     <div
-      class="flex items-center gap-2 px-3.5 py-2 border-b border-white/10 text-[11px] font-semibold text-slate-400 bg-white/5"
+      class="flex items-center gap-2 px-4 py-2.5 border-b border-white/10 text-[11px] font-semibold text-slate-300 bg-white/[0.04]"
     >
       <component
         :is="mode === 'slash' ? Zap : Sparkles"
-        :size="13"
+        :size="14"
         class="text-indigo-400 shrink-0"
       />
       <span class="flex-1 text-slate-200 tracking-tight">{{
-        mode === "slash" ? "Skills" : "MCP Servers"
+        mode === "slash" ? "Agent Skills" : "Active MCP Servers"
       }}</span>
       <span
-        class="bg-white/10 text-slate-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-medium"
+        class="bg-indigo-500/20 text-indigo-300 text-[10px] px-2.5 py-0.5 rounded-full font-mono font-medium border border-indigo-400/30"
       >
         {{ filteredItems.length }}
       </span>
     </div>
 
-    <div class="max-h-56 overflow-y-auto p-1.5 flex flex-col gap-0.5">
+    <!-- Scrollable Items List -->
+    <div class="max-h-72 overflow-y-auto p-2 flex flex-col gap-1">
       <div
         v-for="(item, idx) in filteredItems"
         :key="item.name"
-        class="px-3 py-1.5 rounded-xl cursor-pointer transition-all flex flex-col gap-0.5"
+        class="px-3.5 py-2 rounded-2xl cursor-pointer transition-all flex flex-col gap-0.5"
         :class="[
           idx === selectedIndex
-            ? 'bg-indigo-500/25 border border-indigo-400/30 shadow-sm ds-slash-item-active'
+            ? 'bg-indigo-500/25 border border-indigo-400/40 shadow-sm ds-slash-item-active'
             : 'hover:bg-white/5 border border-transparent',
         ]"
         @click="selectItem(item)"
@@ -179,7 +182,7 @@ onUnmounted(() => {
         <div class="flex items-center gap-2 text-xs font-medium text-slate-100">
           <component
             :is="mode === 'slash' ? Zap : getItemIcon(item.name)"
-            :size="12"
+            :size="13"
             class="text-indigo-400 shrink-0"
           />
           <span class="text-indigo-400 font-bold font-mono text-[11px]">{{
@@ -189,7 +192,7 @@ onUnmounted(() => {
             item.name
           }}</span>
         </div>
-        <div class="text-[10.5px] text-slate-400 pl-4.5 truncate opacity-85">
+        <div class="text-[11px] text-slate-400 pl-5 truncate opacity-90">
           {{ item.description }}
         </div>
       </div>
