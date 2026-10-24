@@ -185,9 +185,9 @@ export function useDeepSeekDom() {
       return true;
     }
 
-    // 1. Detect Stop button via aria, title, class, or DeepSeek circular stop icon
+    // 1. Detect Stop button via aria, title, class, or DeepSeek circular stop icon (d starts with M2 4.88)
     const stopButton = document.querySelector(
-      'button[aria-label*="Stop" i], button[title*="Stop" i], .ds-stop-button, .ds-button--stop, [class*="stop-button" i], [class*="StopButton" i], div.ds-button--circle svg path[d*="4.88"], div.ds-button--circle svg path[d*="11.12V4.88Z"]',
+      'button[aria-label*="Stop" i], button[title*="Stop" i], .ds-stop-button, .ds-button--stop, [class*="stop-button" i], [class*="StopButton" i], div.ds-button--circle._52c986b:not(.ds-button--disabled) svg path[d^="M2 4.88"]',
     );
     if (stopButton && (stopButton as HTMLElement).offsetParent !== null) {
       lastChangeTime = Date.now();
