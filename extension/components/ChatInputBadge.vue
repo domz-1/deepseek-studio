@@ -3,10 +3,48 @@ import { ref, onMounted, onUnmounted } from "vue";
 import { useStudioState } from "../composables/useStudioState";
 import { useDeepSeekDom } from "../composables/useDeepSeekDom";
 import { usePromptExecution } from "../composables/usePromptExecution";
+import SlashMentionMenu from "./SlashMentionMenu.vue";
 
-const { bridgeConnected, bridgeStatusText, servers, tools } = useStudioState();
+const { bridgeConnected, servers } = useStudioState();
 const { getChatInput } = useDeepSeekDom();
 const { typeHumanizedText } = usePromptExecution();
+
+const menuMode = ref<"slash" | "mention" | null>(null);
+const menuQuery = ref("");
+
+function onInputChange() {
+  const input = getChatInput();
+  if (!input) return;
+  const val = input.value || "";
+
+  const slashMatch = val.match(/\/([\w-]*)$/);
+  const mentionMatch = val.match(/@([^\s@]*)$/);
+
+  if (slashMatch) {
+    menuMode.value = "slash";
+    menuQuery.value = slashMatch[1] || "";
+  } else if (mentionMatch) {
+    menuMode.value = "mention";
+    menuQuery.value = mentionMatch[1] || "";
+  } else {
+    menuMode.value = null;
+  }
+}
+
+function handleMenuSelect(insertedText: string) {
+  const input = getChatInput();
+  if (!input) return;
+  const current = input.value || "";
+
+  if (menuMode.value === "slash") {
+    const updated = current.replace(/\/([\w-]*)$/, insertedText);
+    typeHumanizedText(input, updated);
+  } else if (menuMode.value === "mention") {
+    const updated = current.replace(/@([^\s@]*)$/, insertedText);
+    typeHumanizedText(input, updated);
+  }
+  menuMode.value = null;
+}
 
 function addMention(mentionText: string) {
   const input = getChatInput();
@@ -18,43 +56,79 @@ function addMention(mentionText: string) {
     typeHumanizedText(input, `${current.trim()}${sep}${mentionText} `);
   }
 }
+
+let inputWatcher: any = null;
+
+onMounted(() => {
+  const input = getChatInput();
+  if (input) {
+    input.addEventListener("input", onInputChange);
+  }
+  inputWatcher = setInterval(() => {
+    const el = getChatInput();
+    if (el && !(el as any).__dsInputWatched) {
+      (el as any).__dsInputWatched = true;
+      el.addEventListener("input", onInputChange);
+    }
+  }, 1000);
+});
+
+onUnmounted(() => {
+  if (inputWatcher) clearInterval(inputWatcher);
+});
 </script>
 
 <template>
-  <div class="ds-chat-input-badge">
-    <div class="badge-status-pill" :class="{ online: bridgeConnected }">
-      <span class="status-indicator"></span>
-      <span class="status-text">{{
-        bridgeConnected ? "MCP Active" : "Bridge Offline"
-      }}</span>
-    </div>
+  <div class="ds-chat-input-wrapper">
+    <!-- Slash & Mention Popup Menu -->
+    <SlashMentionMenu
+      v-if="menuMode"
+      :query="menuQuery"
+      :mode="menuMode"
+      @select="handleMenuSelect"
+      @close="menuMode = null"
+    />
 
-    <div class="server-chips">
-      <button
-        v-for="server in servers"
-        :key="server.name"
-        type="button"
-        class="chip-item"
-        :title="`Click to insert @${server.name}`"
-        @click.prevent="addMention(`@${server.name}`)"
-      >
-        <span class="chip-dot" :class="server.status"></span>
-        <span class="chip-name">@{{ server.name }}</span>
-      </button>
+    <div class="ds-chat-input-badge">
+      <div class="badge-status-pill" :class="{ online: bridgeConnected }">
+        <span class="status-indicator"></span>
+        <span class="status-text">{{
+          bridgeConnected ? "MCP Active" : "Bridge Offline"
+        }}</span>
+      </div>
 
-      <button
-        type="button"
-        class="chip-item all-chip"
-        title="Insert @all tools"
-        @click.prevent="addMention('@all')"
-      >
-        <span>@all</span>
-      </button>
+      <div class="server-chips">
+        <button
+          v-for="server in servers"
+          :key="server.name"
+          type="button"
+          class="chip-item"
+          :title="`Click to insert @${server.name}`"
+          @click.prevent="addMention(`@${server.name}`)"
+        >
+          <span class="chip-dot" :class="server.status"></span>
+          <span class="chip-name">@{{ server.name }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="chip-item all-chip"
+          title="Insert @all tools"
+          @click.prevent="addMention('@all')"
+        >
+          <span>@all</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.ds-chat-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
 .ds-chat-input-badge {
   display: flex;
   align-items: center;

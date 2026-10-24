@@ -11,6 +11,7 @@ import ServerPills from "../../components/ServerPills.vue";
 import WatchdogBadge from "../../components/WatchdogBadge.vue";
 import ActionCard from "../../components/ActionCard.vue";
 import ChatInputBadge from "../../components/ChatInputBadge.vue";
+import SidebarProjectDropdown from "../../components/SidebarProjectDropdown.vue";
 
 const { bridgeConnected, bridgeStatusText, activeActions, loadSettings } =
   useStudioState();
@@ -21,8 +22,9 @@ const { registerActions } = useActionCards();
 const { getChatInput } = useDeepSeekDom();
 
 const showInputBadge = ref(false);
+const showSidebarDropdown = ref(false);
 let scannerInterval: any = null;
-let inputDetector: any = null;
+let domDetector: any = null;
 
 function scanMessagesForTools() {
   const mdBlocks = Array.from(
@@ -40,7 +42,8 @@ function scanMessagesForTools() {
   }
 }
 
-function checkChatInputMount() {
+function checkDomMounts() {
+  // 1. Chat input badge anchor
   const input = getChatInput();
   if (input) {
     showInputBadge.value = true;
@@ -57,6 +60,25 @@ function checkChatInputMount() {
   } else {
     showInputBadge.value = false;
   }
+
+  // 2. Sidebar Project dropdown anchor
+  const newChatBtn = Array.from(
+    document.querySelectorAll("button, div[role='button'], a"),
+  ).find((el) => {
+    const text = (el.textContent || "").trim().toLowerCase();
+    const aria = (el.getAttribute("aria-label") || "").toLowerCase();
+    return text.includes("new chat") || aria.includes("new chat");
+  });
+
+  const sidebarAnchor = document.getElementById("ds-sidebar-project-anchor");
+  if (newChatBtn && !sidebarAnchor) {
+    showSidebarDropdown.value = true;
+    const anchor = document.createElement("div");
+    anchor.id = "ds-sidebar-project-anchor";
+    const targetParent =
+      newChatBtn.parentElement?.parentElement || newChatBtn.parentElement;
+    targetParent?.parentElement?.insertBefore(anchor, targetParent.nextSibling);
+  }
 }
 
 onMounted(async () => {
@@ -64,13 +86,13 @@ onMounted(async () => {
   connect();
   startWatchdog();
   scannerInterval = setInterval(scanMessagesForTools, 1200);
-  inputDetector = setInterval(checkChatInputMount, 1000);
+  domDetector = setInterval(checkDomMounts, 1000);
 });
 
 onUnmounted(() => {
   stopWatchdog();
   if (scannerInterval) clearInterval(scannerInterval);
-  if (inputDetector) clearInterval(inputDetector);
+  if (domDetector) clearInterval(domDetector);
 });
 </script>
 
@@ -79,6 +101,11 @@ onUnmounted(() => {
     <!-- Teleported Chat Input Badge into chat.deepseek.com input area -->
     <Teleport v-if="showInputBadge" to="#ds-chat-input-badge-anchor">
       <ChatInputBadge />
+    </Teleport>
+
+    <!-- Teleported Sidebar Project Dropdown -->
+    <Teleport v-if="showSidebarDropdown" to="#ds-sidebar-project-anchor">
+      <SidebarProjectDropdown />
     </Teleport>
 
     <!-- Bottom-Right Floating Bar -->
