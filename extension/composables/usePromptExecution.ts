@@ -57,12 +57,29 @@ export function usePromptExecution() {
       // 2. Set text in textarea and notify React
       await typeHumanizedText(input, promptText);
 
-      // 3. Wait for React to enable the Send button
-      await new Promise((r) => setTimeout(r, 120));
+      // 3. Wait for React to enable the Send button (poll up to 400ms)
+      let sendBtn = getSendButton();
+      for (let i = 0; i < 8; i++) {
+        await new Promise((r) => setTimeout(r, 50));
+        sendBtn = getSendButton();
+        if (
+          sendBtn &&
+          !(sendBtn as HTMLButtonElement).disabled &&
+          !sendBtn.classList.contains("ds-button--disabled") &&
+          sendBtn.getAttribute("aria-disabled") !== "true"
+        ) {
+          break;
+        }
+      }
 
-      // 4. Click Send button OR fallback to Enter key (never both!)
-      const sendBtn = getSendButton();
-      if (sendBtn && !(sendBtn as HTMLButtonElement).disabled) {
+      // 4. Click Send button if enabled, otherwise fallback to Enter key
+      const isEnabled =
+        sendBtn &&
+        !(sendBtn as HTMLButtonElement).disabled &&
+        !sendBtn.classList.contains("ds-button--disabled") &&
+        sendBtn.getAttribute("aria-disabled") !== "true";
+
+      if (isEnabled && sendBtn) {
         clickButton(sendBtn);
       } else {
         input.dispatchEvent(
