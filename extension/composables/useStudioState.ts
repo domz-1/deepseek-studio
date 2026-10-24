@@ -1,4 +1,4 @@
-import { ref, reactive, computed } from "vue";
+import { ref, reactive, computed, watch } from "vue";
 import type {
   McpServer,
   McpTool,
@@ -28,7 +28,22 @@ export const activeActions = ref<ToolCallAction[]>([]);
 export const projects = ref<ProjectWorkspace[]>([]);
 export const skills = ref<SkillItem[]>([]);
 export const isGenerating = ref(false);
-export const isTaskActive = ref(false);
+export const isTaskActive = ref(
+  typeof window !== "undefined" &&
+    sessionStorage.getItem("ds_task_active") === "true",
+);
+
+if (typeof window !== "undefined") {
+  watch(isTaskActive, (val) => {
+    try {
+      if (val) {
+        sessionStorage.setItem("ds_task_active", "true");
+      } else {
+        sessionStorage.removeItem("ds_task_active");
+      }
+    } catch (_) {}
+  });
+}
 
 export async function saveSettings(patch?: Partial<StudioSettings>) {
   if (patch) Object.assign(settings, patch);

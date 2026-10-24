@@ -61,9 +61,9 @@ When invoking tools, you MUST output a discrete XML block in the following exact
 </parameters>
 </tool_call>
 
-## Task Completion Protocol
-- Work autonomously step-by-step.
-- Verify your code and changes after running commands or writing files.
+CRITICAL RULES FOR ACTION EXECUTION:
+- DO NOT dump extensive code blocks or conversational previews in text before calling tools.
+- Emit the <tool_call> block immediately so files are written and commands executed on the system.
 - NEVER state that you will execute a tool or command in text without actually outputting the <tool_call> block!
 - Continue calling tools autonomously step-by-step until the task is complete.
 - When the user's task or goal is completely resolved and verified, you MUST call the \`task_done\` tool:
