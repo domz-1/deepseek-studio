@@ -71,15 +71,14 @@ export function useActionCards() {
     isFlushingBatch = true;
     try {
       const blocks = unsentActions.map((act) => {
-        (act as any).sent = true;
         if (act.status === "completed") {
           const formatted =
             typeof act.result === "object"
               ? JSON.stringify(act.result, null, 2)
               : String(act.result);
-          return `<tool_result>\n<tool_name>${act.name}</tool_name>\n<result>\n${formatted}\n</result>\n</tool_result>`;
+          return `<tool_result>\n<tool_name>${act.name}</tool_name>\n<result>\n${sanitizeToolOutput(formatted)}\n</result>\n</tool_result>`;
         } else {
-          return `<tool_result>\n<tool_name>${act.name}</tool_name>\n<error>\n${act.error || "Execution failed"}\n</error>\n</tool_result>`;
+          return `<tool_result>\n<tool_name>${act.name}</tool_name>\n<error>\n${sanitizeToolOutput(act.error || "Execution failed")}\n</error>\n</tool_result>`;
         }
       });
 
@@ -88,10 +87,25 @@ export function useActionCards() {
       const combinedPrompt = `[MCP_AUTO_RESULT]\n${blocks.join(
         "\n\n",
       )}\n\nReview these results and continue executing the task autonomously using your available tools. Do not stop until the task is completely finished, verified, and you call <tool_call><tool_name>task_done</tool_name><parameters>{"summary":"...","status":"completed"}</parameters></tool_call>.`;
-      await sendPrompt(combinedPrompt);
+      const ok = await sendPrompt(combinedPrompt);
+      if (ok) {
+        unsentActions.forEach((a) => ((a as any).sent = true));
+      } else {
+        scheduleBatchCheck(1000);
+      }
     } finally {
       isFlushingBatch = false;
     }
+  }
+
+  function sanitizeToolOutput(str: string): string {
+    if (!str) return "";
+    return str
+      .replace(/<[|\s\uff5c]*DSML[|\s\uff5c]*>/gi, "")
+      .replace(/<\/[|\s\uff5c]*DSML[|\s\uff5c]*>/gi, "")
+      .replace(/<\|/g, "&lt;|")
+      .replace(/\|>/g, "|&gt;")
+      .trim();
   }
 
   function scheduleBatchCheck(delay = 400) {
@@ -102,6 +116,16 @@ export function useActionCards() {
   async function approveAction(action: ToolCallAction) {
     if (action.status !== "pending") return;
     action.status = "running";
+
+    if (
+      action.name.endsWith("edit_file") &&
+      typeof action.arguments?.edits === "string"
+    ) {
+      try {
+        const parsed = JSON.parse(action.arguments.edits);
+        if (Array.isArray(parsed)) action.arguments.edits = parsed;
+      } catch (_) {}
+    }
 
     try {
       const result = await executeToolCall(action.name, action.arguments);

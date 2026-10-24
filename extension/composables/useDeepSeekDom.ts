@@ -190,20 +190,14 @@ export function useDeepSeekDom() {
       return true;
     }
 
-    // 1. Detect Stop button via aria, title, class, or DeepSeek circular stop icon (d starts with M2 4.88)
-    const stopButton = document.querySelector(
-      'button[aria-label*="Stop" i], button[title*="Stop" i], .ds-stop-button, .ds-button--stop, [class*="stop-button" i], [class*="StopButton" i], div.ds-button--circle._52c986b:not(.ds-button--disabled) svg path[d^="M2 4.88"]',
+    // 1. Detect Stop button strictly within chat input container
+    const inputContainer =
+      input?.closest("div._020ab5b, div._77cefa5, div.ds-textarea-wrapper") ||
+      input?.parentElement?.parentElement;
+    const stopButton = inputContainer?.querySelector(
+      "svg path[d^='M2 4.88'], button[aria-label*='Stop' i], button[title*='Stop' i], [class*='stop-button' i], button svg rect, div[role='button'] svg rect",
     );
     if (stopButton && (stopButton as HTMLElement).offsetParent !== null) {
-      lastChangeTime = Date.now();
-      return true;
-    }
-
-    // 2. Detect Stop square icon (strictly SVG rect in textarea wrapper buttons)
-    const stopIcon = document.querySelector(
-      "div.ds-textarea-wrapper button svg rect, div.ds-textarea-wrapper div[role='button'] svg rect",
-    );
-    if (stopIcon && (stopIcon as HTMLElement).offsetParent !== null) {
       lastChangeTime = Date.now();
       return true;
     }

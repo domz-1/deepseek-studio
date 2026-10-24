@@ -2,15 +2,53 @@ import { reactive } from "vue";
 import type { ToolCallAction } from "../types";
 
 export function useToolParser() {
+  function normalizeText(text: string): string {
+    return text
+      .replace(/[\uff5c]+/g, "|")
+      .replace(/<\s*\|*\s*DSML\s*\|*\s*/gi, "<|DSML|")
+      .replace(/<\/\s*\|*\s*DSML\s*\|*\s*/gi, "</|DSML|");
+  }
+
+  function cleanValue(str: string): string {
+    if (!str) return "";
+    return str
+      .replace(/<[\s\S]*?(?:DSML|parameter|invoke|calls)[\s\S]*?>/gi, "")
+      .replace(/<\/?(?:\|DSML\||parameter|invoke|calls)[^>]*>?$/gi, "")
+      .replace(/<\/?\|+>?$/gi, "")
+      .trim();
+  }
+
+  function parseParams(body: string): Record<string, any> {
+    const args: Record<string, any> = {};
+    const paramRegex =
+      /(?:<\|DSML\|)?parameter\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)(?:<\/(?:\|DSML\|)?(?:parameter|invoke|calls)?>|(?=(?:<\|DSML\|)?parameter)|$)/gi;
+    let pm: RegExpExecArray | null;
+    while ((pm = paramRegex.exec(body)) !== null) {
+      const pName = pm[1].trim();
+      let pVal: any = cleanValue(pm[2].trim());
+      try {
+        pVal = JSON.parse(pVal);
+      } catch (_) {}
+      if (typeof pVal === "string") {
+        pVal = cleanValue(pVal);
+        if (
+          (pVal.startsWith("[") && pVal.endsWith("]")) ||
+          (pVal.startsWith("{") && pVal.endsWith("}"))
+        ) {
+          try {
+            pVal = JSON.parse(pVal);
+          } catch (_) {}
+        }
+      }
+      args[pName] = pVal;
+    }
+    return args;
+  }
+
   function parseToolCallsFromText(text: string): ToolCallAction[] {
     if (!text) return [];
     const results: ToolCallAction[] = [];
-
-    // Pre-normalize fullwidth pipes and spaced DSML delimiters
-    const normText = text
-      .replace(/[\uff5c]+/g, "|")
-      .replace(/<\s*[|\s]*DSML[|\s]*/gi, "<|DSML|")
-      .replace(/<\/\s*[|\s]*DSML[|\s]*/gi, "</|DSML|");
+    const normText = normalizeText(text);
 
     // 1. Markdown ```tool_call or ```json
     const mdRegex = /```(?:tool_call|json)?\s*([\s\S]*?)```/gi;
@@ -70,48 +108,38 @@ export function useToolParser() {
       while ((invMatch = invokeRegex.exec(normText)) !== null) {
         const fnName = invMatch[1].trim();
         const body = invMatch[2] || "";
-        const args: Record<string, any> = {};
+        const args = parseParams(body);
 
-        const paramRegex =
-          /(?:<\|DSML\|)?parameter\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)(?:<\/(?:\|DSML\|)?parameter>|(?=(?:<\|DSML\|)?parameter)|$)/gi;
-        let pm: RegExpExecArray | null;
-        let hadParams = false;
-        while ((pm = paramRegex.exec(body)) !== null) {
-          hadParams = true;
-          const pName = pm[1].trim();
-          let pVal = pm[2].trim();
-          pVal = pVal
-            .replace(/<[\s\S]*?(?:DSML|parameter|invoke|calls)[\s\S]*?>/gi, "")
-            .replace(/<\/?(?:\|DSML\||parameter)[^>]*>?$/gi, "")
-            .trim();
-          try {
-            pVal = JSON.parse(pVal);
-          } catch (_) {}
-          if (typeof pVal === "string") {
-            pVal = pVal
-              .replace(
-                /<[\s\S]*?(?:DSML|parameter|invoke|calls)[\s\S]*?>/gi,
-                "",
-              )
-              .replace(/<\/?(?:\|DSML\||parameter)[^>]*>?$/gi, "")
-              .trim();
-          }
-          args[pName] = pVal;
-        }
-
-        if (!hadParams) {
+        if (Object.keys(args).length === 0) {
           const cmdM = body.match(/>([^<]+)<\//);
-          if (cmdM) {
-            args.command = cmdM[1].trim();
-          } else {
-            args.command = body.replace(/<[^>]+>/g, "").trim();
-          }
+          args.command = cmdM ? cmdM[1].trim() : cleanValue(body);
         }
         results.push(createAction(fnName, args, invMatch[0]));
       }
+
+      // 4. Fallback DSML: If <invoke> was omitted, but parameters were emitted directly
+      if (
+        results.length === 0 &&
+        (normText.includes("parameter") || normText.includes("<|DSML|"))
+      ) {
+        const fallbackArgs = parseParams(normText);
+        if (Object.keys(fallbackArgs).length > 0) {
+          let inferredName = "bash__execute_command";
+          if (fallbackArgs.command || fallbackArgs.cmd) {
+            inferredName = "bash__execute_command";
+          } else if (fallbackArgs.edits) {
+            inferredName = "filesystem__edit_file";
+          } else if (fallbackArgs.content && fallbackArgs.path) {
+            inferredName = "filesystem__write_file";
+          } else if (fallbackArgs.path) {
+            inferredName = "filesystem__read_file";
+          }
+          results.push(createAction(inferredName, fallbackArgs, normText));
+        }
+      }
     }
 
-    // 3. Custom tags (<shell>...</shell>, <bash>...</bash>, <tool_call>...</tool_call>)
+    // 5. Custom tags (<shell>...</shell>, <bash>...</bash>, <tool_call>...</tool_call>)
     const tagRegex = /<(bash|shell|sh|execute_command)>([\s\S]*?)<\/\1>/gi;
     let tagMatch: RegExpExecArray | null;
     while ((tagMatch = tagRegex.exec(normText)) !== null) {
@@ -138,14 +166,19 @@ export function useToolParser() {
     if (!cleanArgs.command && cleanArgs.cmd) cleanArgs.command = cleanArgs.cmd;
     if (typeof cleanArgs === "string") cleanArgs.command = cleanArgs;
     if (typeof cleanArgs.command === "string") {
-      cleanArgs.command = cleanArgs.command
-        .replace(/<[\s\S]*?(?:DSML|parameter|invoke|calls)[\s\S]*?>/gi, "")
-        .trim();
+      cleanArgs.command = cleanValue(cleanArgs.command);
     }
     if (typeof cleanArgs.path === "string") {
-      cleanArgs.path = cleanArgs.path
-        .replace(/<[\s\S]*?(?:DSML|parameter|invoke|calls)[\s\S]*?>/gi, "")
-        .trim();
+      cleanArgs.path = cleanValue(cleanArgs.path);
+    }
+    if (typeof cleanArgs.content === "string") {
+      cleanArgs.content = cleanValue(cleanArgs.content);
+    }
+    if (typeof cleanArgs.edits === "string") {
+      try {
+        const parsed = JSON.parse(cleanArgs.edits);
+        if (Array.isArray(parsed)) cleanArgs.edits = parsed;
+      } catch (_) {}
     }
 
     return reactive({

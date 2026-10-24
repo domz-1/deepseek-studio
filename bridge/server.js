@@ -525,6 +525,15 @@ app.post("/call", async (req, res) => {
   if (!args.command && (args.cmd || args.script)) {
     args.command = args.cmd || args.script;
   }
+  if (
+    (name === "edit_file" || name.endsWith("edit_file")) &&
+    typeof args.edits === "string"
+  ) {
+    try {
+      const parsed = JSON.parse(args.edits);
+      if (Array.isArray(parsed)) args.edits = parsed;
+    } catch (_) {}
+  }
 
   // Smart parameter defaults for Chrome DevTools tools:
   if (target.serverName === "chrome") {

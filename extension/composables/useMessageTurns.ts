@@ -15,7 +15,7 @@ export function useMessageTurns() {
   const messageTurns = ref<MessageTurn[]>([]);
   const { parseToolCallsFromText, stripToolCalls } = useToolParser();
   const { registerActions } = useActionCards();
-  const { isGenerating } = useDeepSeekDom();
+  const { isGenerating, getChatInput, clickButton } = useDeepSeekDom();
 
   function scanMessagesForTools() {
     const mdBlocks = Array.from(
@@ -51,11 +51,6 @@ export function useMessageTurns() {
         continue;
       }
 
-      // If this is the latest block and DeepSeek is still generating tokens, wait
-      if (isLatest && generating) {
-        continue;
-      }
-
       const rawText = block.innerText || block.textContent || "";
       let detected = parseToolCallsFromText(rawText);
 
@@ -66,6 +61,28 @@ export function useMessageTurns() {
           .replace(/&gt;/g, ">")
           .replace(/&amp;/g, "&");
         detected = parseToolCallsFromText(htmlUnescaped);
+      }
+
+      // If this is the latest block and DeepSeek is still generating tokens:
+      // If a complete tool call is detected and the model is looping on closing tags, halt runaway tokens
+      if (isLatest && generating) {
+        const hasClosingLoop =
+          (rawText.match(/<\/\s*\|*\s*DSML\s*\|*\s*>/gi) || []).length >= 2;
+        if (detected.length > 0 && hasClosingLoop) {
+          const input = getChatInput();
+          const inputContainer =
+            input?.closest(
+              "div._020ab5b, div._77cefa5, div.ds-textarea-wrapper",
+            ) || input?.parentElement?.parentElement;
+          const stopBtn = inputContainer
+            ?.querySelector(
+              "svg path[d^='M2 4.88'], button[aria-label*='Stop' i], [class*='stop-button' i]",
+            )
+            ?.closest<HTMLElement>("button, div[role='button'], div._52c986b");
+          if (stopBtn) clickButton(stopBtn);
+        } else {
+          continue;
+        }
       }
 
       if (detected.length === 0) {
@@ -137,8 +154,10 @@ export function useMessageTurns() {
           txt.includes("tool_call>") ||
           txt.includes("DSML") ||
           txt.includes("invoke") ||
-          txt.includes("\uff5c\uff5c") ||
-          txt.includes("<|DSML|") ||
+          txt.includes("parameter") ||
+          txt.includes("\uff5c") ||
+          txt.includes("<|") ||
+          txt.includes("</|") ||
           txt.includes("<||") ||
           txt.includes("<tool_result>");
 
