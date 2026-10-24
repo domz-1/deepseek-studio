@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { activeActions } from "../composables/useStudioState";
 import { useActionCards } from "../composables/useActionCards";
 import type { ToolCallAction } from "../types";
 import {
@@ -19,6 +18,10 @@ import {
   Wrench,
 } from "lucide-vue-next";
 
+const props = defineProps<{
+  actions: ToolCallAction[];
+}>();
+
 const { approveAction, rejectAction } = useActionCards();
 
 const isExpanded = ref(true);
@@ -29,23 +32,21 @@ function toggleStep(id: string) {
 }
 
 const runningActions = computed(() =>
-  activeActions.value.filter((a) => a.status === "running"),
+  props.actions.filter((a) => a.status === "running"),
 );
 const pendingActions = computed(() =>
-  activeActions.value.filter((a) => a.status === "pending"),
+  props.actions.filter((a) => a.status === "pending"),
 );
 const completedActions = computed(() =>
-  activeActions.value.filter((a) => a.status === "completed"),
+  props.actions.filter((a) => a.status === "completed"),
 );
 
 const headerTitle = computed(() => {
-  if (runningActions.value.length > 0) {
+  if (runningActions.value.length > 0)
     return `Running commands and tools (${runningActions.value.length} active)...`;
-  }
-  if (pendingActions.value.length > 0) {
+  if (pendingActions.value.length > 0)
     return `Waiting for tool approval (${pendingActions.value.length} pending)`;
-  }
-  return `Ran commands and read files (${activeActions.value.length} steps)`;
+  return `Ran commands and read files (${props.actions.length} steps)`;
 });
 
 function getToolCategory(name: string): string {
@@ -81,8 +82,7 @@ function getStepPreview(act: ToolCallAction): string {
   if (args.summary) return String(args.summary);
   if (args.query) return String(args.query);
   const keys = Object.keys(args);
-  if (keys.length > 0) return `${keys[0]}: ${String(args[keys[0]])}`;
-  return act.name;
+  return keys.length > 0 ? `${keys[0]}: ${String(args[keys[0]])}` : act.name;
 }
 
 function formatResult(res: any): string {
@@ -100,7 +100,7 @@ function formatResult(res: any): string {
 
 <template>
   <div
-    v-if="activeActions.length > 0"
+    v-if="actions && actions.length > 0"
     class="ds-inline-tool-box my-2.5 rounded-2xl border border-white/10 bg-slate-900/85 backdrop-blur-xl shadow-lg overflow-hidden font-sans text-slate-200 transition-all select-none"
   >
     <!-- Header Accordion Row -->
@@ -127,7 +127,7 @@ function formatResult(res: any): string {
         <span
           class="text-[10px] px-2 py-0.5 rounded-full font-mono bg-white/5 border border-white/10 text-slate-400"
         >
-          {{ activeActions.length }}
+          {{ actions.length }}
         </span>
         <component
           :is="isExpanded ? ChevronUp : ChevronDown"
@@ -140,7 +140,7 @@ function formatResult(res: any): string {
     <!-- Collapsible Step List (Single Line Rows matching Image 2) -->
     <div v-show="isExpanded" class="p-1.5 flex flex-col gap-1">
       <div
-        v-for="act in activeActions"
+        v-for="act in actions"
         :key="act.id"
         class="rounded-xl border border-transparent hover:border-white/10 hover:bg-white/[0.03] transition-all overflow-hidden"
       >

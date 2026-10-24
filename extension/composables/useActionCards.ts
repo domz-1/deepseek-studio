@@ -102,13 +102,16 @@ export function useActionCards() {
 
   function registerActions(newActions: ToolCallAction[]) {
     for (const act of newActions) {
-      const isCurrentlyActive = activeActions.value.some(
+      const alreadyHandled = activeActions.value.some(
         (a) =>
-          (a.status === "pending" || a.status === "running") &&
-          a.name === act.name &&
-          JSON.stringify(a.arguments) === JSON.stringify(act.arguments),
+          a.id === act.id ||
+          (a.name === act.name &&
+            JSON.stringify(a.arguments) === JSON.stringify(act.arguments) &&
+            (a.status === "pending" ||
+              a.status === "running" ||
+              (a as any).sent)),
       );
-      if (!isCurrentlyActive) {
+      if (!alreadyHandled) {
         activeActions.value.push(act);
         if (settings.autoApprove) {
           approveAction(act);

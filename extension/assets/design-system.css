@@ -188,6 +188,8 @@
 tool_call,
 tool_name,
 parameters,
-arguments {
+parameter,
+arguments,
+tool_result {
   display: none !important;
 }
