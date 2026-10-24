@@ -20,6 +20,8 @@ export const settings = reactive<StudioSettings>({
 
 export const bridgeConnected = ref(false);
 export const bridgeStatusText = ref("Connecting...");
+export const isServerStopped = ref(false);
+export const isTogglingServer = ref(false);
 export const servers = ref<McpServer[]>([]);
 export const tools = ref<McpTool[]>([]);
 export const activeActions = ref<ToolCallAction[]>([]);
@@ -70,6 +72,8 @@ export function useStudioState() {
     settings,
     bridgeConnected,
     bridgeStatusText,
+    isServerStopped,
+    isTogglingServer,
     servers,
     tools,
     activeActions,

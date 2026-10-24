@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
-import { Cpu, Activity } from "lucide-vue-next";
+import { Cpu, Activity, Pause } from "lucide-vue-next";
 import { useStudioState } from "../../composables/useStudioState";
 import { useBridgeWs } from "../../composables/useBridgeWs";
 import { useWatchdog } from "../../composables/useWatchdog";
@@ -14,8 +14,13 @@ import ActionCard from "../../components/ActionCard.vue";
 import ChatInputBadge from "../../components/ChatInputBadge.vue";
 import SidebarProjectDropdown from "../../components/SidebarProjectDropdown.vue";
 
-const { bridgeConnected, bridgeStatusText, activeActions, loadSettings } =
-  useStudioState();
+const {
+  bridgeConnected,
+  bridgeStatusText,
+  isServerStopped,
+  activeActions,
+  loadSettings,
+} = useStudioState();
 const { connect } = useBridgeWs();
 const { startWatchdog, stopWatchdog } = useWatchdog();
 const { parseToolCallsFromText } = useToolParser();
@@ -136,9 +141,12 @@ onUnmounted(() => {
     <!-- Bottom-Right Floating Bar -->
     <div class="ds-studio-bar glass glass--strong glass--liquid">
       <div class="bar-left">
-        <div class="bridge-status" :class="{ online: bridgeConnected }">
+        <div
+          class="bridge-status"
+          :class="{ online: bridgeConnected, stopped: isServerStopped }"
+        >
           <component
-            :is="bridgeConnected ? Activity : Cpu"
+            :is="bridgeConnected ? Activity : isServerStopped ? Pause : Cpu"
             :size="13"
             class="status-icon"
             :class="{ 'pulse-active': bridgeConnected }"
@@ -208,6 +216,10 @@ onUnmounted(() => {
   color: #4ade80;
 }
 
+.bridge-status.stopped {
+  color: #fbbf24;
+}
+
 .status-icon {
   flex-shrink: 0;
 }
@@ -215,6 +227,11 @@ onUnmounted(() => {
 .bridge-status.online .status-icon {
   color: #4ade80;
   filter: drop-shadow(0 0 4px rgba(74, 222, 128, 0.5));
+}
+
+.bridge-status.stopped .status-icon {
+  color: #fbbf24;
+  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.5));
 }
 
 .pulse-active {

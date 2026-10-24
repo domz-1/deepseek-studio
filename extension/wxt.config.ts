@@ -3,11 +3,11 @@ import { defineConfig } from "wxt";
 export default defineConfig({
   modules: ["@wxt-dev/module-vue"],
   manifest: {
-    name: "DeepSeek Studio (Vue 3)",
-    short_name: "DS Studio Vue",
+    name: "DeepSeek Studio - Local MCP & AI Agent Platform",
+    short_name: "DeepSeek Studio",
     description:
-      "High-performance modular Vue 3 extension connecting DeepSeek Chat to local MCP tools with auto-continue watchdog.",
-    version: "2.0.0",
+      "Connect DeepSeek Chat to local MCP tools, project workspaces, custom skills, auto-continue watchdog, and Liquid Glass UI.",
+    version: "2.1.0",
     permissions: ["storage", "activeTab", "scripting", "unlimitedStorage"],
     host_permissions: [
       "https://chat.deepseek.com/*",
@@ -22,7 +22,7 @@ export default defineConfig({
       128: "icon.png",
     },
     action: {
-      default_title: "DeepSeek Studio Vue",
+      default_title: "DeepSeek Studio",
       default_popup: "popup.html",
       default_icon: {
         16: "icon.png",

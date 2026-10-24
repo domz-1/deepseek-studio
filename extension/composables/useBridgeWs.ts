@@ -1,6 +1,8 @@
 import {
   bridgeConnected,
   bridgeStatusText,
+  isServerStopped,
+  isTogglingServer,
   servers,
   tools,
 } from "./useStudioState";
@@ -19,7 +21,17 @@ export function useBridgeWs() {
       });
 
       if (response && response.ok && response.data) {
+        if (response.data.active === false) {
+          bridgeConnected.value = false;
+          isServerStopped.value = true;
+          bridgeStatusText.value = "Stopped";
+          servers.value = [];
+          tools.value = [];
+          return;
+        }
+
         bridgeConnected.value = true;
+        isServerStopped.value = false;
         bridgeStatusText.value = "Connected";
 
         // Response structure: response.data.tools or array
@@ -52,6 +64,42 @@ export function useBridgeWs() {
     } catch (_) {
       bridgeConnected.value = false;
       bridgeStatusText.value = "Offline";
+    }
+  }
+
+  async function startServer(): Promise<boolean> {
+    isTogglingServer.value = true;
+    try {
+      const res = await new Promise<any>((resolve) => {
+        chrome.runtime.sendMessage({ type: "SERVER_START" }, (r) => {
+          if (chrome.runtime.lastError) resolve(null);
+          else resolve(r);
+        });
+      });
+      await fetchBridgeStatus();
+      return !!res?.ok;
+    } catch {
+      return false;
+    } finally {
+      isTogglingServer.value = false;
+    }
+  }
+
+  async function stopServer(): Promise<boolean> {
+    isTogglingServer.value = true;
+    try {
+      const res = await new Promise<any>((resolve) => {
+        chrome.runtime.sendMessage({ type: "SERVER_STOP" }, (r) => {
+          if (chrome.runtime.lastError) resolve(null);
+          else resolve(r);
+        });
+      });
+      await fetchBridgeStatus();
+      return !!res?.ok;
+    } catch {
+      return false;
+    } finally {
+      isTogglingServer.value = false;
     }
   }
 
@@ -93,5 +141,7 @@ export function useBridgeWs() {
     connect,
     executeToolCall,
     fetchBridgeStatus,
+    startServer,
+    stopServer,
   };
 }

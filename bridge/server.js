@@ -158,12 +158,82 @@ function getUniqueTools() {
   return list;
 }
 
+let isServerActive = true;
+
+async function stopAllServers() {
+  for (const [, c] of clients) await c.close().catch(() => {});
+  clients.clear();
+  toolMap.clear();
+  serverStatus = {};
+  isServerActive = false;
+  console.log("[Bridge] All MCP servers stopped.");
+}
+
+async function startAllServers() {
+  isServerActive = true;
+  await syncServers();
+  console.log("[Bridge] All MCP servers started.");
+}
+
+app.get("/server/state", (req, res) => {
+  res.json({
+    active: isServerActive,
+    status: isServerActive ? "online" : "stopped",
+    servers: serverStatus,
+    toolCount: toolMap.size,
+  });
+});
+
+app.post("/server/start", async (req, res) => {
+  try {
+    await startAllServers();
+    res.json({
+      ok: true,
+      active: true,
+      status: "online",
+      tools: getUniqueTools(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/server/stop", async (req, res) => {
+  try {
+    await stopAllServers();
+    res.json({
+      ok: true,
+      active: false,
+      status: "stopped",
+      tools: [],
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/server/restart", async (req, res) => {
+  try {
+    await stopAllServers();
+    await startAllServers();
+    res.json({
+      ok: true,
+      active: true,
+      status: "online",
+      tools: getUniqueTools(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/mcp", (req, res) => {
   const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
   res.json({
+    active: isServerActive,
     config: cfg,
-    status: serverStatus,
-    tools: getUniqueTools(),
+    status: isServerActive ? serverStatus : {},
+    tools: isServerActive ? getUniqueTools() : [],
   });
 });
 
@@ -173,6 +243,7 @@ app.post("/mcp", async (req, res) => {
     await syncServers();
     res.json({
       ok: true,
+      active: isServerActive,
       status: serverStatus,
       tools: getUniqueTools(),
     });
@@ -288,6 +359,13 @@ function pruneToolResult(name, content, args = {}) {
 }
 
 app.post("/call", async (req, res) => {
+  if (!isServerActive) {
+    return res.status(503).json({
+      error:
+        "Bridge server is currently stopped. Please start the server from the DeepSeek Studio extension popup.",
+    });
+  }
+
   let { name, arguments: args = {}, callId, project } = req.body;
   console.log(`[Bridge] Incoming /call: ${name}`, JSON.stringify(args || {}));
 
