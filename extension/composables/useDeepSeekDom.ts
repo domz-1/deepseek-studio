@@ -68,8 +68,14 @@ export function useDeepSeekDom() {
       if (!el) continue;
       const rect = el.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) continue;
-      if (el.closest("#deepseek-studio-root") || el.closest("#opendude-widget"))
+      if (
+        el.closest("#deepseek-studio-mount") ||
+        el.closest("#deepseek-studio-root") ||
+        el.closest(".ds-inline-tool-mount") ||
+        el.closest("#opendude-widget")
+      ) {
         continue;
+      }
 
       const text = (el.textContent || "").trim().toLowerCase();
       const aria = (el.getAttribute("aria-label") || "").toLowerCase();
@@ -80,7 +86,6 @@ export function useDeepSeekDom() {
         text === "continue" ||
         aria === "continue" ||
         title === "continue" ||
-        (text.includes("continue") && !text.includes("discontinue")) ||
         el.classList.contains("ds-continue-button")
       ) {
         return { el, type: "Continue" };
@@ -91,7 +96,6 @@ export function useDeepSeekDom() {
         text === "retry" ||
         aria === "retry" ||
         title === "retry" ||
-        (text.includes("retry") && !text.includes("retrying")) ||
         el.classList.contains("ds-button--warning") ||
         el.classList.contains("ds-retry-button")
       ) {

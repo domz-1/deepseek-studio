@@ -3,6 +3,15 @@ import { useDeepSeekDom } from "./useDeepSeekDom";
 import { settings, isTaskActive, activeActions } from "./useStudioState";
 import { usePromptExecution } from "./usePromptExecution";
 
+let idleSince = 0;
+let consecutiveNudges = 0;
+const MAX_CONSECUTIVE_NUDGES = 5;
+
+export function resetNudge() {
+  consecutiveNudges = 0;
+  idleSince = 0;
+}
+
 export function useWatchdog() {
   const { findContinueOrRetryButton, clickButton, isGenerating } =
     useDeepSeekDom();
@@ -15,9 +24,6 @@ export function useWatchdog() {
   let detectedTime = 0;
   let lastAttemptTime = 0;
   let timer: any = null;
-  let idleSince = 0;
-  let consecutiveNudges = 0;
-  const MAX_CONSECUTIVE_NUDGES = 3;
 
   async function checkTaskContinuation() {
     if (!settings.autoContinue || !isTaskActive.value) {
@@ -63,7 +69,7 @@ export function useWatchdog() {
         idleSince = Date.now();
         const activePath =
           settings.activeProject || "/home/adham/projects/adham";
-        const nudgePrompt = `[MCP_CONTINUE_TASK]\nYou are currently working on an active task in workspace: ${activePath}. Please continue executing the task autonomously using your available tools. Do not stop or ask for user confirmation until the task is finished and verified, then call <tool_call><tool_name>task_done</tool_name><parameters>{"summary":"...","status":"completed"}</parameters></tool_call>.`;
+        const nudgePrompt = `[MCP_CONTINUE_TASK]\nACTION REQUIRED: You stated your next step in text, but you did NOT output a <tool_call> block!\nDo NOT reply with conversational explanations or future promises like "Now I will create...".\nYou MUST immediately emit the discrete <tool_call> block (using <tool_call><tool_name>tool_name</tool_name><parameters>{...}</parameters></tool_call>) to execute the action now in workspace: ${activePath}. Continue step-by-step autonomously until the task is complete, then call task_done.`;
         await sendPrompt(nudgePrompt);
       } else {
         // Exceeded maximum consecutive nudges; pause autonomous loop

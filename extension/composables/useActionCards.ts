@@ -3,6 +3,7 @@ import { useBridgeWs } from "./useBridgeWs";
 import { usePromptExecution } from "./usePromptExecution";
 import { useChatProjects } from "./useChatProjects";
 import { useDeepSeekDom } from "./useDeepSeekDom";
+import { resetNudge } from "./useWatchdog";
 import type { ToolCallAction } from "../types";
 
 export function useActionCards() {
@@ -83,6 +84,7 @@ export function useActionCards() {
       });
 
       isTaskActive.value = true;
+      resetNudge();
       const combinedPrompt = `[MCP_AUTO_RESULT]\n${blocks.join(
         "\n\n",
       )}\n\nReview these results and continue executing the task autonomously using your available tools. Do not stop until the task is completely finished, verified, and you call <tool_call><tool_name>task_done</tool_name><parameters>{"summary":"...","status":"completed"}</parameters></tool_call>.`;
@@ -125,6 +127,7 @@ export function useActionCards() {
   function registerActions(newActions: ToolCallAction[]) {
     if (newActions.length > 0) {
       isTaskActive.value = true;
+      resetNudge();
     }
     for (const act of newActions) {
       const alreadyHandled = activeActions.value.some(
