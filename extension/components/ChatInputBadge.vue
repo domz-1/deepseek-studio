@@ -1,18 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
-import { useStudioState, settings } from "../composables/useStudioState";
-import { useBridgeWs } from "../composables/useBridgeWs";
-import { useProjects } from "../composables/useProjects";
 import { useDeepSeekDom } from "../composables/useDeepSeekDom";
 import { usePromptExecution } from "../composables/usePromptExecution";
-import { useAgentSystemPrompt } from "../composables/useAgentSystemPrompt";
 import SlashMentionMenu from "./SlashMentionMenu.vue";
-import { Cpu, Activity, FolderGit2, Sparkles } from "lucide-vue-next";
 
-const { bridgeConnected, isServerStopped } = useStudioState();
-const { activeProjectName } = useProjects();
-const { isFirstMessageInChat } = useAgentSystemPrompt();
-const { connect } = useBridgeWs();
 const { getChatInput } = useDeepSeekDom();
 const { typeHumanizedText } = usePromptExecution();
 
@@ -37,7 +28,6 @@ function updateMenuCoords(input: HTMLTextAreaElement) {
     Math.min(rect.left, window.innerWidth - width - 16),
   );
 
-  // If there's ample room above (at least 320px), place above input; otherwise place below
   if (rect.top > 320) {
     menuCoords.value = {
       bottom: `${window.innerHeight - rect.top + 10}px`,
@@ -122,82 +112,15 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="relative w-full mb-1.5 font-sans select-none">
-    <!-- Teleported Floating Slash & Mention Popup -->
-    <Teleport to="body">
-      <SlashMentionMenu
-        v-if="menuMode"
-        :query="menuQuery"
-        :mode="menuMode"
-        :coords="menuCoords"
-        @select="handleMenuSelect"
-        @close="menuMode = null"
-      />
-    </Teleport>
-
-    <!-- Sleek In-Chat MCP Status Pill (Project selector moved to sidebar) -->
-    <div
-      class="glass glass--subtle glass--liquid inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-white/10 text-xs text-slate-200"
-    >
-      <!-- Bridge Status Pill -->
-      <button
-        type="button"
-        class="glass-interactive inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[11px] font-medium transition-all"
-        :class="[
-          bridgeConnected
-            ? 'bg-indigo-500/15 border-indigo-400/40 text-indigo-300'
-            : isServerStopped
-              ? 'bg-amber-500/15 border-amber-400/40 text-amber-300'
-              : 'bg-white/5 border-white/10 text-slate-400',
-        ]"
-        :title="bridgeConnected ? 'MCP Bridge connected' : 'Click to connect'"
-        @click="connect"
-      >
-        <span
-          class="w-1.5 h-1.5 rounded-full shrink-0"
-          :class="[
-            bridgeConnected
-              ? 'bg-emerald-400 shadow-[0_0_6px_#34d399] animate-pulse'
-              : isServerStopped
-                ? 'bg-amber-400 shadow-[0_0_6px_#fbbf24]'
-                : 'bg-slate-500',
-          ]"
-        ></span>
-        <component
-          :is="bridgeConnected ? Activity : Cpu"
-          :size="11"
-          class="shrink-0"
-        />
-        <span>{{
-          bridgeConnected
-            ? "MCP Active"
-            : isServerStopped
-              ? "Paused"
-              : "Offline"
-        }}</span>
-      </button>
-
-      <!-- Non-intrusive Active Project Readout (DDL lives in Sidebar) -->
-      <div
-        v-if="settings.activeProject"
-        class="flex items-center gap-1 text-[11px] text-slate-400 pr-1 truncate max-w-[200px]"
-        :title="`Current active workspace project: ${settings.activeProject}`"
-      >
-        <FolderGit2 :size="11" class="text-indigo-400 shrink-0" />
-        <span class="truncate text-slate-300 font-medium">{{
-          activeProjectName
-        }}</span>
-      </div>
-
-      <!-- Fable Agent Prompt Indicator for new chat sessions -->
-      <div
-        v-if="isFirstMessageInChat()"
-        class="flex items-center gap-1 text-[10px] text-indigo-300 bg-indigo-500/15 border border-indigo-400/30 px-2 py-0.5 rounded-full shrink-0 font-mono"
-        title="Agent system instructions will automatically be injected when you send the first message"
-      >
-        <Sparkles :size="10" class="text-indigo-400 shrink-0" />
-        <span>Agent Ready</span>
-      </div>
-    </div>
-  </div>
+  <!-- Floating Slash & Mention Popup (teleported to body, zero DOM clutter on input) -->
+  <Teleport to="body">
+    <SlashMentionMenu
+      v-if="menuMode"
+      :query="menuQuery"
+      :mode="menuMode"
+      :coords="menuCoords"
+      @select="handleMenuSelect"
+      @close="menuMode = null"
+    />
+  </Teleport>
 </template>

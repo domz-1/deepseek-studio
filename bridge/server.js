@@ -141,6 +141,42 @@ async function syncServers() {
       console.error(`[MCP ERR] ${name}:`, err.message);
     }
   }
+
+  // Register native bridge tools
+  const taskDoneSchema = {
+    name: "task_done",
+    description:
+      "Signals that the entire task, workflow, or goal is complete and verified. Provide an executive summary of what was accomplished.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        summary: {
+          type: "string",
+          description: "Summary of the completed task and accomplishments.",
+        },
+        status: {
+          type: "string",
+          enum: ["completed", "success", "resolved"],
+          description: "Status of the task. Defaults to 'completed'.",
+        },
+      },
+      required: ["summary"],
+    },
+  };
+  toolMap.set("task_done", { serverName: "bridge", schema: taskDoneSchema });
+  toolMap.set("bridge_task_done", {
+    serverName: "bridge",
+    schema: taskDoneSchema,
+  });
+  toolMap.set("bridge.task_done", {
+    serverName: "bridge",
+    schema: taskDoneSchema,
+  });
+  toolMap.set("complete_task", {
+    serverName: "bridge",
+    schema: taskDoneSchema,
+  });
+  serverStatus["bridge"] = { online: true, count: 1 };
 }
 
 await syncServers();
@@ -426,6 +462,34 @@ app.post("/call", async (req, res) => {
   if (!target) {
     console.error(`[Bridge] Tool ${name} not found!`);
     return res.status(404).json({ error: `Tool ${name} not found` });
+  }
+
+  // Handle native bridge tools
+  if (
+    target.serverName === "bridge" ||
+    name === "task_done" ||
+    name === "bridge_task_done" ||
+    name === "complete_task"
+  ) {
+    const summary =
+      args.summary ||
+      args.result ||
+      args.message ||
+      "Task completed successfully.";
+    const status = args.status || "completed";
+    console.log(`[Bridge] Task Completed: ${summary} (${status})`);
+    return res.json({
+      ok: true,
+      task_done: true,
+      status,
+      summary,
+      content: [
+        {
+          type: "text",
+          text: `✓ Task marked as ${status}.\nSummary: ${summary}`,
+        },
+      ],
+    });
   }
 
   // Auto-alias common parameter variations

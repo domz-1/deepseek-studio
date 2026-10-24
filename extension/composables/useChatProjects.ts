@@ -1,8 +1,15 @@
 import { ref, computed } from "vue";
-import { settings, projects } from "./useStudioState";
+import { settings, projects, saveSettings } from "./useStudioState";
+
+export interface ChatStatusInfo {
+  status: "done" | "in_progress";
+  summary?: string;
+  timestamp: number;
+}
 
 export const chatProjectMap = ref<Record<string, string>>({});
 export const chatTitles = ref<Record<string, string>>({});
+export const chatStatusMap = ref<Record<string, ChatStatusInfo>>({});
 export const filterByActiveProject = ref<boolean>(false);
 
 export function useChatProjects() {
@@ -11,14 +18,13 @@ export function useChatProjects() {
       const stored = await chrome.storage.local.get([
         "ds_chat_projects",
         "ds_chat_titles",
+        "ds_chat_status",
         "ds_filter_by_project",
       ]);
-      if (stored.ds_chat_projects) {
+      if (stored.ds_chat_projects)
         chatProjectMap.value = stored.ds_chat_projects;
-      }
-      if (stored.ds_chat_titles) {
-        chatTitles.value = stored.ds_chat_titles;
-      }
+      if (stored.ds_chat_titles) chatTitles.value = stored.ds_chat_titles;
+      if (stored.ds_chat_status) chatStatusMap.value = stored.ds_chat_status;
       if (typeof stored.ds_filter_by_project === "boolean") {
         filterByActiveProject.value = stored.ds_filter_by_project;
       }
@@ -30,6 +36,7 @@ export function useChatProjects() {
       await chrome.storage.local.set({
         ds_chat_projects: chatProjectMap.value,
         ds_chat_titles: chatTitles.value,
+        ds_chat_status: chatStatusMap.value,
         ds_filter_by_project: filterByActiveProject.value,
       });
     } catch (_) {}
@@ -42,6 +49,20 @@ export function useChatProjects() {
     return match ? match[1] : null;
   }
 
+  function formatTimeAgo(timestamp?: number): string {
+    if (!timestamp) return "";
+    const sec = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
+    if (sec < 60) return "just now";
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h`;
+    const day = Math.floor(hr / 24);
+    if (day < 7) return `${day}d`;
+    const wk = Math.floor(day / 7);
+    return `${wk}w`;
+  }
+
   async function tagCurrentChat(projectPath?: string) {
     const chatId = getCurrentChatId();
     if (!chatId) return;
@@ -49,17 +70,46 @@ export function useChatProjects() {
     const targetProject = projectPath || settings.activeProject;
     if (!targetProject) return;
 
+    let modified = false;
     if (chatProjectMap.value[chatId] !== targetProject) {
       chatProjectMap.value[chatId] = targetProject;
+      modified = true;
+    }
+    if (!chatStatusMap.value[chatId]) {
+      chatStatusMap.value[chatId] = {
+        status: "in_progress",
+        timestamp: Date.now(),
+      };
+      modified = true;
+    }
+
+    if (modified) {
       await saveChatProjects();
       applySidebarFilter();
     }
   }
 
-  async function setFilterByProject(enabled: boolean) {
-    filterByActiveProject.value = enabled;
+  async function markChatDone(chatId?: string, summary?: string) {
+    const id = chatId || getCurrentChatId();
+    if (!id) return;
+
+    chatStatusMap.value[id] = {
+      status: "done",
+      summary: summary || "Task completed",
+      timestamp: Date.now(),
+    };
     await saveChatProjects();
-    applySidebarFilter();
+  }
+
+  async function markChatInProgress(chatId?: string) {
+    const id = chatId || getCurrentChatId();
+    if (!id) return;
+
+    chatStatusMap.value[id] = {
+      status: "in_progress",
+      timestamp: Date.now(),
+    };
+    await saveChatProjects();
   }
 
   function getProjectChatCount(projectPath: string): number {
@@ -73,21 +123,76 @@ export function useChatProjects() {
     return getProjectChatCount(settings.activeProject);
   });
 
-  const activeProjectChats = computed(() => {
-    const currentProject = settings.activeProject;
-    if (!currentProject) return [];
-    const list: { id: string; title: string; url: string }[] = [];
-    for (const [id, path] of Object.entries(chatProjectMap.value)) {
-      if (path === currentProject || path.endsWith(currentProject)) {
-        list.push({
-          id,
-          title: chatTitles.value[id] || `Chat ${id.slice(0, 8)}`,
-          url: `/a/chat/s/${id}`,
-        });
+  const projectTree = computed(() => {
+    const currentId = getCurrentChatId();
+    return projects.value.map((proj) => {
+      const folderName = proj.name || proj.path.split("/").pop() || "project";
+      const matchingChats: {
+        id: string;
+        title: string;
+        url: string;
+        timeAgo: string;
+        isDone: boolean;
+        isActive: boolean;
+      }[] = [];
+
+      for (const [id, assignedPath] of Object.entries(chatProjectMap.value)) {
+        if (assignedPath === proj.path || assignedPath.endsWith(proj.path)) {
+          const statusInfo = chatStatusMap.value[id];
+          matchingChats.push({
+            id,
+            title: chatTitles.value[id] || `Chat ${id.slice(0, 8)}`,
+            url: `/a/chat/s/${id}`,
+            timeAgo: formatTimeAgo(statusInfo?.timestamp),
+            isDone: statusInfo?.status === "done",
+            isActive: currentId === id,
+          });
+        }
       }
-    }
-    return list;
+
+      // Sort chats with most recently updated first
+      matchingChats.sort((a, b) => {
+        const timeA = chatStatusMap.value[a.id]?.timestamp || 0;
+        const timeB = chatStatusMap.value[b.id]?.timestamp || 0;
+        return timeB - timeA;
+      });
+
+      return {
+        name: folderName,
+        path: proj.path,
+        chatCount: matchingChats.length,
+        chats: matchingChats,
+      };
+    });
   });
+
+  function createNewChatInProject(projectPath: string) {
+    settings.activeProject = projectPath;
+    saveSettings();
+
+    // Trigger click on DeepSeek's 'New chat' button
+    const newChatBtn =
+      document.querySelector<HTMLElement>("div._7b40dad") ||
+      Array.from(document.querySelectorAll<HTMLElement>("div, button, a")).find(
+        (el) => (el.textContent || "").trim().toLowerCase() === "new chat",
+      );
+    if (newChatBtn) {
+      newChatBtn.click();
+    } else {
+      window.location.href = "/";
+    }
+  }
+
+  function openChat(chatId: string) {
+    const existingLink = document.querySelector<HTMLAnchorElement>(
+      `a[href*='/a/chat/s/${chatId}']`,
+    );
+    if (existingLink) {
+      existingLink.click();
+    } else {
+      window.location.href = `/a/chat/s/${chatId}`;
+    }
+  }
 
   function applySidebarFilter() {
     const chatLinks = Array.from(
@@ -95,9 +200,8 @@ export function useChatProjects() {
     );
     if (chatLinks.length === 0) return;
 
-    const currentProject = settings.activeProject;
-    const isFiltering = filterByActiveProject.value && !!currentProject;
     let titlesChanged = false;
+    let index = 0;
 
     for (const link of chatLinks) {
       const href = link.getAttribute("href") || "";
@@ -105,7 +209,7 @@ export function useChatProjects() {
       const chatId = match ? match[1] : null;
       if (!chatId) continue;
 
-      // Cache title
+      // Extract and cache title
       const titleEl = link.querySelector("div.c08e6e93") || link;
       const titleText = (titleEl.textContent || "").trim();
       if (titleText && chatTitles.value[chatId] !== titleText) {
@@ -113,52 +217,38 @@ export function useChatProjects() {
         titlesChanged = true;
       }
 
-      if (!isFiltering) {
-        link.style.display = "";
-        link.style.opacity = "1";
-        continue;
+      // Default timestamp if none exists
+      if (!chatStatusMap.value[chatId]) {
+        chatStatusMap.value[chatId] = {
+          status: "in_progress",
+          timestamp: Date.now() - index * 1000 * 3600 * 6,
+        };
+        titlesChanged = true;
       }
-
-      const assignedProject = chatProjectMap.value[chatId];
-      const belongs = assignedProject === currentProject;
-
-      if (belongs) {
-        link.style.display = "";
-        link.style.opacity = "1";
-      } else {
-        link.style.display = "none";
-      }
+      index++;
     }
 
     if (titlesChanged) {
       saveChatProjects();
-    }
-
-    const groups = Array.from(document.querySelectorAll("div._3098d02"));
-    for (const group of groups) {
-      if (!isFiltering) {
-        (group as HTMLElement).style.display = "";
-        continue;
-      }
-      const visibleLinks = group.querySelectorAll(
-        "a[href*='/a/chat/s/']:not([style*='display: none'])",
-      );
-      (group as HTMLElement).style.display =
-        visibleLinks.length > 0 ? "" : "none";
     }
   }
 
   return {
     chatProjectMap,
     chatTitles,
+    chatStatusMap,
     filterByActiveProject,
     activeProjectChatCount,
-    activeProjectChats,
+    projectTree,
     loadChatProjects,
     saveChatProjects,
     getCurrentChatId,
     tagCurrentChat,
-    setFilterByProject,
+    markChatDone,
+    markChatInProgress,
+    formatTimeAgo,
+    createNewChatInProject,
+    openChat,
     getProjectChatCount,
     applySidebarFilter,
   };

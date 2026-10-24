@@ -28,7 +28,6 @@ const { parseToolCallsFromText } = useToolParser();
 const { registerActions } = useActionCards();
 const { getChatInput, getSendButton } = useDeepSeekDom();
 
-const showInputBadge = ref(false);
 const showSidebarDropdown = ref(false);
 let scannerInterval: any = null;
 let domDetector: any = null;
@@ -51,25 +50,11 @@ function scanMessagesForTools() {
 }
 
 function checkDomMounts() {
-  // 1. Chat input badge anchor
-  const input = getChatInput();
-  if (input) {
-    const parent =
-      input.closest("div.ds-textarea-wrapper") ||
-      input.closest("div[class*='textarea' i]") ||
-      input.parentElement;
-    let anchor = document.getElementById("ds-chat-input-badge-anchor");
-    if (!anchor && parent?.parentElement) {
-      anchor = document.createElement("div");
-      anchor.id = "ds-chat-input-badge-anchor";
-      parent.parentElement.insertBefore(anchor, parent);
-    }
-    showInputBadge.value = !!anchor;
-  } else {
-    showInputBadge.value = false;
-  }
+  // Clean up any legacy input badge anchor so input area is 100% clean
+  const oldAnchor = document.getElementById("ds-chat-input-badge-anchor");
+  if (oldAnchor) oldAnchor.remove();
 
-  // 2. Sidebar Project dropdown anchor: locate 'New chat' row (div._7b40dad or text match)
+  // 1. Sidebar Project dropdown anchor: locate 'New chat' row (div._7b40dad or text match)
   let newChatRow = document.querySelector("div._7b40dad");
   if (!newChatRow) {
     const found = Array.from(document.querySelectorAll("div, button, a")).find(
@@ -141,10 +126,8 @@ onUnmounted(() => {
     <!-- Top-Right Smooth Hover-Expanded Floating Studio Dot/Bar -->
     <TopFloatingBar />
 
-    <!-- Teleported Chat Input Badge into chat.deepseek.com input area -->
-    <Teleport v-if="showInputBadge" to="#ds-chat-input-badge-anchor">
-      <ChatInputBadge />
-    </Teleport>
+    <!-- Chat Slash & Mention Popups (teleported internally to body) -->
+    <ChatInputBadge />
 
     <!-- Teleported Sidebar Project Dropdown below 'New chat' -->
     <Teleport v-if="showSidebarDropdown" to="#ds-sidebar-project-anchor">

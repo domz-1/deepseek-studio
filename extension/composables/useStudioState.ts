@@ -29,6 +29,13 @@ export const projects = ref<ProjectWorkspace[]>([]);
 export const skills = ref<SkillItem[]>([]);
 export const isGenerating = ref(false);
 
+export async function saveSettings(patch?: Partial<StudioSettings>) {
+  if (patch) Object.assign(settings, patch);
+  try {
+    await chrome.storage.local.set(patch || settings);
+  } catch (_) {}
+}
+
 export function useStudioState() {
   const onlineServerCount = computed(
     () => servers.value.filter((s) => s.status === "online").length,
@@ -58,13 +65,6 @@ export function useStudioState() {
         settings.autoContinueDelay = Number(stored.autoContinueDelay);
       if (stored.humanSpeed) settings.humanSpeed = stored.humanSpeed;
       if (stored.activeProject) settings.activeProject = stored.activeProject;
-    } catch (_) {}
-  }
-
-  async function saveSettings(patch: Partial<StudioSettings>) {
-    Object.assign(settings, patch);
-    try {
-      await chrome.storage.local.set(patch);
     } catch (_) {}
   }
 

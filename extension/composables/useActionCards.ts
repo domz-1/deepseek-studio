@@ -1,11 +1,13 @@
 import { activeActions, settings } from "./useStudioState";
 import { useBridgeWs } from "./useBridgeWs";
 import { usePromptExecution } from "./usePromptExecution";
+import { useChatProjects } from "./useChatProjects";
 import type { ToolCallAction } from "../types";
 
 export function useActionCards() {
   const { executeToolCall } = useBridgeWs();
   const { sendPrompt } = usePromptExecution();
+  const { markChatDone } = useChatProjects();
 
   async function approveAction(action: ToolCallAction) {
     if (action.status !== "pending") return;
@@ -16,18 +18,35 @@ export function useActionCards() {
       action.status = "completed";
       action.result = result;
 
-      // Feed tool result back to DeepSeek chat
+      // Check if this tool invocation signals task completion
+      const isTaskDone =
+        action.name === "task_done" ||
+        action.name === "bridge_task_done" ||
+        action.name === "complete_task" ||
+        result?.task_done;
+
+      if (isTaskDone) {
+        const summary =
+          action.arguments?.summary ||
+          result?.summary ||
+          "Task successfully completed";
+        await markChatDone(undefined, summary);
+        // Do not continue auto-prompting; task is done!
+        return;
+      }
+
+      // Format autonomous tool result back into DeepSeek chat
       const formattedResult =
         typeof result === "object"
           ? JSON.stringify(result, null, 2)
           : String(result);
-      const followUp = `[Tool Result for ${action.name}]:\n\`\`\`\n${formattedResult}\n\`\`\`\nPlease continue based on this result.`;
+      const followUp = `<tool_result>\n<tool_name>${action.name}</tool_name>\n<result>\n${formattedResult}\n</result>\n</tool_result>\n\nPlease review this result and continue autonomously until you call task_done.`;
       await sendPrompt(followUp);
     } catch (err: any) {
       action.status = "error";
       action.error = err.message || "Execution failed";
 
-      const errorMsg = `[Tool Error for ${action.name}]: ${action.error}\nPlease decide how to proceed or try another approach.`;
+      const errorMsg = `<tool_result>\n<tool_name>${action.name}</tool_name>\n<error>\n${action.error}\n</error>\n</tool_result>\n\nPlease adjust your approach or try another command.`;
       await sendPrompt(errorMsg);
     }
   }
