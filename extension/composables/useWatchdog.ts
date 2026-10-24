@@ -57,19 +57,24 @@ export function useWatchdog() {
       return;
     }
 
-    // Model has finished generating. Check if idle for > 2.5 seconds
+    // Model has finished generating. Check if idle for > 8.0 seconds to prevent rate limits
     if (idleSince === 0) {
       idleSince = Date.now();
       return;
     }
 
-    if (Date.now() - idleSince > 2500) {
+    const isRateLimited = document.body.innerText.includes(
+      "Messages too frequent",
+    );
+    const requiredWait = isRateLimited ? 12000 : 8000;
+
+    if (Date.now() - idleSince > requiredWait) {
       if (consecutiveNudges < MAX_CONSECUTIVE_NUDGES) {
         consecutiveNudges++;
         idleSince = Date.now();
         const activePath =
           settings.activeProject || "/home/adham/projects/adham";
-        const nudgePrompt = `[MCP_CONTINUE_TASK]\nACTION REQUIRED: You stated your next step in text, but you did NOT output a <tool_call> block!\nDo NOT reply with conversational explanations or future promises like "Now I will create...".\nYou MUST immediately emit the discrete <tool_call> block (using <tool_call><tool_name>tool_name</tool_name><parameters>{...}</parameters></tool_call>) to execute the action now in workspace: ${activePath}. Continue step-by-step autonomously until the task is complete, then call task_done.`;
+        const nudgePrompt = `[MCP_CONTINUE_TASK]\nACTION REQUIRED: You formulated your plan, but you did NOT output a <tool_call> block!\nDo NOT reply with conversational explanations or future promises.\nYou MUST immediately emit the discrete <tool_call> block using your available tools (such as bash__execute_command or filesystem__write_file) to execute the next step in workspace: ${activePath}.\nDo NOT stop until the task is complete and verified, then call task_done.`;
         await sendPrompt(nudgePrompt);
       } else {
         // Exceeded maximum consecutive nudges; pause autonomous loop
