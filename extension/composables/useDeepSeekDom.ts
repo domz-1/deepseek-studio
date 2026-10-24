@@ -146,26 +146,55 @@ export function useDeepSeekDom() {
     }
   }
 
+  let lastSeenText = "";
+  let lastChangeTime = 0;
+
   function isGenerating(): boolean {
     const cont = findContinueOrRetryButton();
     if (cont) return false;
 
+    // 1. Detect Stop button via aria, title, class, or text
     const stopButton = document.querySelector(
-      'button[aria-label*="Stop" i], .ds-stop-button, .ds-button--stop',
+      'button[aria-label*="Stop" i], button[title*="Stop" i], .ds-stop-button, .ds-button--stop, [class*="stop-button" i], [class*="StopButton" i]',
     );
-    if (stopButton && (stopButton as HTMLElement).offsetParent !== null)
+    if (stopButton && (stopButton as HTMLElement).offsetParent !== null) {
+      lastChangeTime = Date.now();
       return true;
+    }
 
+    // 2. Detect Stop square icon (SVG rect in textarea buttons)
     const stopIcon = document.querySelector(
       "div.ds-textarea-wrapper svg rect, button svg rect",
     );
-    if (stopIcon && (stopIcon as HTMLElement).offsetParent !== null)
+    if (stopIcon && (stopIcon as HTMLElement).offsetParent !== null) {
+      lastChangeTime = Date.now();
       return true;
+    }
 
+    // 3. Detect Blinking cursor or streaming indicator
     const cursor = document.querySelector(
-      '.cursor--blinking, [class*="cursor--blinking" i]',
+      '.cursor--blinking, [class*="cursor--blinking" i], [class*="loading" i], [class*="generating" i]',
     );
-    if (cursor && (cursor as HTMLElement).offsetParent !== null) return true;
+    if (cursor && (cursor as HTMLElement).offsetParent !== null) {
+      lastChangeTime = Date.now();
+      return true;
+    }
+
+    // 4. Text Quiescence check: if tokens are streaming, text length grows
+    const mdBlocks = document.querySelectorAll("div.ds-markdown");
+    const latest = mdBlocks.length > 0 ? mdBlocks[mdBlocks.length - 1] : null;
+    const currentText = latest ? latest.textContent || "" : "";
+
+    if (currentText && currentText !== lastSeenText) {
+      lastSeenText = currentText;
+      lastChangeTime = Date.now();
+      return true;
+    }
+
+    // Enforce minimum 2-second settle delay after model stops generating
+    if (lastChangeTime > 0 && Date.now() - lastChangeTime < 2000) {
+      return true;
+    }
 
     return false;
   }

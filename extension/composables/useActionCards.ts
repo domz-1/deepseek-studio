@@ -17,19 +17,22 @@ export function useActionCards() {
   async function checkAndFlushBatch() {
     if (isFlushingBatch) return;
 
-    // If DeepSeek is still generating tokens/text, wait for completion
+    // 1. If DeepSeek is still generating tokens/text, wait for completion
     if (isGenerating()) {
-      scheduleBatchCheck(600);
+      scheduleBatchCheck(800);
       return;
     }
 
-    // Check if any actions are still pending or executing
+    // 2. Check if any actions are still pending or executing
     const hasRunning = activeActions.value.some(
       (a) => a.status === "running" || a.status === "pending",
     );
-    if (hasRunning) return;
+    if (hasRunning) {
+      scheduleBatchCheck(400);
+      return;
+    }
 
-    // Gather all unsent completed or errored actions
+    // 3. Gather all unsent completed or errored actions
     const unsentActions = activeActions.value.filter(
       (a) =>
         (a.status === "completed" || a.status === "error") && !(a as any).sent,
@@ -37,7 +40,7 @@ export function useActionCards() {
 
     if (unsentActions.length === 0) return;
 
-    // Check if task_done was called
+    // 4. Check if task_done was called
     const taskDoneAction = unsentActions.find(
       (a) =>
         a.name === "task_done" ||
@@ -54,6 +57,13 @@ export function useActionCards() {
         taskDoneAction.result?.summary ||
         "Task successfully completed";
       await markChatDone(undefined, summary);
+      return;
+    }
+
+    // 5. Ensure model is completely settled before sending batch
+    await new Promise((r) => setTimeout(r, 1200));
+    if (isGenerating()) {
+      scheduleBatchCheck(800);
       return;
     }
 
