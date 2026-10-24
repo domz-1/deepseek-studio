@@ -80,9 +80,17 @@ export function useToolParser() {
           hadParams = true;
           const pName = pm[1].trim();
           let pVal = pm[2].trim();
+          pVal = pVal
+            .replace(/<\/?(?:\|DSML\||parameter)[^>]*>?$/gi, "")
+            .trim();
           try {
             pVal = JSON.parse(pVal);
           } catch (_) {}
+          if (typeof pVal === "string") {
+            pVal = pVal
+              .replace(/<\/?(?:\|DSML\||parameter)[^>]*>?$/gi, "")
+              .trim();
+          }
           args[pName] = pVal;
         }
 
@@ -124,6 +132,11 @@ export function useToolParser() {
 
     if (!cleanArgs.command && cleanArgs.cmd) cleanArgs.command = cleanArgs.cmd;
     if (typeof cleanArgs === "string") cleanArgs.command = cleanArgs;
+    if (typeof cleanArgs.path === "string") {
+      cleanArgs.path = cleanArgs.path
+        .replace(/<\/?(?:\|DSML\||parameter)[^>]*>?$/gi, "")
+        .trim();
+    }
 
     return reactive({
       id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
