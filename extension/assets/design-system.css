@@ -184,7 +184,10 @@
   box-shadow: 0 0 8px rgba(77, 107, 254, 0.4);
 }
 
-/* Hide raw tool call XML elements from chat view */
+/* Hide raw tool call and system XML elements from chat view */
+agent_system_instructions,
+mcp_context,
+skill_instructions,
 tool_call,
 tool_name,
 parameters,

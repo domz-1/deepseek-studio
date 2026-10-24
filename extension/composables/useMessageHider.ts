@@ -20,6 +20,7 @@ export function useMessageHider() {
       const text = (msg.textContent || "").trim();
       if (
         text.startsWith("[MCP_AUTO_RESULT]") ||
+        text.startsWith("[MCP_CONTINUE_TASK]") ||
         text.startsWith("<tool_result>") ||
         (text.includes("<tool_result>") && !text.includes("<tool_call>"))
       ) {

@@ -5,6 +5,7 @@ import {
   isTogglingServer,
   servers,
   tools,
+  settings,
 } from "./useStudioState";
 import type { McpServer, McpTool } from "../types";
 
@@ -145,6 +146,7 @@ export function useBridgeWs() {
             name: toolName,
             tool: toolName,
             arguments: args,
+            project: settings.activeProject || "/home/adham/projects/adham",
           },
         },
         (response) => {

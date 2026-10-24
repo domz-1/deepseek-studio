@@ -1,4 +1,4 @@
-import { activeActions, settings } from "./useStudioState";
+import { activeActions, settings, isTaskActive } from "./useStudioState";
 import { useBridgeWs } from "./useBridgeWs";
 import { usePromptExecution } from "./usePromptExecution";
 import { useChatProjects } from "./useChatProjects";
@@ -47,6 +47,7 @@ export function useActionCards() {
     );
 
     if (taskDoneAction) {
+      isTaskActive.value = false;
       unsentActions.forEach((a) => ((a as any).sent = true));
       const summary =
         taskDoneAction.arguments?.summary ||
@@ -71,7 +72,10 @@ export function useActionCards() {
         }
       });
 
-      const combinedPrompt = `[MCP_AUTO_RESULT]\n${blocks.join("\n\n")}\n\nPlease review these results and continue autonomously until you call task_done.`;
+      isTaskActive.value = true;
+      const combinedPrompt = `[MCP_AUTO_RESULT]\n${blocks.join(
+        "\n\n",
+      )}\n\nReview these results and continue executing the task autonomously using your available tools. Do not stop until the task is completely finished, verified, and you call <tool_call><tool_name>task_done</tool_name><parameters>{"summary":"...","status":"completed"}</parameters></tool_call>.`;
       await sendPrompt(combinedPrompt);
     } finally {
       isFlushingBatch = false;

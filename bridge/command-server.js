@@ -230,7 +230,8 @@ let RALPH_SESSION = {
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const toolName = request.params.name;
   if (toolName === "execute_command" || toolName === "bash") {
-    let { command, cwd = "/home/adham" } = request.params.arguments || {};
+    let { command, cwd = "/home/adham/projects/adham" } =
+      request.params.arguments || {};
     // Fallback if DeepSeek sends command in 'cmd' or 'arg'
     if (!command && request.params.arguments?.cmd) {
       command = request.params.arguments.cmd;

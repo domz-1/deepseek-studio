@@ -46,10 +46,8 @@ export function usePromptExecution() {
     // 2. Type text
     await typeHumanizedText(input, promptText);
 
-    // 3. Natural post-input pause
-    if (settings.humanSpeed === "natural") {
-      await new Promise((r) => setTimeout(r, 200 + Math.random() * 250));
-    }
+    // 3. Wait for React state to update Send button
+    await new Promise((r) => setTimeout(r, 80));
 
     // 4. Click Send
     const sendBtn = getSendButton();

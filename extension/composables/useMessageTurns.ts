@@ -2,7 +2,7 @@ import { ref } from "vue";
 import { useToolParser } from "./useToolParser";
 import { useActionCards } from "./useActionCards";
 import { useDeepSeekDom } from "./useDeepSeekDom";
-import { activeActions } from "./useStudioState";
+import { activeActions, isTaskActive } from "./useStudioState";
 import type { ToolCallAction } from "../types";
 
 export interface MessageTurn {
@@ -136,6 +136,7 @@ export function useMessageTurns() {
   function resetTurns() {
     messageTurns.value = [];
     activeActions.value = [];
+    isTaskActive.value = false;
     // Clean up any legacy anchors
     document
       .querySelectorAll(".ds-inline-tool-mount, #ds-inline-action-anchor")

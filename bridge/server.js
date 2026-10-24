@@ -583,17 +583,19 @@ app.post("/call", async (req, res) => {
   }
 
   // If a project is specified and arguments contain relative paths or missing cwd, resolve them
-  if (project && typeof project === "string") {
-    if ((name === "execute_command" || name === "bash") && !args.cwd) {
-      args.cwd = project;
-    }
-    if (
-      args.path &&
-      typeof args.path === "string" &&
-      !args.path.startsWith("/")
-    ) {
-      args.path = path.resolve(project, args.path);
-    }
+  const effectiveProject =
+    project && typeof project === "string"
+      ? project
+      : "/home/adham/projects/adham";
+  if ((name === "execute_command" || name === "bash") && !args.cwd) {
+    args.cwd = effectiveProject;
+  }
+  if (
+    args.path &&
+    typeof args.path === "string" &&
+    !args.path.startsWith("/")
+  ) {
+    args.path = path.resolve(effectiveProject, args.path);
   }
 
   // 7. Check In-Memory Cache for idempotent safe read tools

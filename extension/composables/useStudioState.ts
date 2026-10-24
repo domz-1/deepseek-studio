@@ -28,6 +28,7 @@ export const activeActions = ref<ToolCallAction[]>([]);
 export const projects = ref<ProjectWorkspace[]>([]);
 export const skills = ref<SkillItem[]>([]);
 export const isGenerating = ref(false);
+export const isTaskActive = ref(false);
 
 export async function saveSettings(patch?: Partial<StudioSettings>) {
   if (patch) Object.assign(settings, patch);
@@ -97,6 +98,7 @@ export function useStudioState() {
     projects,
     skills,
     isGenerating,
+    isTaskActive,
     onlineServerCount,
     totalToolCount,
     pendingActions,
